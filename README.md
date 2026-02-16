@@ -1,7 +1,7 @@
 # Dynamische Asset-Allokation mittels Regime-Switching-Modellen
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](.\LICENSE)
 
 Dieses Repository enthält den Code und die Analysen meiner Master-Thesis zum Thema: 
 **"Dynamische Asset-Allokation mittels Regime-Switching-Modellen: Ein Vergleich ökonometrischer Modelle und moderner Machine-Learning-Verfahren zur Reduktion von Maximum Drawdowns"**.
@@ -81,6 +81,10 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 3. Das Notebook `regime_switching_daa.ipynb` ausführen, um die Ergebnisse zu aktualisieren.
 
 ---
+
+## Lizenz
+
+Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
 
 Autor: Tom Maurer B.Sc.
 
