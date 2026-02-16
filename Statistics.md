@@ -8,14 +8,13 @@ Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschung
 ## 1. Executive Summary: Performance & Risiko
 Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Testzeitraum**.
 
-[//]: # (Dynamischer Import von performance_summary.md)
 | Strategie     |   Final Wealth | Total Return   | Max Drawdown   |
 |:--------------|---------------:|:---------------|:---------------|
 | Buy_Hold      |         1.9352 | +93.52%        | -27.10%        |
+| HMM           |         1.7944 | +79.44%        | -6.53%         |
 | MS_Univariate |         2.6662 | +166.62%       | -5.80%         |
-| MS_Exogenous  |         2.6312 | +163.12%       | -5.44%         |
-| LSTM_Regime   |         1.6955 | +69.55%        | -14.93%        |
-| HMM_Based     |         1.7944 | +79.44%        | -6.53%         |
+| MS_Exo        |         2.6312 | +163.12%       | -5.44%         |
+| LSTM          |         1.7731 | +77.31%        | -10.97%        |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
@@ -34,7 +33,7 @@ Die Abbildung zeigt die kumulierte Wertentwicklung des statischen Referenzportfo
 
 ---
 
-## 🤖 3. Regime-Erkennung der Einzelmodelle
+## 3. Regime-Erkennung der Einzelmodelle
 Hier werden die Identifikations-Ergebnisse der drei Modell-Kategorien (Statistik, Clustering, Deep Learning) visualisiert.
 
 ### A. Hidden Markov Model (Unsupervised Clustering)
@@ -48,13 +47,13 @@ Vergleich zwischen univariatem Ansatz und exogenem Ansatz (unter Berücksichtigu
 Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Markov-Labels).
 ![LSTM Model](./assets/lstm_model.png)
 
-### 🔄 D. Globaler Regime-Vergleich
+### D. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](./assets/regime_comparison.png)
 
 ---
 
-## 🏁 4. Backtesting & Strategie-Evaluation
+## 4. Backtesting & Strategie-Evaluation
 Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in den Geldmarkt.
 
 ### Equity Curves im Vergleich
@@ -63,14 +62,13 @@ Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in d
 ### Umfassende Kennzahlen-Matrix
 Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
 
-[//]: # (Dynamischer Import von evaluation_table.md)
 | Strategie     | Total Return   | CAGR (p.a.)   | Volatilität   | Max Drawdown   |   Sharpe Ratio |   Sortino Ratio |   Calmar Ratio |   Regime-Wechsel |
 |:--------------|:---------------|:--------------|:--------------|:---------------|---------------:|----------------:|---------------:|-----------------:|
-| Buy_Hold      | 92.90%         | 9.80%         | 12.62%        | -27.10%        |           0.81 |            1.04 |           0.36 |                0 |
-| MS_Univariate | 165.77%        | 14.93%        | 6.33%         | -5.80%         |           2.24 |            2.88 |           2.57 |               42 |
-| MS_Exogenous  | 162.28%        | 14.71%        | 6.42%         | -5.44%         |           2.18 |            2.79 |           2.7  |               38 |
-| LSTM_Regime   | 69.01%         | 7.76%         | 8.02%         | -14.93%        |           0.97 |            1.12 |           0.52 |               70 |
-| HMM_Based     | 78.87%         | 8.63%         | 4.96%         | -6.53%         |           1.7  |            1.56 |           1.32 |               29 |
+| Buy Hold      | 92.90%         | 9.80%         | 12.62%        | -27.10%        |           0.81 |            1.04 |           0.36 |                0 |
+| HMM           | 78.87%         | 8.63%         | 4.96%         | -6.53%         |           1.7  |            1.56 |           1.32 |               29 |
+| MS Univariate | 165.77%        | 14.93%        | 6.33%         | -5.80%         |           2.24 |            2.88 |           2.57 |               42 |
+| MS Exo        | 162.28%        | 14.71%        | 6.42%         | -5.44%         |           2.18 |            2.79 |           2.7  |               38 |
+| LSTM          | 76.74%         | 8.44%         | 7.98%         | -10.97%        |           1.06 |            1.23 |           0.77 |               57 |
 
 ---
 
@@ -80,5 +78,5 @@ Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharp
 - **Feature-Set:** Die Modelle nutzen Renditen, Volatilität (20d), SMA-Abstand, Momentum, VIX und Yield Spread.
 
 ---
-**Zuletzt aktualisiert:** 03.02.2026 09:43  
+**Zuletzt aktualisiert:** 03.02.2026 10:28  
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
