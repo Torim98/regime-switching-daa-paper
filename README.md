@@ -82,6 +82,26 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 
 ---
 
+## Ausblick & Offene Punkte (Roadmap)
+
+Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter zu steigern, sind folgende Entwicklungsschritte geplant:
+
+### 1. Modell-Erweiterungen
+*   **Unsupervised LSTM:** Untersuchung, inwieweit Unsupervised-Learning-Ansätze (z. B. LSTM-Autoencoder) Regimes ohne vordefinierte Labels identifizieren können.
+*   **Modell-Varianz:** Integration weiterer populärer Regime-Switching-Ansätze (z. B. GARCH-Modelle, Random Forests oder Gradient Boosting Verfahren) in das Vergleichs-Framework.
+*   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
+
+### 2. Backtesting-Tiefe & SORR-Fokus
+*   **Entnahmesimulation:** Erweiterung des Backtestings um ein reales Entnahmeszenario (z. B. monatliche Entnahme von 2.000 € ab Rentenbeginn), um die Effektivität des SORR-Schutzes in der Praxis zu quantifizieren.
+*   **Monte-Carlo-Simulationen (MCS):** Einsatz von MCS im Backtesting, um die Strategie-Performanz über tausende zufällige Marktpfade hinweg zu validieren und statistische Konfidenzintervalle zu bestimmen.
+*   **Investment-Rechner:** Entwicklung eines interaktiven Tools zur Berechnung individueller Investment-Szenarien auf Basis der Modell-Signale.
+
+### 3. Analyse & Infrastruktur
+*   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
+*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
+
+---
+
 ## Lizenz
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
