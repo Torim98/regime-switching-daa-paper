@@ -91,10 +91,7 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 *   **Modell-Varianz:** Integration weiterer populärer Regime-Switching-Ansätze (z. B. GARCH-Modelle, Random Forests oder Gradient Boosting Verfahren) in das Vergleichs-Framework.
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 
-### 2. Backtesting-Tiefe & SORR-Fokus
-*   **Monte-Carlo-Simulationen (MCS):** Einsatz von MCS im Backtesting, um die Strategie-Performanz über tausende zufällige Marktpfade hinweg zu validieren und statistische Konfidenzintervalle zu bestimmen.
-
-### 3. Analyse & Infrastruktur
+### 2. Analyse & Infrastruktur
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
 *   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 
