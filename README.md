@@ -92,9 +92,7 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 
 ### 2. Backtesting-Tiefe & SORR-Fokus
-*   **Entnahmesimulation:** Erweiterung des Backtestings um ein reales Entnahmeszenario (z. B. monatliche Entnahme von 2.000 € ab Rentenbeginn), um die Effektivität des SORR-Schutzes in der Praxis zu quantifizieren.
 *   **Monte-Carlo-Simulationen (MCS):** Einsatz von MCS im Backtesting, um die Strategie-Performanz über tausende zufällige Marktpfade hinweg zu validieren und statistische Konfidenzintervalle zu bestimmen.
-*   **Investment-Rechner:** Entwicklung eines interaktiven Tools zur Berechnung individueller Investment-Szenarien auf Basis der Modell-Signale.
 
 ### 3. Analyse & Infrastruktur
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
