@@ -76,6 +76,8 @@ Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharp
 | LSTM              | 49.20%         | 5.86%         | 7.68%         | -16.77%        |           0.78 |            0.87 |           0.35 |               56 | 5.60%                     |
 | LSTM Unsupervised | 76.91%         | 8.46%         | 7.66%         | -7.85%         |           1.1  |            1.28 |           1.08 |               21 | 2.20%                     |
 
+### Transaktionskosten
+
 Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Anstiege deuten auf instabile Regime-Wechsel ("Churning") hin.
 
 ![Transaction Costs](./assets/transaction_costs.png)
@@ -83,7 +85,7 @@ Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Ans
 Stress-Test: Sequence of Returns Risk (SORR)
 Außerdem wurde die Überlebensdauer des Kapitals in einer simulierten Entnahmephase (Ruhestandsszenario) durchgeführt.
 
-### Vergleich der Entnahmeszenarien
+### SORR-Simulation: Vergleich der Entnahmeszenarien
 In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Geringes Kapital) gegenübergestellt.
 
 |                                      | Endkapital   | Status        |
@@ -109,7 +111,7 @@ In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Ger
 
 Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
 ![SORR Standard](./assets/sorr_sim_standard.png)
-![SORR Aggresive](./assets/sorr_sim_aggressiv.png)
+![SORR Aggressive](./assets/sorr_sim_aggressiv.png)
 ![SORR Low Capital](./assets/sorr_sim_low_capital.png)
 
 ---
@@ -122,5 +124,5 @@ Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
 - **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
 
 ---
-**Zuletzt aktualisiert:** 03.02.2026 13:57  
+**Zuletzt aktualisiert:** 03.02.2026 14:02  
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
