@@ -35,6 +35,48 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 
 ---
 
+## Technologie-Stack
+
+Für die Umsetzung der Forschungsumgebung wurde ein moderner Data-Science-Stack gewählt, der Stabilität mit hoher Rechenleistung kombiniert:
+
+*   **Programmiersprache:** Python 3.10+
+*   **Datenquellen:** Yahoo Finance API (`yfinance`)
+*   **Datenverarbeitung:** `Pandas`, `NumPy`, `PyArrow` (Parquet-Engine)
+*   **Ökonometrie & Statistik:** `Statsmodels` (Markov-Regression), `hmmlearn` (Hidden Markov Models), `SciPy`
+*   **Machine Learning:** `TensorFlow` / `Keras` (LSTM-Architekturen), `Scikit-Learn`
+*   **Reporting:** `Matplotlib` (Visualisierung), `Tabulate` (Markdown-Export)
+
+---
+
+## Architektur
+
+Das Projekt folgt einem **modularen Pipeline-Design**. Anstatt eines monolithischen Skripts ist der Workflow in spezialisierte Teilschritte unterteilt, um die Reproduzierbarkeit und Skalierbarkeit zu gewährleisten. Ein zentrales Master-Notebook (`regime-switching-daa.ipynb`) orchestriert die Ausführung der einzelnen Module in der korrekten Reihenfolge.
+
+---
+
+## Engineering-Konzepte
+
+Hinter der Pipeline stehen fortgeschrittene Konzepte der Software-Entwicklung und Finanzmathematik, um die Validität der Ergebnisse sicherzustellen:
+
+### Daten-Persistierung & Entkopplung
+Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist.
+
+### Vermeidung von Look-ahead Bias
+Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks aus der Zukunft. Alle generierten Handelssignale werden systematisch um einen Zeitschritt ($T+1$) verschoben. Entscheidungen werden somit ausschließlich auf Basis der zum Handelszeitpunkt verfügbaren historischen Informationen getroffen.
+
+### Data-Driven Automation (Dynamic Matching)
+Das Framework ist **vollständig dynamisch** aufgebaut. Ein spezialisierter Such-Algorithmus identifiziert neue Modell-Outputs automatisch anhand eines definierten Namensschemas (`Modell_Signal`). Dadurch können neue Modell-Architekturen integriert werden, ohne den Code für das Backtesting, die Evaluation oder das Reporting manuell anpassen zu müssen.
+
+### Realitätsnahe Kostensimulation
+Die Simulation berücksichtigt reale Marktreibungen:
+*   **Transaktionskosten:** Jede Umschichtung zwischen Portfolio und Cash wird mit einer Gebühr (0,1%) belegt.
+*   **Liquiditätsgebühren:** Bei Entnahmen in investierten Marktphasen werden zusätzliche Verkaufsgebühren simuliert, während Entnahmen aus Cash-Beständen spesenfrei erfolgen.
+
+### Automated Reporting (Live-Docs)
+Die Datei `Statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. Hierbei werden Markdown-Tabellen und PNG-Assets direkt in das Dokument eingebettet, was eine lückenlose und stets aktuelle Dokumentation der Forschungsergebnisse ermöglicht.
+
+---
+
 ## Die Research-Pipeline (Modularer Aufbau)
 
 Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf den persistierten Daten des Vorgängers auf:
@@ -114,6 +156,7 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 
 ### 2. Analyse & Infrastruktur
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
+*   **Systemarchitektur-Diagramm:** Erstellung eines detaillierten konzeptionellen Architekturdiagramms (Flow-Chart), um den modularen Datenfluss, die Interaktionen zwischen den Paradigmen (Ökonometrie & ML) sowie die Persistierungs-Logik innerhalb der Pipeline visuell darzustellen.
 *   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 
 ---
