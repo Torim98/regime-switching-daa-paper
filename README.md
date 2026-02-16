@@ -8,9 +8,9 @@ Dieses Repository enthält den Code und die Analysen meiner Master-Thesis zum Th
 
 ## Ziel der Arbeit
 
-Das Kernziel dieser Master-Thesis ist der **systematische Vergleich** zwischen zwei Paradigmen der Finanzmarktanalyse zur Identifikation von Marktregimes: klassischen **ökonometrischen Modellen** und modernen **Machine-Learning-Verfahren**. 
+Das Kernziel dieser Arbeit ist der **systematische Vergleich** zwischen zwei Paradigmen der Finanzmarktanalyse zur Identifikation von Marktregimes: klassischen **ökonometrischen Modellen** und modernen **Machine-Learning-Verfahren**. 
 
-In einer Zeit zunehmender Marktvolatilität und komplexer Krisenzyklen (wie der Dotcom-Blase, der Finanzkrise 2008 oder der Zinswende 2022) stoßen statische Anlagestrategien oft an ihre Grenzen. Die Arbeit untersucht, inwieweit eine **Dynamische Asset-Allokation (DAA)**, gestützt auf automatisierte Regime-Erkennung, in der Lage ist, das Portfolio aktiv zu schützen.
+Statische Anlagestrategien leiden in Zeiten zunehmender Marktvolatilität und komplexer Krisenzyklen (wie der Dotcom-Blase, der Finanzkrise 2008 oder der Zinswende 2022) besonders unter dem **Sequence of Returns Risk (SORR)**, das Risiko, dass Markteinbrüche zu Beginn einer Entnahmephase das Kapital irreversibel schädigen. Dieses Projekt untersucht, wie eine **Dynamische Asset-Allokation (DAA)**, gestützt auf eine **automatisierte Regime-Erkennung** (Bulle vs. Bär) genutzt werden kann, um durch rechtzeitige Umschichtung in den Geldmarkt (Cash) das Portfolio-Risiko zu glätten und die Kapitalsicherheit im Ruhestand massiv zu erhöhen.
 
 ### Die Untersuchungsschwerpunkte sind:
 
@@ -35,7 +35,21 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 
 ---
 
-## Aktuelle Ergebnisse
+## Die Research-Pipeline (Modularer Aufbau)
+
+Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf den persistierten Daten des Vorgängers auf:
+
+1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
+2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Gold, Cash).
+3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
+4.  **`03_regime_switching_models`**: Training und Hyperparameteroptimierung der Regime-Switching-Modelle.
+5.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
+6.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
+7.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
+
+---
+
+## Aktuelle Ergebnisse (Live-Update)
 
 Die folgenden Grafiken werden automatisch generiert und repräsentieren den aktuellen Stand der Backtesting-Simulation auf dem S&P 500 / Long-Bond (60/40) Portfolio.
 
@@ -57,6 +71,15 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 | **Wachstumsdynamik** | **Total Return, CAGR (p.a.)** | Zeigt, ob die Modelle trotz der defensiven Ausrichtung in Bärenmärkten langfristig in der Lage sind, den Markt (Buy & Hold) zu schlagen. |
 | **Modellstabilität** | **Regime-Wechsel, Volatilität** | Evaluiert die praktische Umsetzbarkeit. Eine hohe Anzahl an Wechseln ("Churning") deutet auf Instabilität und hohe Transaktionskosten hin. |
 
+### 4. Risikoprofil (SORR Stress-Test)
+Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichtigung von Marktschocks und monatlichen Rentenzahlungen?
+
+![SORR Standard](./assets/sorr_sim_standard.png)
+
+### 5. Statistische Siginifikanz (Monte-Carlo-Simulation (MCS)
+Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
+
+![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 
 👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [Statistics.md](./Statistics.md).**
 
@@ -73,14 +96,12 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 
 ## Installation & Start
 
-1. Repository klonen:
+1. **Repository klonen:**
    ```bash
    git clone https://github.com/DEIN-PROFIL/regime-switching-daa.git
-2. Abhängigkeiten installieren
-   ```bash
-   pip install yfinance pandas numpy matplotlib scikit-learn tensorflow statsmodels hmmlearn
-3. Das Notebook `regime_switching_daa.ipynb` ausführen, um die Ergebnisse zu aktualisieren.
-
+2. **Pipeline ausführen:**
+   Starte das Master-Notebook `regime-switching-daa.ipynb` im Verzeichnis `jupyter/`. Dies triggert alle Teilschritte und aktualisiert automatisch alle Grafiken und Statistiken.
+   Ggf. muss in der `00_dependencies.ipynb` Code auskommentiert werden, um Abhängigkeiten automatisch zu installieren.
 ---
 
 ## Ausblick & Offene Punkte (Roadmap)
@@ -101,6 +122,6 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
 
-Autor: Tom Maurer B.Sc.
+**Autor:** Tom Maurer B.Sc.
 
-Master-Thesis
+**Akademischer Kontext:** Master-Thesis Projekt im Bereich Quantitative Finance / Data Science.
