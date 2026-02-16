@@ -155,6 +155,7 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 
 ### 2. Analyse & Infrastruktur
+*   **Zentralisiertes Konfigurationsmanagement:** Implementierung einer zentralen Steuerungseinheit (z. B. via `config.yaml` oder einer dedizierten Konfigurations-Klasse), um globale Parameter wie Simulationszeiträume, Asset-Gewichtungen, Transaktionskostensätze und Modell-Hyperparameter konsistent über alle Pipeline-Module hinweg zu verwalten.
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
 *   **Systemarchitektur-Diagramm:** Erstellung eines detaillierten konzeptionellen Architekturdiagramms (Flow-Chart), um den modularen Datenfluss, die Interaktionen zwischen den Paradigmen (Ökonometrie & ML) sowie die Persistierungs-Logik innerhalb der Pipeline visuell darzustellen.
 *   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
