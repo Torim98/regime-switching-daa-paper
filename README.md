@@ -40,7 +40,7 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf den persistierten Daten des Vorgängers auf:
 
 1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
-2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Gold, Cash).
+2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
 3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
 4.  **`03_regime_switching_models`**: Training und Hyperparameteroptimierung der Regime-Switching-Modelle.
 5.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
