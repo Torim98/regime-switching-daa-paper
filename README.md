@@ -31,6 +31,7 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 *   **Hidden-Markov-Modelle (HMM):** Ein Unsupervised-Learning-Ansatz aus der Statistik. Das HMM identifiziert Cluster in den Datenverteilungen, um Phasen hoher und niedriger Volatilität voneinander zu trennen, ohne dass vorab gelabelte Daten nötig sind.
 2. **Moderne Machine-Learning-Verfahren:** Dieser Ansatz nutzt die Fähigkeit von künstlichen neuronalen Netzen, hochkomplexe, nicht-lineare Zusammenhänge in großen Datenmengen zu identifizieren, ohne explizite statistische Verteilungsannahmen vorauszusetzen.
 *   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt: Es lernt, die durch die ökonometrischen Modelle identifizierten Regime-Wechsel unter Berücksichtigung von Zeitreihen-Fenstern (Sequenzen) vorherzusagen.
+*   **Unsupervised LSTM (Deep Clustering):** Ein innovativer Ansatz mittels LSTM-Autoencoder. Hierbei lernt das Netzwerk, Markt-Sequenzen in einen hochdimensionalen latenten Raum zu komprimieren, um die „Essenz“ der Marktdynamik zu erfassen. Durch ein anschließendes Clustering (Gaussian Mixture Modeling (GMM)) werden Regimes rein datengetrieben identifiziert, ohne den Einfluss vordefinierter statistischer Labels. Dies dient als objektive Kontrollinstanz, um zu prüfen, ob das RNN eigenständige Risikomuster erkennt, die klassischen Modellen verborgen bleiben.
 
 ---
 
@@ -87,7 +88,6 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter zu steigern, sind folgende Entwicklungsschritte geplant:
 
 ### 1. Modell-Erweiterungen
-*   **Unsupervised LSTM:** Untersuchung, inwieweit Unsupervised-Learning-Ansätze (z. B. LSTM-Autoencoder) Regimes ohne vordefinierte Labels identifizieren können.
 *   **Modell-Varianz:** Integration weiterer populärer Regime-Switching-Ansätze (z. B. GARCH-Modelle, Random Forests oder Gradient Boosting Verfahren) in das Vergleichs-Framework.
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 

@@ -8,13 +8,14 @@ Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschung
 ## 1. Executive Summary: Performance & Risiko
 Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Testzeitraum**.
 
-| Strategie     |   Final Wealth | Total Return   | Max Drawdown   |
-|:--------------|---------------:|:---------------|:---------------|
-| Buy_Hold      |         1.9352 | +93.52%        | -27.10%        |
-| HMM           |         1.7415 | +74.15%        | -6.79%         |
-| MS_Univariate |         2.5566 | +155.66%       | -6.25%         |
-| MS_Exo        |         2.5332 | +153.32%       | -5.44%         |
-| LSTM          |         1.5616 | +56.16%        | -19.75%        |
+| Strategie         |   Final Wealth | Total Return   | Max Drawdown   |
+|:------------------|---------------:|:---------------|:---------------|
+| Buy_Hold          |         1.9352 | +93.52%        | -27.10%        |
+| HMM               |         1.7415 | +74.15%        | -6.79%         |
+| MS_Univariate     |         2.5566 | +155.66%       | -6.25%         |
+| MS_Exo            |         2.5332 | +153.32%       | -5.44%         |
+| LSTM              |         1.7321 | +73.21%        | -11.58%        |
+| LSTM_Unsupervised |         1.6965 | +69.65%        | -15.95%        |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
@@ -47,7 +48,11 @@ Vergleich zwischen univariatem Ansatz und exogenem Ansatz (unter Berücksichtigu
 Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Markov-Labels).
 ![LSTM Model](./assets/lstm_model.png)
 
-### D. Globaler Regime-Vergleich
+### D. Unsupervised LSTM-Netzwerk (Deep Learning)
+Identifikation von Marktregimes mittels eines LSTM-Autoencoders in Kombination mit Gaussian Mixture Modeling (GMM). Im Gegensatz zum Supervised-Ansatz lernt dieses Modell ohne vordefinierte Labels (wie HMM oder Markov) und identifiziert Regime-Strukturen rein datengetrieben durch die Kompression und Rekonstruktion zeitlicher Sequenzen.
+![Unsupervised LSTM Model](./assets/lstm_unsupervised_model.png)
+
+### E. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](./assets/regime_comparison.png)
 
@@ -62,13 +67,14 @@ Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in d
 ### Umfassende Kennzahlen-Matrix
 Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
 
-| Strategie     | Total Return   | CAGR (p.a.)   | Volatilität   | Max Drawdown   |   Sharpe Ratio |   Sortino Ratio |   Calmar Ratio |   Regime-Wechsel | Gesamtkosten (Gebühren)   |
-|:--------------|:---------------|:--------------|:--------------|:---------------|---------------:|----------------:|---------------:|-----------------:|:--------------------------|
-| Buy Hold      | 92.90%         | 9.80%         | 12.62%        | -27.10%        |           0.81 |            1.04 |           0.36 |                0 | 0.00%                     |
-| HMM           | 73.59%         | 8.17%         | 4.96%         | -6.79%         |           1.61 |            1.49 |           1.2  |               29 | 3.00%                     |
-| MS Univariate | 154.84%        | 14.24%        | 6.33%         | -6.25%         |           2.14 |            2.78 |           2.28 |               42 | 4.20%                     |
-| MS Exo        | 152.51%        | 14.09%        | 6.43%         | -5.44%         |           2.09 |            2.7  |           2.59 |               38 | 3.80%                     |
-| LSTM          | 55.66%         | 6.50%         | 8.14%         | -19.75%        |           0.82 |            0.94 |           0.33 |               68 | 6.80%                     |
+| Strategie         | Total Return   | CAGR (p.a.)   | Volatilität   | Max Drawdown   |   Sharpe Ratio |   Sortino Ratio |   Calmar Ratio |   Regime-Wechsel | Gesamtkosten (Gebühren)   |
+|:------------------|:---------------|:--------------|:--------------|:---------------|---------------:|----------------:|---------------:|-----------------:|:--------------------------|
+| Buy Hold          | 92.90%         | 9.80%         | 12.62%        | -27.10%        |           0.81 |            1.04 |           0.36 |                0 | 0.00%                     |
+| HMM               | 73.59%         | 8.17%         | 4.96%         | -6.79%         |           1.61 |            1.49 |           1.2  |               29 | 3.00%                     |
+| MS Univariate     | 154.84%        | 14.24%        | 6.33%         | -6.25%         |           2.14 |            2.78 |           2.28 |               42 | 4.20%                     |
+| MS Exo            | 152.51%        | 14.09%        | 6.43%         | -5.44%         |           2.09 |            2.7  |           2.59 |               38 | 3.80%                     |
+| LSTM              | 72.65%         | 8.08%         | 7.70%         | -11.58%        |           1.05 |            1.26 |           0.7  |               70 | 7.00%                     |
+| LSTM Unsupervised | 69.11%         | 7.76%         | 8.34%         | -15.95%        |           0.94 |            0.95 |           0.49 |               19 | 2.00%                     |
 
 Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Anstiege deuten auf instabile Regime-Wechsel ("Churning") hin.
 
@@ -83,5 +89,5 @@ Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Ans
 - **Kostensimulation:** Es wird eine pauschale Gebühr von 10 Basispunkten (0,1%) pro Umschichtung berechnet.
 
 ---
-**Zuletzt aktualisiert:** 03.02.2026 10:58  
+**Zuletzt aktualisiert:** 03.02.2026 13:11  
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
