@@ -168,4 +168,6 @@ Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du i
 
 **Autor:** Tom Maurer B.Sc.
 
+**Betreuer:** Prof. Dr. Christian Müller-Kett
+
 **Akademischer Kontext:** Master-Thesis Projekt im Bereich Quantitative Finance / Data Science.
