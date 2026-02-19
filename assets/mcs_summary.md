@@ -1,20 +1,20 @@
 |                                      | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------------|:--------------------------|:--------------------|
-| ('Standard', 'Buy Hold')             | 0.00%                     | 782,210.86 €        |
-| ('Standard', 'HMM')                  | 0.00%                     | 643,758.81 €        |
-| ('Standard', 'MS Univariate')        | 0.00%                     | 1,263,329.39 €      |
-| ('Standard', 'MS Exo')               | 0.00%                     | 1,206,872.65 €      |
-| ('Standard', 'LSTM')                 | 0.00%                     | 540,012.30 €        |
-| ('Standard', 'LSTM Unsupervised')    | 0.00%                     | 720,085.73 €        |
-| ('Aggressive', 'Buy Hold')           | 2.40%                     | 443,921.86 €        |
-| ('Aggressive', 'HMM')                | 0.00%                     | 357,349.26 €        |
-| ('Aggressive', 'MS Univariate')      | 0.00%                     | 906,948.05 €        |
-| ('Aggressive', 'MS Exo')             | 0.00%                     | 852,755.81 €        |
-| ('Aggressive', 'LSTM')               | 0.70%                     | 278,772.54 €        |
-| ('Aggressive', 'LSTM Unsupervised')  | 0.00%                     | 428,650.16 €        |
-| ('Low_Capital', 'Buy Hold')          | 0.40%                     | 357,867.49 €        |
-| ('Low_Capital', 'HMM')               | 0.00%                     | 290,725.87 €        |
-| ('Low_Capital', 'MS Univariate')     | 0.00%                     | 645,380.96 €        |
-| ('Low_Capital', 'MS Exo')            | 0.00%                     | 618,288.31 €        |
-| ('Low_Capital', 'LSTM')              | 0.00%                     | 232,241.95 €        |
-| ('Low_Capital', 'LSTM Unsupervised') | 0.00%                     | 330,013.28 €        |
+| ('Standard', 'Buy Hold')             | 0.00%                     | 746,397.52 €        |
+| ('Standard', 'HMM')                  | 0.00%                     | 621,160.56 €        |
+| ('Standard', 'MS Univariate')        | 0.00%                     | 1,232,297.50 €      |
+| ('Standard', 'MS Exo')               | 0.00%                     | 1,191,794.59 €      |
+| ('Standard', 'LSTM')                 | 0.00%                     | 524,424.66 €        |
+| ('Standard', 'LSTM Unsupervised')    | 0.00%                     | 499,224.41 €        |
+| ('Aggressive', 'Buy Hold')           | 1.60%                     | 453,140.46 €        |
+| ('Aggressive', 'HMM')                | 0.00%                     | 355,301.78 €        |
+| ('Aggressive', 'MS Univariate')      | 0.00%                     | 859,548.31 €        |
+| ('Aggressive', 'MS Exo')             | 0.00%                     | 829,707.45 €        |
+| ('Aggressive', 'LSTM')               | 0.90%                     | 271,166.30 €        |
+| ('Aggressive', 'LSTM Unsupervised')  | 0.70%                     | 263,999.00 €        |
+| ('Low_Capital', 'Buy Hold')          | 0.20%                     | 336,927.62 €        |
+| ('Low_Capital', 'HMM')               | 0.00%                     | 282,740.23 €        |
+| ('Low_Capital', 'MS Univariate')     | 0.00%                     | 620,279.47 €        |
+| ('Low_Capital', 'MS Exo')            | 0.00%                     | 605,094.65 €        |
+| ('Low_Capital', 'LSTM')              | 0.00%                     | 233,726.90 €        |
+| ('Low_Capital', 'LSTM Unsupervised') | 0.00%                     | 217,507.84 €        |
