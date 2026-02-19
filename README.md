@@ -73,7 +73,7 @@ Die Simulation berücksichtigt reale Marktreibungen:
 *   **Liquiditätsgebühren:** Bei Entnahmen in investierten Marktphasen werden zusätzliche Verkaufsgebühren simuliert, während Entnahmen aus Cash-Beständen spesenfrei erfolgen.
 
 ### Automated Reporting (Live-Docs)
-Die Datei `Statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. Hierbei werden Markdown-Tabellen und PNG-Assets direkt in das Dokument eingebettet, was eine lückenlose und stets aktuelle Dokumentation der Forschungsergebnisse ermöglicht.
+Die Datei `statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. Hierbei werden Markdown-Tabellen und PNG-Assets direkt in das Dokument eingebettet, was eine lückenlose und stets aktuelle Dokumentation der Forschungsergebnisse ermöglicht.
 
 ---
 
@@ -123,14 +123,16 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 
-👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [Statistics.md](./Statistics.md).**
+👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [Statistics.md](./docs/statistics.md).**
 
 ---
 
 ## Projektstruktur
 - `jupyter/` : Ablageort der Jupyter-Notebook-Files mit der gesamten Pipeline.
 - `assets/` : Ordner für persistierte Grafiken und Statistiken.
+- `config/` : Konfigurationsparameter der Research-Pipeline.
 - `data/` : Lokale Cache-Daten der Yahoo Finance API.
+- `docs/` : Begleitende Projektdokumentation.
 - `README.md` : Projektübersicht.
 - `Statistics.md` : Tiefergehende Analyse der Modellergebnisse.
 
@@ -140,7 +142,7 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 
 1. **Repository klonen:**
    ```bash
-   git clone https://github.com/DEIN-PROFIL/regime-switching-daa.git
+   git clone https://github.com/Torim98/regime-switching-daa.git
 2. **Pipeline ausführen:**
    Starte das Master-Notebook `regime-switching-daa.ipynb` im Verzeichnis `jupyter/`. Dies triggert alle Teilschritte und aktualisiert automatisch alle Grafiken und Statistiken.
    Ggf. muss in der `00_dependencies.ipynb` Code auskommentiert werden, um Abhängigkeiten automatisch zu installieren.
