@@ -161,5 +161,5 @@ Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalen
 - **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
 
 ---
-**Zuletzt aktualisiert:** 19.02.2026 11:10  
+**Zuletzt aktualisiert:** 20.02.2026 13:19  
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
