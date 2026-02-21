@@ -123,7 +123,7 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 
-👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [Statistics.md](./docs/statistics.md).**
+👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [statistics.md](./docs/statistics.md).**
 
 ---
 

@@ -1,0 +1,174 @@
+# ============================================================================
+# Central Configuration — Regime-Switching DAA Pipeline
+# ============================================================================
+# Single source of truth for all pipeline parameters.
+# Changes here propagate to all notebooks via config_loader.py.
+# ============================================================================
+
+# --- Dependencies (00_dependencies) ---
+dependencies:
+  install_on_run: false   # true = pip install bei jedem Pipeline-Lauf, false = überspringen
+
+# --- Data Ingestion (01_data_preprocessing) ---
+data:
+  tickers:
+    - "^GSPC"       # S&P 500
+    - "VUSTX"       # Long-Term US Treasury Bonds (Vanguard)
+    - "^VIX"        # CBOE Volatility Index
+    - "^IRX"        # 3-Month Treasury Bill Rate (Cash proxy)
+    - "^TNX"        # 10-Year Treasury Note Yield
+  start_date: "1990-01-02"
+  end_date: null    # null = dynamic (today)
+
+# --- Feature Engineering (02_feature_engineering) ---
+features:
+  sma_window: 200
+  volatility_window: 20
+  momentum_window: 10
+  model_features:
+    - "Returns"
+    - "Vol_20"
+    - "Distance_SMA"
+    - "Momentum"
+    - "VIX"
+    - "Yield_Spread"
+
+# --- Portfolio Allocation ---
+portfolio:
+  weight_equity: 0.6    # S&P 500
+  weight_bonds: 0.4     # VUSTX
+
+# --- Model Hyperparameters (03_regime_switching_models) ---
+models:
+  hmm:
+    features:
+      - "Returns"
+      - "VIX"
+      - "Yield_Spread"
+    n_components: 2
+    covariance_type: "full"
+    n_iter: 1000
+    random_state: 42
+  markov_switching:
+    k_regimes: 2
+    switching_variance: true
+    exo_features:
+      - "VIX"
+      - "Yield_Spread"
+  lstm:
+    window_size: &lstm_window 30                   # Sollte sich mit lstm_unsupervised window_size decken
+    train_test_split: &lstm_train_test_split 0.8   # 80% Training, 20% Test, wie im lstm_unsupervised model
+    labels: "MS_Univariate_Signal"
+    units: 64
+    return_sequences: true
+    epochs: 30
+    batch_size: 32
+    learning_rate: 0.001
+    dropout: 0.2
+    dense: 1
+    activation: "sigmoid"
+    optimizer: "adam"
+    loss: "binary_crossentropy"
+    metrics: "accuracy"
+    validation_split: 0.1
+    verbose: 1
+  lstm_unsupervised:
+    window_size: *lstm_window                      # Sollte sich mit lstm window_size decken
+    train_test_split: *lstm_train_test_split       # 80% Training, 20% Test, wie im lstm model
+    # Autoencoder Architecture
+    encoder_units: 8            # LSTM-Units im Encoder
+    decoder_units: 8            # LSTM-Units im Decoder
+    activation: "tanh"          # Activation Function
+    optimizer: "adam"           # Optimizer
+    loss: "mse"                 # Loss Function
+    # Training
+    epochs: 50
+    batch_size: 64
+    validation_split: 0.1       # Anteil der Trainingsdaten für Validation
+    # GMM Clustering
+    n_components: 2             # GMM clusters
+    gmm_n_init: 10              # Anzahl GMM-Initialisierungen
+    gmm_random_state: 42        # Reproduzierbarkeit
+
+# --- Backtesting (04_backtesting) ---
+backtesting:
+  transaction_cost_bps: 10    # Basis points (10 = 0.1%)
+  signal_shift: 1             # T+1 shift for look-ahead bias prevention
+  sorr:
+    scenarios:
+      Standard:
+        initial_capital: 500000.00
+        annual_withdrawal_rate: 0.06     # 2500€/Monat ÷ 500000€ × 12 = 0.06
+        liquidity_fee: 0.001
+      Aggressive:
+        initial_capital: 500000.00
+        annual_withdrawal_rate: 0.096    # 4000€/Monat ÷ 500000€ × 12 = 0.096
+        liquidity_fee: 0.001
+      Low_Capital:
+        initial_capital: 300000.00
+        annual_withdrawal_rate: 0.08     # 2000€/Monat ÷ 300000€ × 12 = 0.08
+        liquidity_fee: 0.001
+
+# --- Evaluation / MCS (05_evaluation) ---
+evaluation:
+  mcs:
+    n_paths: 1000
+    block_length: 20
+    random_seed: 42
+    sim_years: 10
+    trading_days_per_year: 252
+
+# --- regime-switching-daa ---
+## --- File Paths ---
+paths:
+  data_dir: "../data"
+  assets_dir: "../assets"
+  docs_dir: "../docs"
+  logs_dir: "../logs"
+  files:
+    preprocessed: "01_preprocessed_data.parquet"
+    feature_engineered: "02_feature_engineered_data.parquet"
+    test_data: "03_test_df_data.parquet"
+    backtesting_results: "04_backtesting_results_data.parquet"
+    backtesting_costs: "04_backtesting_transaction_costs_data.parquet"
+    backtesting_sorr: "04_backtesting_sorr_simulation.parquet"
+    mcs_data: "05_mcs_data.parquet"
+  assets:
+    equity_curves: "equity_curves.png"
+    capital_curve: "capital_curve.png"
+    transaction_costs: "transaction_costs.png"
+    sorr_sim_standard: "sorr_sim_standard.png"
+    sorr_sim_aggressive: "sorr_sim_aggressive.png"
+    sorr_sim_low_capital: "sorr_sim_low_capital.png"
+    evaluation_table: "evaluation_table.md"
+    performance_summary: "performance_summary.md"
+    mcs_summary: "mcs_summary.md"
+    sorr_summary: "sorr_summary.md"
+    mcs_paths: "mcs_paths.png"
+    mcs_boxplot_standard: "mcs_boxplot_standard.png"
+    mcs_boxplot_aggressive: "mcs_boxplot_aggressive.png"
+    mcs_boxplot_low_capital: "mcs_boxplot_low_capital.png"
+    mcs_quantiles: "mcs_quantiles.png"
+    hmm_regimes: "hmm_regimes.png"
+    markov_models: "markov-models.png"
+    lstm_model: "lstm_model.png"
+    lstm_unsupervised_model: "lstm_unsupervised_model.png"
+    regime_comparison: "regime_comparison.png"
+    statistics_output: "../docs/statistics.md"
+## --- Pipeline Execution ---
+pipeline:
+  notebooks:
+    - "00_dependencies.ipynb"
+    - "01_data_preprocessing.ipynb"
+    - "02_feature_engineering.ipynb"
+    - "03_regime_switching_models.ipynb"
+    - "04_backtesting.ipynb"
+    - "05_evaluation.ipynb"
+    - "99_statistics_md.ipynb"
+## --- Fast Mode (Development) ---
+fast_mode:
+  enabled: false
+  overrides:
+    lstm_epochs: 5
+    lstm_unsupervised_epochs: 10
+    mcs_n_paths: 100
