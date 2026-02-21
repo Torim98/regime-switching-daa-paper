@@ -41,6 +41,10 @@ portfolio:
 # --- Model Hyperparameters (03_regime_switching_models) ---
 models:
   hmm:
+    features:
+      - "Returns"
+      - "VIX"
+      - "Yield_Spread"
     n_components: 2
     covariance_type: "full"
     n_iter: 1000
@@ -48,8 +52,12 @@ models:
   markov_switching:
     k_regimes: 2
     switching_variance: true
+    exo_features:
+      - "VIX"
+      - "Yield_Spread"
   lstm:
-    window_size: 30             # Sollte sich mit lstm_unsupervised window_size decken
+    window_size: &lstm_window 30                   # Sollte sich mit lstm_unsupervised window_size decken
+    train_test_split: &lstm_train_test_split 0.8   # 80% Training, 20% Test, wie im lstm_unsupervised model
     labels: "MS_Univariate_Signal"
     units: 64
     return_sequences: true
@@ -65,8 +73,8 @@ models:
     validation_split: 0.1
     verbose: 1
   lstm_unsupervised:
-    window_size: 30             # Sollte sich mit lstm window_size decken
-    train_test_split: 0.8       # 80% Training, 20% Test
+    window_size: *lstm_window                      # Sollte sich mit lstm window_size decken
+    train_test_split: *lstm_train_test_split       # 80% Training, 20% Test, wie im lstm model
     # Autoencoder Architecture
     encoder_units: 8            # LSTM-Units im Encoder
     decoder_units: 8            # LSTM-Units im Decoder
@@ -107,6 +115,8 @@ evaluation:
     n_paths: 1000
     block_length: 20
     random_seed: 42
+    sim_years: 10
+    trading_days_per_year: 252
 
 # --- regime-switching-daa ---
 ## --- File Paths ---
@@ -125,6 +135,7 @@ paths:
     mcs_data: "05_mcs_data.parquet"
   assets:
     equity_curves: "equity_curves.png"
+    capital_curve: "capital_curve.png"
     transaction_costs: "transaction_costs.png"
     sorr_sim_standard: "sorr_sim_standard.png"
     sorr_sim_aggressive: "sorr_sim_aggressive.png"
