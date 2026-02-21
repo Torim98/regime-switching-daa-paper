@@ -49,7 +49,7 @@ models:
     k_regimes: 2
     switching_variance: true
   lstm:
-    window_size: 30
+    window_size: 30             # Sollte sich mit lstm_unsupervised window_size decken
     labels: "MS_Univariate_Signal"
     units: 64
     return_sequences: true
@@ -65,7 +65,7 @@ models:
     validation_split: 0.1
     verbose: 1
   lstm_unsupervised:
-    window_size: 20
+    window_size: 30             # Sollte sich mit lstm window_size decken
     train_test_split: 0.8       # 80% Training, 20% Test
     # Autoencoder Architecture
     encoder_units: 8            # LSTM-Units im Encoder
