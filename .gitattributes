@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Strip outputs from Jupyter Notebooks on commit
+*.ipynb filter=nbstripout
+*.ipynb diff=ipynb
