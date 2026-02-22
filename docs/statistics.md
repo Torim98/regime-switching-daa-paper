@@ -28,7 +28,7 @@ Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
 ### 60/40 Portfolio Kapitalkurve
 Die Abbildung zeigt die kumulierte Wertentwicklung des statischen Referenzportfolios (60% Aktien / 40% Anleihen).
 
-![Capital Curve](./assets/capital_curve.png)
+![Capital Curve](../assets/capital_curve.png)
 
 *   **Datenquelle:** S&P 500 (`^GSPC`) und Vanguard Long-Term Treasury (`VUSTX`).
 *   **Reproduzierbarkeit:** Der bereinigte Datensatz inkl. aller Features ist hinterlegt unter: `data/02_feature_engineered_data.parquet`.
@@ -39,27 +39,27 @@ Die Abbildung zeigt die kumulierte Wertentwicklung des statischen Referenzportfo
 Hier werden die Identifikations-Ergebnisse der Modell-Kategorien (Statistik, Clustering, Deep Learning) visualisiert.
 
 ### A. Hidden Markov Model (Unsupervised Clustering)
-![HMM Regimes](./assets/hmm_regimes.png)
+![HMM Regimes](../assets/hmm_regimes.png)
 
 ### B. Markov-Switching-Modelle (Ökonometrie)
 Vergleich zwischen univariatem Ansatz und exogenem Ansatz (unter Berücksichtigung von VIX & Yield Spread).
-![Markov Models](./assets/markov-models.png)
+![Markov Models](../assets/markov-models.png)
 
 ### C. LSTM-Netzwerk (Deep Learning)
 Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Markov-Labels).
-![LSTM Model](./assets/lstm_model.png)
+![LSTM Model](../assets/lstm_model.png)
 
 ### D. Unsupervised LSTM-Netzwerk (Deep Learning)
 Identifikation von Marktregimes mittels eines LSTM-Autoencoders in Kombination mit Gaussian Mixture Modeling (GMM). Im Gegensatz zum Supervised-Ansatz lernt dieses Modell ohne vordefinierte Labels (wie HMM oder Markov) und identifiziert Regime-Strukturen rein datengetrieben durch die Kompression und Rekonstruktion zeitlicher Sequenzen.
-![Unsupervised LSTM Model](./assets/lstm_unsupervised_model.png)
+![Unsupervised LSTM Model](../assets/lstm_unsupervised_model.png)
 
 ### E. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
 "Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Markov-Labels.
-![Transformer Model](./assets/transformer_model.png)
+![Transformer Model](../assets/transformer_model.png)
 
 ### F. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
-![Regime Comparison](./assets/regime_comparison.png)
+![Regime Comparison](../assets/regime_comparison.png)
 
 ---
 
@@ -67,7 +67,7 @@ Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale alle
 Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in den Geldmarkt.
 
 ### Equity Curves im Vergleich
-![Equity Curves](./assets/equity_curves.png)
+![Equity Curves](../assets/equity_curves.png)
 
 ### Umfassende Kennzahlen-Matrix
 Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
@@ -86,7 +86,7 @@ Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharp
 
 Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Anstiege deuten auf instabile Regime-Wechsel ("Churning") hin.
 
-![Transaction Costs](./assets/transaction_costs.png)
+![Transaction Costs](../assets/transaction_costs.png)
 
 Stress-Test: Sequence of Returns Risk (SORR)
 Außerdem wurde die Überlebensdauer des Kapitals in einer simulierten Entnahmephase (Ruhestandsszenario) durchgeführt.
@@ -120,14 +120,14 @@ In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Ger
 | ('Low_Capital', 'Transformer')       | 271,775.02 € | Kapitalerhalt |
 
 Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
-![SORR Standard](./assets/sorr_sim_standard.png)
-![SORR Aggressive](./assets/sorr_sim_aggressive.png)
-![SORR Low Capital](./assets/sorr_sim_low_capital.png)
+![SORR Standard](../assets/sorr_sim_standard.png)
+![SORR Aggressive](../assets/sorr_sim_aggressive.png)
+![SORR Low Capital](../assets/sorr_sim_low_capital.png)
 
 ### MCS: Block-Bootstrap Robustness-Check
 
 Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
-![MCS Paths](./assets/mcs_paths.png)
+![MCS Paths](../assets/mcs_paths.png)
 |                                      | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------------|:--------------------------|:--------------------|
 | ('Standard', 'Buy Hold')             | 0.00%                     | 709,793.16 €        |
@@ -154,14 +154,14 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 
 Verteilung der Endkapitalwerte:
 
-![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
-![MCS Boxplots Aggressive](./assets/mcs_boxplot_aggressive.png)
-![MCS Boxplots Low Capital](./assets/mcs_boxplot_low_capital.png)
+![MCS Boxplots Standard](../assets/mcs_boxplot_standard.png)
+![MCS Boxplots Aggressive](../assets/mcs_boxplot_aggressive.png)
+![MCS Boxplots Low Capital](../assets/mcs_boxplot_low_capital.png)
 
 Wahrscheinlichkeitskorridore:
 
 Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalentwicklung.
-![MCS Quantiles](./assets/mcs_quantiles.png)
+![MCS Quantiles](../assets/mcs_quantiles.png)
 
 ---
 
@@ -173,6 +173,6 @@ Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalen
 - **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
 
 ---
-**Zuletzt aktualisiert:** 22.02.2026 21:18
+**Zuletzt aktualisiert:** 22.02.2026 21:49
 **Fast Mode Status zur Laufzeit:** TRUE (Development Mode)
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
