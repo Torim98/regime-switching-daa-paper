@@ -14,7 +14,7 @@ Statische Anlagestrategien leiden in Zeiten zunehmender Marktvolatilität und ko
 
 ### Die Untersuchungsschwerpunkte sind:
 
-1.  **Modell-Vergleich:** Evaluierung der Vorhersagegüte von statistisch fundierten ökonometrischen Modellen (z. B. Markov-Switching) gegenüber hochflexiblen Machine-Learning-Architekturen (z. B. LSTM-Netzwerken) unter Einbeziehung von Makro-Indikatoren (VIX, Yield Spreads,...).
+1.  **Modell-Vergleich:** Evaluierung der Vorhersagegüte von statistisch fundierten ökonometrischen Modellen (z. B. Markov-Switching) gegenüber hochflexiblen Machine-Learning-Architekturen (z. B. LSTM-Netzwerken, Transformer) unter Einbeziehung von Makro-Indikatoren (VIX, Yield Spreads,...).
 2.  **Risikominimierung:** Quantifizierung des Mehrwerts dieser Modelle zur signifikanten **Reduktion von Maximum Drawdowns**. Es wird geprüft, ob die Modelle in der Lage sind, rechtzeitig Signale zur Umschichtung von Risiko-Assets (Aktien) in sichere Häfen (Geldmarkt/Bonds) zu generieren.
 3.  **SORR-Prävention:** Die praktische Anwendung fokussiert sich auf die Minderung des **Sequence of Returns Risk (SORR)**. Hierbei soll bewiesen werden, dass eine regimebasierte Steuerung das Pfadrisiko des Vermögensaufbaus glättet und somit die Kapitalsicherheit, insbesondere in der kritischen Phase kurz vor oder zu Beginn der Entnahmephase (Renteneintritt), massiv erhöht.
 
@@ -32,6 +32,7 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 2. **Moderne Machine-Learning-Verfahren:** Dieser Ansatz nutzt die Fähigkeit von künstlichen neuronalen Netzen, hochkomplexe, nicht-lineare Zusammenhänge in großen Datenmengen zu identifizieren, ohne explizite statistische Verteilungsannahmen vorauszusetzen.
 *   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt: Es lernt, die durch die ökonometrischen Modelle identifizierten Regime-Wechsel unter Berücksichtigung von Zeitreihen-Fenstern (Sequenzen) vorherzusagen.
 *   **Unsupervised LSTM (Deep Clustering):** Ein innovativer Ansatz mittels LSTM-Autoencoder. Hierbei lernt das Netzwerk, Markt-Sequenzen in einen hochdimensionalen latenten Raum zu komprimieren, um die „Essenz“ der Marktdynamik zu erfassen. Durch ein anschließendes Clustering (Gaussian Mixture Modeling (GMM)) werden Regimes rein datengetrieben identifiziert, ohne den Einfluss vordefinierter statistischer Labels. Dies dient als objektive Kontrollinstanz, um zu prüfen, ob das RNN eigenständige Risikomuster erkennt, die klassischen Modellen verborgen bleiben.
+*   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf Markov-Labels) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
 
 ---
 
@@ -43,7 +44,7 @@ Für die Umsetzung der Forschungsumgebung wurde ein moderner Data-Science-Stack 
 *   **Datenquellen:** Yahoo Finance API (`yfinance`)
 *   **Datenverarbeitung:** `Pandas`, `NumPy`, `PyArrow` (Parquet-Engine)
 *   **Ökonometrie & Statistik:** `Statsmodels` (Markov-Regression), `hmmlearn` (Hidden Markov Models), `SciPy`
-*   **Machine Learning:** `TensorFlow` / `Keras` (LSTM-Architekturen), `Scikit-Learn`
+*   **Machine Learning:** `TensorFlow` / `Keras` (LSTM-Architekturen), `PyTorch` (Transformer), `Scikit-Learn`
 *   **Reporting:** `Matplotlib` (Visualisierung), `Tabulate` (Markdown-Export)
 
 ---
@@ -118,7 +119,8 @@ Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichti
 
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
-### 5. Statistische Siginifikanz (Monte-Carlo-Simulation (MCS)
+### 5. Statistische Siginifika
+nz (Monte-Carlo-Simulation (MCS)
 Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
@@ -153,14 +155,12 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter zu steigern, sind folgende Entwicklungsschritte geplant:
 
 ### 1. Modell-Erweiterungen
-*   **Modell-Varianz:** Integration weiterer populärer Regime-Switching-Ansätze (z. B. GARCH-Modelle, Random Forests oder Gradient Boosting Verfahren) in das Vergleichs-Framework.
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 
 ### 2. Analyse & Infrastruktur
-*   **Zentralisiertes Konfigurationsmanagement:** Implementierung einer zentralen Steuerungseinheit (z. B. via `config.yaml` oder einer dedizierten Konfigurations-Klasse), um globale Parameter wie Simulationszeiträume, Asset-Gewichtungen, Transaktionskostensätze und Modell-Hyperparameter konsistent über alle Pipeline-Module hinweg zu verwalten.
+*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
 *   **Systemarchitektur-Diagramm:** Erstellung eines detaillierten konzeptionellen Architekturdiagramms (Flow-Chart), um den modularen Datenfluss, die Interaktionen zwischen den Paradigmen (Ökonometrie & ML) sowie die Persistierungs-Logik innerhalb der Pipeline visuell darzustellen.
-*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 
 ---
 
@@ -168,8 +168,6 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
 
-**Autor:** Tom Maurer B.Sc.
-
-**Betreuer:** Prof. Dr. Christian Müller-Kett
-
+**Autor:** Tom Maurer B.Sc.<br>
+**Betreuer:** Prof. Dr. Christian Müller-Kett<br>
 **Akademischer Kontext:** Master-Thesis Projekt im Bereich Quantitative Finance / Data Science.

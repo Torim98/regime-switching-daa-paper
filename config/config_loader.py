@@ -76,6 +76,7 @@ class PipelineConfig:
         if self.fast_mode.enabled:
             self.models.lstm.epochs = self.fast_mode.overrides.lstm_epochs
             self.models.lstm_unsupervised.epochs = self.fast_mode.overrides.lstm_unsupervised_epochs
+            self.models.transformer.epochs = self.fast_mode.overrides.transformer_epochs
             self.evaluation.mcs.n_paths = self.fast_mode.overrides.mcs_n_paths
 
     def data_path(self, key: str) -> str:

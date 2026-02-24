@@ -8,6 +8,7 @@
 # --- Dependencies (00_dependencies) ---
 dependencies:
   install_on_run: false   # true = pip install bei jedem Pipeline-Lauf, false = überspringen
+  nbstripout: false        # true = nbstripout Git-Filter aktivieren (stripped Notebook-Outputs bei git add), muss nur einmalig auf true gesetzt werden (Git-Filter bleibt persistent
 
 # --- Data Ingestion (01_data_preprocessing) ---
 data:
@@ -90,6 +91,28 @@ models:
     gmm_n_init: 10              # Anzahl GMM-Initialisierungen
     gmm_random_state: 42        # Reproduzierbarkeit
 
+  transformer:
+    # --- Data ---
+    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM (30)
+    train_test_split: *lstm_train_test_split       # 80/20 wie LSTM
+    labels: "MS_Univariate_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
+    # --- Architektur ---
+    d_model: 64                  # Embedding-Dimension (Transformer interne Dimension)
+    n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!)
+    n_layers: 2                  # Anzahl Transformer-Encoder-Layer
+    dim_feedforward: 128         # Dimension des Feed-Forward-Netzwerks im Encoder
+    dropout: 0.1                 # Dropout-Rate (Regularisierung)
+    # --- Training ---
+    epochs: 50
+    batch_size: 32
+    learning_rate: 0.0001
+    validation_split: 0.1
+    verbose: 1
+    # --- Signal ---
+    threshold: 0.5               # Bear-Signal wenn Prob >= threshold
+     # --- Class Balancing ---
+    pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
+
 # --- Backtesting (04_backtesting) ---
 backtesting:
   transaction_cost_bps: 10    # Basis points (10 = 0.1%)
@@ -153,6 +176,7 @@ paths:
     markov_models: "markov-models.png"
     lstm_model: "lstm_model.png"
     lstm_unsupervised_model: "lstm_unsupervised_model.png"
+    transformer_model: "transformer_model.png"
     regime_comparison: "regime_comparison.png"
     statistics_output: "../docs/statistics.md"
 ## --- Pipeline Execution ---
@@ -167,8 +191,9 @@ pipeline:
     - "99_statistics_md.ipynb"
 ## --- Fast Mode (Development) ---
 fast_mode:
-  enabled: false
+  enabled: true
   overrides:
     lstm_epochs: 5
     lstm_unsupervised_epochs: 10
+    transformer_epochs: 10
     mcs_n_paths: 100
