@@ -18,10 +18,11 @@
    - [Schritt 6: DataFrame speichern](#schritt-6-dataframe-speichern)
 5. [Warum das funktioniert: Dynamic Matching](#5-warum-das-funktioniert-dynamic-matching)
 6. [Look-Ahead Bias Prevention (T+1 Shift)](#6-look-ahead-bias-prevention-t1-shift)
-7. [Code-Template (Copy & Paste)](#7-code-template-copy--paste)
-8. [Validierungs-Checkliste](#8-validierungs-checkliste)
-9. [Referenz-Implementierungen](#9-referenz-implementierungen)
-10. [FAQ & Troubleshooting](#10-faq--troubleshooting)
+7. [Dokumentation aktualisieren](#7-dokumentation-aktualisieren)
+8. [Code-Template (Copy & Paste)](#8-code-template-copy--paste)
+9. [Validierungs-Checkliste](#9-validierungs-checkliste)
+10. [Referenz-Implementierungen](#10-referenz-implementierungen)
+11. [FAQ & Troubleshooting](#11-faq--troubleshooting)
 
 ---
 
@@ -276,7 +277,7 @@ df[f'{MODEL_NAME}_Prob'] = bear_probabilities
 df[f'{MODEL_NAME}_Signal'] = (df[f'{MODEL_NAME}_Prob'] >= threshold).astype(int)
 ```
 
-> ⚠️ **Wichtig:** Stelle sicher, dass `_Prob` die **Bear-Wahrscheinlichkeit** enthält (hohe Werte = Krise). Falls dein Modell die Bull-Wahrscheinlichkeit ausgibt, invertiere sie: `bear_prob = 1 - bull_prob`.
+> **Wichtig:** Stelle sicher, dass `_Prob` die **Bear-Wahrscheinlichkeit** enthält (hohe Werte = Krise). Falls dein Modell die Bull-Wahrscheinlichkeit ausgibt, invertiere sie: `bear_prob = 1 - bull_prob`.
 
 ### Schritt 5: Signale in den DataFrame schreiben
 
@@ -327,7 +328,7 @@ for sig_col in signal_cols:
 2. **Evaluation** berechnet für jedes erkannte Modell automatisch alle Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown etc.)
 3. **Reporting** generiert Equity Curves, Statistik-Tabellen und SORR-Simulationen für alle Modelle
 
-➡️ **Du musst keinen Code in `04_backtesting.ipynb`, `05_evaluation.ipynb` oder `99_statistics_md.ipynb` anpassen.** Es genügt, die Signal-Schnittstelle korrekt zu implementieren und die Hyperparameter in der Config zu registrieren.
+**Du musst keinen Code in `04_backtesting.ipynb`, `05_evaluation.ipynb` oder `99_statistics_md.ipynb` anpassen.** Es genügt, die Signal-Schnittstelle korrekt zu implementieren und die Hyperparameter in der Config zu registrieren.
 
 ---
 
@@ -354,7 +355,65 @@ trading_signal = df[signal_col].shift(cfg.backtesting.signal_shift).fillna(0)
 
 ---
 
-## 7. Code-Template (Copy & Paste)
+## 7. Dokumentation aktualisieren
+
+Nach der erfolgreichen Integration des Modells in die Pipeline (Schritte 1–6) müssen **drei Dokumentationsebenen** aktualisiert werden, damit das neue Modell korrekt in der Projektdokumentation erscheint.
+
+> **Hinweis:** Die quantitativen Tabellen (Performance Summary, Evaluation-Matrix, SORR-Summary, MCS-Summary) und die meisten Plots (Equity Curves, Regime Comparison, MCS-Boxplots) werden dank Dynamic Matching **automatisch** generiert. Die folgenden Schritte betreffen ausschließlich die **manuellen** Dokumentationsanpassungen.
+
+### Schritt A: Asset-Pfad in `config.yaml` registrieren
+
+Damit Notebook 99 den Modell-Plot referenzieren kann, muss unter `paths.assets` ein Eintrag hinzugefügt werden:
+
+```yaml
+paths:
+  assets:
+    # ... bestehende Einträge ...
+    my_model: "my_model.png"           # ← Dateiname des Regime-Plots
+```
+
+> Der Plot selbst wird in Notebook `03_regime_switching_models.ipynb` erzeugt und unter `assets/` gespeichert. Die Config definiert lediglich den Dateinamen, über den Notebook 99 den Plot einbettet.
+
+### Schritt B: Modell-Abschnitt in Notebook 99 ergänzen (`statistics.md`)
+
+Die Datei `docs/statistics.md` wird **vollständig automatisch** durch `jupyter/99_statistics_md.ipynb` generiert. Die **Sektion 3 ("Regime-Erkennung der Einzelmodelle")** enthält jedoch für jedes Modell einen manuell gepflegten Absatz mit Beschreibung und Bildverweis im f-String-Template.
+
+Öffne `jupyter/99_statistics_md.ipynb` und füge innerhalb des f-Strings (`stats_md_content`) an der passenden Stelle in Sektion 3 einen neuen Unterabschnitt ein:
+
+```python
+### G. <Modellname> (<Paradigma>)
+<Kurzbeschreibung des Modells: Ansatz, Besonderheit, Trainings-Setting.>
+![<Modellname> Model](../assets/{{cfg.paths.assets.my_model}})
+```
+
+**Orientierung:** Die bestehenden Abschnitte A–F folgen der Reihenfolge Ökonometrie → ML (Supervised) → ML (Unsupervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
+
+> **Wichtig:** Bearbeite **niemals** `docs/statistics.md` direkt. Die Datei wird beim nächsten Pipeline-Durchlauf überschrieben. Alle Änderungen müssen im Notebook 99 im f-String-Template erfolgen.
+
+### Schritt C: README.md aktualisieren
+
+Die `README.md` enthält im Abschnitt **"Methodik & Modelle"** eine Beschreibung aller Modellkategorien. Ergänze dort einen Eintrag für dein neues Modell:
+
+- **Unter Punkt 1 (Ökonometrische Modelle)** — wenn es sich um ein statistisches Verfahren handelt
+- **Unter Punkt 2 (Machine-Learning-Verfahren)** — wenn es sich um ein ML-/DL-Modell handelt
+
+Verwende den Stil und Detailgrad der bestehenden Modellbeschreibungen als Vorlage. Ein Eintrag sollte mindestens enthalten:
+1. **Modellname** und Architektur-Typ (fett)
+2. Kurzbeschreibung des Ansatzes (1–2 Sätze)
+3. Trainings-Setting (Supervised / Unsupervised) und ggf. Label-Quelle
+
+### Schritt D (optional): Architektur-Dokumentation in `docs/`
+
+Für komplexe Modelle (insb. neuronale Netze) empfiehlt es sich, eine dedizierte Architektur-Beschreibung unter `docs/` abzulegen. Bestehende Referenz: [`docs/transformer-architecture-diagram.md`](transformer-architecture-diagram.md).
+
+Eine solche Datei sollte enthalten:
+- Schematische Darstellung der Schichten / Module (als Text-Diagramm oder Bild)
+- Input-/Output-Dimensionen
+- Verweis auf den zugehörigen Config-Key (`cfg.models.<name>`)
+
+---
+
+## 8. Code-Template (Copy & Paste)
 
 ### A. Config-Eintrag (`config/config.yaml`)
 
@@ -437,7 +496,7 @@ else:
 
 ---
 
-## 8. Validierungs-Checkliste
+## 9. Validierungs-Checkliste
 
 Führe nach der Integration folgende Prüfungen durch:
 
@@ -458,6 +517,13 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] Bear-Regime weist im Durchschnitt **höheren VIX** auf als Bull-Regime
 - [ ] Die Signalverteilung ist plausibel (nicht 99% ein Regime)
 
+### Dokumentations-Prüfungen
+- [ ] Asset-Pfad für den Modell-Plot in `config.yaml` unter `paths.assets` registriert
+- [ ] Neuer Abschnitt in Notebook 99 (f-String-Template, Sektion 3) eingefügt
+- [ ] `README.md` — Modell in "Methodik & Modelle" beschrieben
+- [ ] (Optional) Architektur-Dokumentation unter `docs/` angelegt
+- [ ] `docs/statistics.md` enthält nach Pipeline-Durchlauf den neuen Modell-Abschnitt mit korrektem Bild
+
 ### Pipeline-Integration
 - [ ] `jupyter/03_regime_switching_models.ipynb` läuft fehlerfrei durch
 - [ ] Die Datei `data/03_test_df_data.parquet` wird erfolgreich aktualisiert
@@ -474,7 +540,7 @@ Führe nach der Integration folgende Prüfungen durch:
 
 ---
 
-## 9. Referenz-Implementierungen
+## 10. Referenz-Implementierungen
 
 Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` dienen als Referenz. Alle laden ihre Hyperparameter aus der zentralen `config.yaml`:
 
@@ -518,7 +584,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 
 ---
 
-## 10. FAQ & Troubleshooting
+## 11. FAQ & Troubleshooting
 
 ### Mein Modell taucht nicht im Backtesting auf
 **Ursache:** Die Signal-Spalte endet nicht exakt auf `_Signal` oder enthält `NaN`-Werte.
