@@ -119,7 +119,8 @@ Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichti
 
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
-### 5. Statistische Siginifikanz (Monte-Carlo-Simulation (MCS)
+### 5. Statistische Siginifika
+nz (Monte-Carlo-Simulation (MCS)
 Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
@@ -154,14 +155,12 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter zu steigern, sind folgende Entwicklungsschritte geplant:
 
 ### 1. Modell-Erweiterungen
-*   **Modell-Varianz:** Integration weiterer populärer Regime-Switching-Ansätze (z. B. GARCH-Modelle, Random Forests oder Gradient Boosting Verfahren) in das Vergleichs-Framework.
 *   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
 
 ### 2. Analyse & Infrastruktur
-*   **Zentralisiertes Konfigurationsmanagement:** Implementierung einer zentralen Steuerungseinheit (z. B. via `config.yaml` oder einer dedizierten Konfigurations-Klasse), um globale Parameter wie Simulationszeiträume, Asset-Gewichtungen, Transaktionskostensätze und Modell-Hyperparameter konsistent über alle Pipeline-Module hinweg zu verwalten.
+*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 *   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
 *   **Systemarchitektur-Diagramm:** Erstellung eines detaillierten konzeptionellen Architekturdiagramms (Flow-Chart), um den modularen Datenfluss, die Interaktionen zwischen den Paradigmen (Ökonometrie & ML) sowie die Persistierungs-Logik innerhalb der Pipeline visuell darzustellen.
-*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
 
 ---
 
@@ -169,8 +168,6 @@ Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
 
-**Autor:** Tom Maurer B.Sc.
-
-**Betreuer:** Prof. Dr. Christian Müller-Kett
-
+**Autor:** Tom Maurer B.Sc.<br>
+**Betreuer:** Prof. Dr. Christian Müller-Kett<br>
 **Akademischer Kontext:** Master-Thesis Projekt im Bereich Quantitative Finance / Data Science.
