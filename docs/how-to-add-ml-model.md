@@ -83,6 +83,7 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 | MS_Exo            | `MS_Exo_Prob`            | `MS_Exo_Signal`            | Ökonometrie (Exogen)       |
 | LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            |
 | LSTM_Unsupervised | `LSTM_Unsupervised_Prob` | `LSTM_Unsupervised_Signal` | ML (Unsupervised)          |
+| Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     |
 
 ---
 
@@ -572,6 +573,13 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Config-Key:** `models.lstm_unsupervised` (window_size, train_test_split, encoder_units, decoder_units, activation, optimizer, loss, epochs, batch_size, validation_split, n_components, gmm_n_init, gmm_random_state)
 - **Besonderheit:** Rein datengetrieben, keine vordefinierten Labels; dient als objektive Kontrollinstanz
 
+### E. Transformer (Supervised, Attention-basiert) — Machine Learning
+- **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
+- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf Markov-Labels
+- **Output:** `Transformer_Prob`, `Transformer_Signal`
+- **Config-Key:** `models.transformer` (window_size, d_model, n_heads, n_layers, dim_feedforward, dropout, epochs, batch_size, learning_rate, threshold, pos_weight_auto)
+- **Besonderheit:** Nutzt BCEWithLogitsLoss mit automatischer Class-Balance-Gewichtung (sqrt pos_weight). Testet Hypothese H2 (Attention-Mechanismus vs. ökonometrische MSM). Dient als **Referenz-Implementierung** für die guide-konforme Signal-Schnittstelle (vollständiger Sanity Check, Assertions, Config-only Hyperparameter).
+
 ### Config-Mapping Übersicht
 
 | Modell | Config-Key | Wichtigste Parameter |
@@ -580,6 +588,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 | MS_Univariate / MS_Exo | `cfg.models.markov_switching` | `k_regimes`, `switching_variance` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | LSTM_Unsupervised | `cfg.models.lstm_unsupervised` | `window_size`, `encoder_units`, `decoder_units`, `epochs`, `n_components` |
+| Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
 | **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |
 
 ---
