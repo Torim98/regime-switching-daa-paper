@@ -282,18 +282,22 @@ df[f'{MODEL_NAME}_Signal'] = (df[f'{MODEL_NAME}_Prob'] >= threshold).astype(int)
 
 ### Schritt 5: Signale in den DataFrame schreiben
 
-Deine Spalten `MyModel_Prob` und `MyModel_Signal` sind jetzt Teil von `df`. Prüfe direkt nach der Zuweisung, ob die Signale plausibel sind:
+Deine Spalten `MyModel_Prob` und `MyModel_Signal` sind jetzt Teil von `df`. 
+Die Pipeline stellt eine Helper-Funktion bereit, die Statistiken ausgibt, 
+Plausibilität prüft (mit automatischer Label-Inversion) und formale Assertions durchführt:
 
-```python
-# Quick-Sanity-Check
-print(f"\n{MODEL_NAME} — Statistik nach Regimes:")
-print(df.groupby(f'{MODEL_NAME}_Signal')[['Returns', 'VIX', 'Yield_Spread', f'{MODEL_NAME}_Prob']].mean())
-print(f"\nSignal-Verteilung:\n{df[f'{MODEL_NAME}_Signal'].value_counts()}")
-```
+\```python
+# Sanity Check + Validierung (definiert in der Helper-Cell am Anfang des Notebooks)
+validate_regime_signal(df, MODEL_NAME)
+validate_regime_signal(df, MODEL_NAME) # Alternative nach Einschränkung des Testzeitraums
+\```
 
-**Erwartete Plausibilitätskriterien:**
-- Regime `1` (Bear) sollte **niedrigere Returns** und **höheren VIX** aufweisen als Regime `0` (Bull)
-- Falls dies umgekehrt ist, müssen die Labels getauscht werden (das Modell hat die Regimes vertauscht zugeordnet)
+> **Was passiert intern?**
+> - Regime-Statistik (Returns, VIX, Yield_Spread pro Signal)
+> - Signal-Verteilung (`value_counts()`)
+> - Plausibilitäts-Check: Bear-Regime (1) muss niedrigere Returns haben als Bull (0)
+> - Falls invertiert → automatische Label-Korrektur (`auto_invert=True`)
+> - Formale Assertions: Spaltenexistenz, Wertebereich `[0,1]`, keine NaN
 
 ### Schritt 6: DataFrame speichern
 
@@ -440,59 +444,9 @@ Füge unter `models:` hinzu:
 Füge die folgende Vorlage als **neue Zelle** ein (vor der finalen Speicher-Zelle):
 
 ```python
-# =============================================================================
-# Neues Modell: <Modellname>
-# Typ: <Supervised | Unsupervised | Regression | ...>
-# Beschreibung: <Kurze Beschreibung des Ansatzes>
-# Config-Key: models.my_model
-# =============================================================================
-
-MODEL_NAME = "MyModel"  # ← Hier anpassen (kein _Signal / _Prob Suffix!)
-
-# --- 0. Hyperparameter aus zentraler Config laden ---
-my_cfg = cfg.models.my_model      # Alle Parameter aus config/config.yaml
-
-# --- 1. Features vorbereiten ---
-feature_cols = cfg.features.model_features
-X = df[feature_cols].dropna()
-
-# --- 2. Modell trainieren (alle Hyperparameter aus Config!) ---
-# from my_library import MyModel
-# model = MyModel(
-#     window_size=my_cfg.window_size,
-#     units=my_cfg.units,
-#     dropout=my_cfg.dropout,
-#     epochs=my_cfg.epochs,
-#     batch_size=my_cfg.batch_size,
-#     learning_rate=my_cfg.learning_rate,
-#     validation_split=my_cfg.validation_split,
-# )
-# model.fit(X)
-
-# --- 3. Bear-Wahrscheinlichkeiten berechnen ---
-# bear_probs = model.predict_proba(X)  # Werte zwischen 0.0 und 1.0
-# HINWEIS: Falls dein Modell Bull-Wahrscheinlichkeiten liefert → bear_probs = 1 - bull_probs
-
-# --- 4. Ergebnisse in den DataFrame schreiben ---
-# df[f'{MODEL_NAME}_Prob'] = np.nan  # Initialisierung (wegen dropna oben)
-# df.loc[X.index, f'{MODEL_NAME}_Prob'] = bear_probs
-# df[f'{MODEL_NAME}_Signal'] = (df[f'{MODEL_NAME}_Prob'] >= my_cfg.threshold).astype(int)
-
 # --- 5. Sanity Check ---
-print(f"\n{'='*60}")
-print(f"   {MODEL_NAME} — Regime-Statistik")
-print(f"{'='*60}")
-print(df.groupby(f'{MODEL_NAME}_Signal')[['Returns', 'VIX', 'Yield_Spread', f'{MODEL_NAME}_Prob']].mean())
-print(f"\nSignal-Verteilung:\n{df[f'{MODEL_NAME}_Signal'].value_counts()}")
-
-# --- 6. Plausibilitäts-Check: Bear-Regime sollte niedrigere Returns haben ---
-mean_returns_by_regime = df.groupby(f'{MODEL_NAME}_Signal')['Returns'].mean()
-if mean_returns_by_regime.get(1, 0) > mean_returns_by_regime.get(0, 0):
-    print(f"\n WARNUNG: {MODEL_NAME} Bear-Regime (1) hat höhere Returns als Bull (0)!")
-    print("    → Labels könnten vertauscht sein. Bitte prüfen und ggf. invertieren:")
-    print(f"    → df['{MODEL_NAME}_Signal'] = 1 - df['{MODEL_NAME}_Signal']")
-else:
-    print(f"\n {MODEL_NAME} Plausibilitäts-Check bestanden.")
+validate_regime_signal(df, MODEL_NAME)
+# validate_regime_signal(df, MODEL_NAME) # Alternative nach Einschränkung des Testzeitraums
 ```
 
 ---
@@ -613,10 +567,10 @@ print(df['MyModel_Signal'].value_counts(normalize=True))
 
 ### Bear-Regime hat höhere Returns als Bull-Regime
 **Ursache:** Die Labels sind vertauscht (häufig bei Unsupervised-Modellen).
-**Lösung:** Invertiere Signal und Wahrscheinlichkeit:
+**Lösung:** `validate_regime_signal()` erkennt und korrigiert dies automatisch 
+(`auto_invert=True`). Falls du die automatische Inversion deaktivieren möchtest:
 ```python
-df['MyModel_Signal'] = 1 - df['MyModel_Signal']
-df['MyModel_Prob'] = 1 - df['MyModel_Prob']
+validate_regime_signal(df, MODEL_NAME, auto_invert=False)
 ```
 
 ### Config-Fehler: `AttributeError: 'SimpleNamespace' object has no attribute 'my_model'`

@@ -10,13 +10,13 @@ Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Tes
 
 | Strategie         |   Final Wealth | Total Return   | Max Drawdown   |
 |:------------------|---------------:|:---------------|:---------------|
-| Buy_Hold          |         1.8901 | +89.01%        | -27.10%        |
-| HMM               |         1.7254 | +72.54%        | -5.64%         |
-| MS_Univariate     |         2.5103 | +151.03%       | -6.25%         |
-| MS_Exo            |         2.4457 | +144.57%       | -5.44%         |
-| LSTM              |         1.6345 | +63.45%        | -12.50%        |
-| LSTM_Unsupervised |         1.7827 | +78.27%        | -17.44%        |
-| Transformer       |         1.4445 | +44.45%        | -8.03%         |
+| Buy_Hold          |         1.8801 | +88.01%        | -27.10%        |
+| HMM               |         1.7249 | +72.49%        | -5.64%         |
+| MS_Univariate     |         2.497  | +149.70%       | -6.25%         |
+| MS_Exo            |         2.4328 | +143.28%       | -5.44%         |
+| LSTM              |         1.7632 | +76.32%        | -13.04%        |
+| LSTM_Unsupervised |         1.6856 | +68.56%        | -10.53%        |
+| Transformer       |         1.5324 | +53.24%        | -8.00%         |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
@@ -74,13 +74,13 @@ Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharp
 
 | Strategie         | Total Return   | CAGR (p.a.)   | Volatilität   | Max Drawdown   |   Sharpe Ratio |   Sortino Ratio |   Calmar Ratio |   Regime-Wechsel | Gesamtkosten (Gebühren)   |
 |:------------------|:---------------|:--------------|:--------------|:---------------|---------------:|----------------:|---------------:|-----------------:|:--------------------------|
-| Buy Hold          | 88.92%         | 9.45%         | 12.61%        | -27.10%        |           0.78 |            1.01 |           0.35 |                0 | 0.00%                     |
-| HMM               | 72.46%         | 8.04%         | 4.84%         | -5.64%         |           1.63 |            1.53 |           1.43 |               31 | 3.10%                     |
-| MS Univariate     | 150.91%        | 13.95%        | 6.33%         | -6.25%         |           2.1  |            2.73 |           2.23 |               42 | 4.20%                     |
-| MS Exo            | 144.46%        | 13.53%        | 6.41%         | -5.44%         |           2.02 |            2.61 |           2.49 |               38 | 3.80%                     |
-| LSTM              | 63.37%         | 7.22%         | 7.93%         | -12.50%        |           0.92 |            1.06 |           0.58 |               40 | 4.00%                     |
-| LSTM Unsupervised | 78.20%         | 8.55%         | 9.58%         | -17.44%        |           0.91 |            0.94 |           0.49 |               25 | 2.60%                     |
-| Transformer       | 44.39%         | 5.35%         | 6.10%         | -8.03%         |           0.89 |            0.93 |           0.67 |               58 | 5.80%                     |
+| Buy Hold          | 86.73%         | 9.27%         | 12.61%        | -27.10%        |           0.77 |            0.99 |           0.34 |                0 | 0.00%                     |
+| HMM               | 71.31%         | 7.94%         | 4.83%         | -5.64%         |           1.61 |            1.51 |           1.41 |               31 | 3.10%                     |
+| MS Univariate     | 148.00%        | 13.76%        | 6.33%         | -6.25%         |           2.08 |            2.7  |           2.2  |               42 | 4.20%                     |
+| MS Exo            | 141.62%        | 13.34%        | 6.41%         | -5.44%         |           1.99 |            2.58 |           2.45 |               38 | 3.80%                     |
+| LSTM              | 75.12%         | 8.28%         | 8.14%         | -13.04%        |           1.02 |            1.26 |           0.63 |               30 | 3.00%                     |
+| LSTM Unsupervised | 67.41%         | 7.59%         | 7.47%         | -10.53%        |           1.02 |            1.21 |           0.72 |               34 | 3.40%                     |
+| Transformer       | 52.20%         | 6.14%         | 6.53%         | -8.00%         |           0.95 |            1.06 |           0.77 |               54 | 5.40%                     |
 
 ### Transaktionskosten
 
@@ -97,27 +97,27 @@ In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Ger
 
 |                                      | Endkapital   | Status        |
 |:-------------------------------------|:-------------|:--------------|
-| ('Standard', 'Buy Hold')             | 656,434.52 € | Kapitalerhalt |
-| ('Standard', 'HMM')                  | 580,929.07 € | Kapitalerhalt |
-| ('Standard', 'MS Univariate')        | 912,128.07 € | Kapitalerhalt |
-| ('Standard', 'MS Exo')               | 878,483.74 € | Kapitalerhalt |
-| ('Standard', 'LSTM')                 | 552,928.46 € | Kapitalerhalt |
-| ('Standard', 'LSTM Unsupervised')    | 614,326.06 € | Kapitalerhalt |
-| ('Standard', 'Transformer')          | 476,382.26 € | Kapitalerhalt |
-| ('Aggressive', 'Buy Hold')           | 483,522.72 € | Kapitalerhalt |
-| ('Aggressive', 'HMM')                | 412,096.61 € | Kapitalerhalt |
-| ('Aggressive', 'MS Univariate')      | 706,660.94 € | Kapitalerhalt |
-| ('Aggressive', 'MS Exo')             | 672,181.35 € | Kapitalerhalt |
-| ('Aggressive', 'LSTM')               | 394,562.74 € | Kapitalerhalt |
-| ('Aggressive', 'LSTM Unsupervised')  | 448,334.79 € | Kapitalerhalt |
-| ('Aggressive', 'Transformer')        | 329,054.14 € | Kapitalerhalt |
-| ('Low_Capital', 'Buy Hold')          | 336,223.45 € | Kapitalerhalt |
-| ('Low_Capital', 'HMM')               | 292,279.96 € | Kapitalerhalt |
-| ('Low_Capital', 'MS Univariate')     | 478,787.80 € | Kapitalerhalt |
-| ('Low_Capital', 'MS Exo')            | 458,322.78 € | Kapitalerhalt |
-| ('Low_Capital', 'LSTM')              | 278,968.50 € | Kapitalerhalt |
-| ('Low_Capital', 'LSTM Unsupervised') | 313,265.21 € | Kapitalerhalt |
-| ('Low_Capital', 'Transformer')       | 236,719.98 € | Kapitalerhalt |
+| ('Standard', 'Buy Hold')             | 646,886.32 € | Kapitalerhalt |
+| ('Standard', 'HMM')                  | 575,161.36 € | Kapitalerhalt |
+| ('Standard', 'MS Univariate')        | 899,251.03 € | Kapitalerhalt |
+| ('Standard', 'MS Exo')               | 865,987.54 € | Kapitalerhalt |
+| ('Standard', 'LSTM')                 | 600,876.93 € | Kapitalerhalt |
+| ('Standard', 'LSTM Unsupervised')    | 561,182.00 € | Kapitalerhalt |
+| ('Standard', 'Transformer')          | 505,822.54 € | Kapitalerhalt |
+| ('Aggressive', 'Buy Hold')           | 474,831.96 € | Kapitalerhalt |
+| ('Aggressive', 'HMM')                | 406,322.45 € | Kapitalerhalt |
+| ('Aggressive', 'MS Univariate')      | 694,805.09 € | Kapitalerhalt |
+| ('Aggressive', 'MS Exo')             | 660,709.73 € | Kapitalerhalt |
+| ('Aggressive', 'LSTM')               | 436,042.35 € | Kapitalerhalt |
+| ('Aggressive', 'LSTM Unsupervised')  | 395,650.79 € | Kapitalerhalt |
+| ('Aggressive', 'Transformer')        | 352,730.17 € | Kapitalerhalt |
+| ('Low_Capital', 'Buy Hold')          | 330,780.34 € | Kapitalerhalt |
+| ('Low_Capital', 'HMM')               | 288,817.18 € | Kapitalerhalt |
+| ('Low_Capital', 'MS Univariate')     | 471,401.97 € | Kapitalerhalt |
+| ('Low_Capital', 'MS Exo')            | 451,166.59 € | Kapitalerhalt |
+| ('Low_Capital', 'LSTM')              | 305,581.30 € | Kapitalerhalt |
+| ('Low_Capital', 'LSTM Unsupervised') | 281,532.13 € | Kapitalerhalt |
+| ('Low_Capital', 'Transformer')       | 252,462.73 € | Kapitalerhalt |
 
 Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
 ![SORR Standard](../assets/sorr_sim_standard.png)
@@ -130,27 +130,27 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 ![MCS Paths](../assets/mcs_paths.png)
 |                                      | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------------|:--------------------------|:--------------------|
-| ('Standard', 'Buy Hold')             | 0.00%                     | 785,197.19 €        |
-| ('Standard', 'HMM')                  | 0.00%                     | 617,166.38 €        |
-| ('Standard', 'MS Univariate')        | 0.00%                     | 1,270,890.43 €      |
-| ('Standard', 'MS Exo')               | 0.00%                     | 1,235,744.00 €      |
-| ('Standard', 'LSTM')                 | 0.00%                     | 542,486.69 €        |
-| ('Standard', 'LSTM Unsupervised')    | 0.00%                     | 688,640.10 €        |
-| ('Standard', 'Transformer')          | 0.00%                     | 425,701.54 €        |
-| ('Aggressive', 'Buy Hold')           | 1.00%                     | 463,722.00 €        |
-| ('Aggressive', 'HMM')                | 0.00%                     | 381,834.11 €        |
-| ('Aggressive', 'MS Univariate')      | 0.00%                     | 875,246.73 €        |
-| ('Aggressive', 'MS Exo')             | 0.00%                     | 849,639.80 €        |
-| ('Aggressive', 'LSTM')               | 0.00%                     | 317,240.65 €        |
-| ('Aggressive', 'LSTM Unsupervised')  | 1.00%                     | 394,444.63 €        |
-| ('Aggressive', 'Transformer')        | 0.00%                     | 189,067.84 €        |
-| ('Low_Capital', 'Buy Hold')          | 1.00%                     | 349,751.16 €        |
-| ('Low_Capital', 'HMM')               | 0.00%                     | 293,172.90 €        |
-| ('Low_Capital', 'MS Univariate')     | 0.00%                     | 597,320.83 €        |
-| ('Low_Capital', 'MS Exo')            | 0.00%                     | 572,427.30 €        |
-| ('Low_Capital', 'LSTM')              | 0.00%                     | 241,217.15 €        |
-| ('Low_Capital', 'LSTM Unsupervised') | 0.00%                     | 289,464.42 €        |
-| ('Low_Capital', 'Transformer')       | 0.00%                     | 163,202.75 €        |
+| ('Standard', 'Buy Hold')             | 0.00%                     | 793,324.31 €        |
+| ('Standard', 'HMM')                  | 0.00%                     | 629,977.03 €        |
+| ('Standard', 'MS Univariate')        | 0.00%                     | 1,277,197.69 €      |
+| ('Standard', 'MS Exo')               | 0.00%                     | 1,234,694.95 €      |
+| ('Standard', 'LSTM')                 | 0.00%                     | 639,890.05 €        |
+| ('Standard', 'LSTM Unsupervised')    | 0.00%                     | 604,878.72 €        |
+| ('Standard', 'Transformer')          | 0.00%                     | 493,383.64 €        |
+| ('Aggressive', 'Buy Hold')           | 0.00%                     | 469,792.44 €        |
+| ('Aggressive', 'HMM')                | 0.00%                     | 384,686.47 €        |
+| ('Aggressive', 'MS Univariate')      | 0.00%                     | 894,262.40 €        |
+| ('Aggressive', 'MS Exo')             | 0.00%                     | 851,946.57 €        |
+| ('Aggressive', 'LSTM')               | 0.00%                     | 408,691.58 €        |
+| ('Aggressive', 'LSTM Unsupervised')  | 0.00%                     | 350,243.09 €        |
+| ('Aggressive', 'Transformer')        | 0.00%                     | 255,199.10 €        |
+| ('Low_Capital', 'Buy Hold')          | 1.00%                     | 354,639.02 €        |
+| ('Low_Capital', 'HMM')               | 0.00%                     | 295,481.15 €        |
+| ('Low_Capital', 'MS Univariate')     | 0.00%                     | 598,246.14 €        |
+| ('Low_Capital', 'MS Exo')            | 0.00%                     | 587,170.08 €        |
+| ('Low_Capital', 'LSTM')              | 0.00%                     | 312,296.41 €        |
+| ('Low_Capital', 'LSTM Unsupervised') | 0.00%                     | 258,446.82 €        |
+| ('Low_Capital', 'Transformer')       | 0.00%                     | 198,773.46 €        |
 
 Verteilung der Endkapitalwerte:
 
@@ -173,6 +173,6 @@ Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalen
 - **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
 
 ---
-**Zuletzt aktualisiert:** 03.03.2026 18:10<br>
+**Zuletzt aktualisiert:** 04.03.2026 15:37<br>
 **Fast Mode Status zur Laufzeit:** TRUE (Development Mode)<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
