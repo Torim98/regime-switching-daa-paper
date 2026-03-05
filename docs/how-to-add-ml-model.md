@@ -69,7 +69,7 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 ```
 
 **Regeln für `<Modellname>`:**
-- Verwende **PascalCase** oder **Snake_Case** mit Großbuchstaben (z.B. `Transformer`, `LSTM_Unsupervised`, `MS_Exo`)
+- Verwende **PascalCase** oder **Snake_Case** mit Großbuchstaben (z.B. , `HMM`, `MS`, `Transformer`, `LSTM`)
 - **Keine Leerzeichen**, verwende stattdessen Unterstriche
 - Der Name muss **eindeutig** sein und darf nicht mit dem Namen eines bestehenden Modells kollidieren
 - Der Suffix `_Signal` ist **reserviert** und wird vom Dynamic-Matching-Algorithmus als Erkennungsmerkmal verwendet
@@ -79,10 +79,8 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 | Modellname        | `_Prob`-Spalte           | `_Signal`-Spalte           | Paradigma                  |
 | :---------------- | :----------------------- | :------------------------- | :------------------------- |
 | HMM               | `HMM_Prob`               | `HMM_Signal`               | Ökonometrie (Unsupervised) |
-| MS_Univariate     | `MS_Univariate_Prob`     | `MS_Univariate_Signal`     | Ökonometrie (Regression)   |
-| MS_Exo            | `MS_Exo_Prob`            | `MS_Exo_Signal`            | Ökonometrie (Exogen)       |
+| MS                | `MS_Prob`                | `MS_Signal`                | Ökonometrie (Regression)   |
 | LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            |
-| LSTM_Unsupervised | `LSTM_Unsupervised_Prob` | `LSTM_Unsupervised_Signal` | ML (Unsupervised)          |
 | Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     |
 
 ---
@@ -138,7 +136,7 @@ cfg.transaction_cost_rate             # → 0.001 (convenience property)
 
 ```yaml
 models:
-  # ... bestehende Modelle (hmm, markov_switching, lstm, lstm_unsupervised) ...
+  # ... bestehende Modelle (hmm, ms, lstm, transformer) ...
 
   my_model:                    # ← Schlüsselname in snake_case
     window_size: 20            # Beispiel-Hyperparameter
@@ -181,7 +179,6 @@ fast_mode:
   enabled: false
   overrides:
     lstm_epochs: 5
-    lstm_unsupervised_epochs: 10
     mcs_n_paths: 100
     my_model_epochs: 5          # ← Neuer Override
 ```
@@ -391,7 +388,7 @@ Die Datei `docs/statistics.md` wird **vollständig automatisch** durch `jupyter/
 ![<Modellname> Model](../assets/{{cfg.paths.assets.my_model}})
 ```
 
-**Orientierung:** Die bestehenden Abschnitte A–F folgen der Reihenfolge Ökonometrie → ML (Supervised) → ML (Unsupervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
+**Orientierung:** Die bestehenden Abschnitte A–D folgen der Reihenfolge Ökonometrie → ML (Supervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
 
 > **Wichtig:** Bearbeite **niemals** `docs/statistics.md` direkt. Die Datei wird beim nächsten Pipeline-Durchlauf überschrieben. Alle Änderungen müssen im Notebook 99 im f-String-Template erfolgen.
 
@@ -459,7 +456,7 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] Die Spalte `<Modell>_Prob` existiert in `test_df` und enthält `float`-Werte zwischen `0.0` und `1.0`
 - [ ] Die Spalte `<Modell>_Signal` existiert in `test_df` und enthält ausschließlich `0` oder `1`
 - [ ] Keine `NaN`-Werte in `<Modell>_Signal` (im Testzeitraum)
-- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`HMM`, `MS_Univariate`, `MS_Exo`, `LSTM`, `LSTM_Unsupervised`)
+- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`HMM`, `MS`, `LSTM`, `Transformer`)
 
 ### Config-Prüfungen
 - [ ] Neuer Eintrag unter `models:` in `config/config.yaml` angelegt
@@ -506,12 +503,12 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
 - **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
 
-### B. Markov-Switching-Modelle (MS_Univariate, MS_Exo) — Ökonometrie
+### B. Markov-Switching (MS) — Ökonometrie
 - **Bibliothek:** `statsmodels` (MarkovRegression)
-- **Ansatz:** Regressionsmodell mit zustandsabhängigen Parametern
-- **Output:** `MS_Univariate_Prob` / `MS_Univariate_Signal` und `MS_Exo_Prob` / `MS_Exo_Signal`
+- **Ansatz:** Univariates Regressionsmodell mit zustandsabhängigen Parametern (switching variance)
+- **Output:** `MS_Prob`, `MS_Signal`
 - **Config-Key:** `models.markov_switching` (k_regimes, switching_variance)
-- **Besonderheit:** `MS_Exo` nutzt zusätzlich exogene Variablen (VIX, Yield Spread) als erklärende Variablen
+- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
 
 ### C. LSTM (Supervised) — Machine Learning
 - **Bibliothek:** `TensorFlow` / `Keras`
@@ -520,14 +517,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Config-Key:** `models.lstm` (window_size, units, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose, labels)
 - **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem MS_Univariate-Modell (konfigurierbar via `models.lstm.labels`)
 
-### D. LSTM Unsupervised (Deep Clustering) — Machine Learning
-- **Bibliothek:** `TensorFlow` / `Keras` + `Scikit-Learn` (GMM)
-- **Ansatz:** LSTM-Autoencoder komprimiert Markt-Sequenzen in latenten Raum; Gaussian Mixture Model clustert die Embeddings
-- **Output:** `LSTM_Unsupervised_Prob`, `LSTM_Unsupervised_Signal`
-- **Config-Key:** `models.lstm_unsupervised` (window_size, train_test_split, encoder_units, decoder_units, activation, optimizer, loss, epochs, batch_size, validation_split, n_components, gmm_n_init, gmm_random_state)
-- **Besonderheit:** Rein datengetrieben, keine vordefinierten Labels; dient als objektive Kontrollinstanz
-
-### E. Transformer (Supervised, Attention-basiert) — Machine Learning
+### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
 - **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf Markov-Labels
 - **Output:** `Transformer_Prob`, `Transformer_Signal`
@@ -539,9 +529,8 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 | Modell | Config-Key | Wichtigste Parameter |
 |:---|:---|:---|
 | HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
-| MS_Univariate / MS_Exo | `cfg.models.markov_switching` | `k_regimes`, `switching_variance` |
+| MS | `cfg.models.markov_switching` | `k_regimes`, `switching_variance` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
-| LSTM_Unsupervised | `cfg.models.lstm_unsupervised` | `window_size`, `encoder_units`, `decoder_units`, `epochs`, `n_components` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
 | **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |
 
@@ -593,7 +582,6 @@ fast_mode:
   enabled: true
   overrides:
     lstm_epochs: 5
-    lstm_unsupervised_epochs: 10
     mcs_n_paths: 100
 ```
 Dies reduziert Training-Epochs und MCS-Pfade automatisch. Vergiss nicht, vor dem finalen Run `fast_mode.enabled: false` zu setzen.

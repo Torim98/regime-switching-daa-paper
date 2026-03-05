@@ -54,14 +54,11 @@ models:
   markov_switching:
     k_regimes: 2
     switching_variance: true
-    exo_features:
-      - "VIX"
-      - "Yield_Spread"
-    threshold: 0.5
+    threshold: &threshold 0.5   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold
   lstm:
-    window_size: &lstm_window 30                   # Sollte sich mit lstm_unsupervised window_size decken
-    train_test_split: &lstm_train_test_split 0.8   # 80% Training, 20% Test, wie im lstm_unsupervised model
-    labels: "MS_Univariate_Signal"
+    window_size: &lstm_window 30
+    train_test_split: &lstm_train_test_split 0.8
+    labels: "MS_Signal"
     units: 64
     return_sequences: true
     epochs: 30
@@ -75,30 +72,12 @@ models:
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.5
-  lstm_unsupervised:
-    window_size: *lstm_window                      # Sollte sich mit lstm window_size decken
-    train_test_split: *lstm_train_test_split       # 80% Training, 20% Test, wie im lstm model
-    # Autoencoder Architecture
-    encoder_units: 8            # LSTM-Units im Encoder
-    decoder_units: 8            # LSTM-Units im Decoder
-    activation: "tanh"          # Activation Function
-    optimizer: "adam"           # Optimizer
-    loss: "mse"                 # Loss Function
-    # Training
-    epochs: 50
-    batch_size: 64
-    validation_split: 0.1       # Anteil der Trainingsdaten für Validation
-    # GMM Clustering
-    n_components: 2             # GMM clusters
-    gmm_n_init: 10              # Anzahl GMM-Initialisierungen
-    gmm_random_state: 42        # Reproduzierbarkeit
-    threshold: 0.5
+    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
     window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM (30)
     train_test_split: *lstm_train_test_split       # 80/20 wie LSTM
-    labels: "MS_Univariate_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
+    labels: "MS_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
     d_model: 64                  # Embedding-Dimension (Transformer interne Dimension)
     n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!)
@@ -112,7 +91,7 @@ models:
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.5               # Bear-Signal wenn Prob >= threshold
+    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
      # --- Class Balancing ---
     pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
 
@@ -176,12 +155,13 @@ paths:
     mcs_boxplot_low_capital: "mcs_boxplot_low_capital.png"
     mcs_quantiles: "mcs_quantiles.png"
     hmm_regimes: "hmm_regimes.png"
-    markov_models: "markov-models.png"
+    markov_model: "markov-model.png"
     lstm_model: "lstm_model.png"
     lstm_unsupervised_model: "lstm_unsupervised_model.png"
     transformer_model: "transformer_model.png"
     regime_comparison: "regime_comparison.png"
     statistics_output: "../docs/statistics.md"
+
 ## --- Pipeline Execution ---
 pipeline:
   notebooks:
@@ -193,10 +173,10 @@ pipeline:
     - "05_evaluation.ipynb"
     - "99_statistics_md.ipynb"
 ## --- Fast Mode (Development) ---
+
 fast_mode:
   enabled: true
   overrides:
     lstm_epochs: 5
-    lstm_unsupervised_epochs: 10
     transformer_epochs: 10
     mcs_n_paths: 100
