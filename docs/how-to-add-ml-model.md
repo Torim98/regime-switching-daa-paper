@@ -69,7 +69,7 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 ```
 
 **Regeln für `<Modellname>`:**
-- Verwende **PascalCase** oder **Snake_Case** mit Großbuchstaben (z.B. , `HMM`, `MS`, `Transformer`, `LSTM`)
+- Verwende **PascalCase** oder **Snake_Case** mit Großbuchstaben (z.B. , `MSM`, `HMM`, `Transformer`, `LSTM`)
 - **Keine Leerzeichen**, verwende stattdessen Unterstriche
 - Der Name muss **eindeutig** sein und darf nicht mit dem Namen eines bestehenden Modells kollidieren
 - Der Suffix `_Signal` ist **reserviert** und wird vom Dynamic-Matching-Algorithmus als Erkennungsmerkmal verwendet
@@ -78,8 +78,8 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 
 | Modellname        | `_Prob`-Spalte           | `_Signal`-Spalte           | Paradigma                  |
 | :---------------- | :----------------------- | :------------------------- | :------------------------- |
+| MSM               | `MSM_Prob`               | `MSM_Signal`               | Ökonometrie (Regression)   |
 | HMM               | `HMM_Prob`               | `HMM_Signal`               | Ökonometrie (Unsupervised) |
-| MS                | `MS_Prob`                | `MS_Signal`                | Ökonometrie (Regression)   |
 | LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            |
 | Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     |
 
@@ -136,7 +136,7 @@ cfg.transaction_cost_rate             # → 0.001 (convenience property)
 
 ```yaml
 models:
-  # ... bestehende Modelle (hmm, ms, lstm, transformer) ...
+  # ... bestehende Modelle (msm, hmm, lstm, transformer) ...
 
   my_model:                    # ← Schlüsselname in snake_case
     window_size: 20            # Beispiel-Hyperparameter
@@ -147,7 +147,7 @@ models:
     epochs: 50
     batch_size: 32
     learning_rate: 0.001
-    threshold: 0.5             # Signal-Threshold
+    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
 ```
 
 **Schritt B:** Greife im Notebook auf die Parameter zu:
@@ -456,7 +456,7 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] Die Spalte `<Modell>_Prob` existiert in `test_df` und enthält `float`-Werte zwischen `0.0` und `1.0`
 - [ ] Die Spalte `<Modell>_Signal` existiert in `test_df` und enthält ausschließlich `0` oder `1`
 - [ ] Keine `NaN`-Werte in `<Modell>_Signal` (im Testzeitraum)
-- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`HMM`, `MS`, `LSTM`, `Transformer`)
+- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`MSM`, `HMM`, `LSTM`, `Transformer`)
 
 ### Config-Prüfungen
 - [ ] Neuer Eintrag unter `models:` in `config/config.yaml` angelegt
@@ -496,26 +496,26 @@ Führe nach der Integration folgende Prüfungen durch:
 
 Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` dienen als Referenz. Alle laden ihre Hyperparameter aus der zentralen `config.yaml`:
 
-### A. HMM (Hidden Markov Model) — Unsupervised, Ökonometrie
+### A. Markov-Switching (MSM) — Ökonometrie
+- **Bibliothek:** `statsmodels` (MarkovRegression)
+- **Ansatz:** Univariates Regressionsmodell mit zustandsabhängigen Parametern (switching variance)
+- **Output:** `MSM_Prob`, `MSM_Signal`
+- **Config-Key:** `models.msm` (k_regimes, switching_variance)
+- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
+
+### B. HMM (Hidden Markov Model) — Unsupervised, Ökonometrie
 - **Bibliothek:** `hmmlearn`
 - **Ansatz:** Identifiziert Cluster in den Datenverteilungen ohne gelabelte Daten
 - **Output:** `HMM_Prob`, `HMM_Signal`
 - **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
 - **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
 
-### B. Markov-Switching (MS) — Ökonometrie
-- **Bibliothek:** `statsmodels` (MarkovRegression)
-- **Ansatz:** Univariates Regressionsmodell mit zustandsabhängigen Parametern (switching variance)
-- **Output:** `MS_Prob`, `MS_Signal`
-- **Config-Key:** `models.markov_switching` (k_regimes, switching_variance)
-- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
-
 ### C. LSTM (Supervised) — Machine Learning
 - **Bibliothek:** `TensorFlow` / `Keras`
 - **Ansatz:** Supervised Learning auf Markov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
 - **Config-Key:** `models.lstm` (window_size, units, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose, labels)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem MS_Univariate-Modell (konfigurierbar via `models.lstm.labels`)
+- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem MSM_Univariate-Modell (konfigurierbar via `models.lstm.labels`)
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
@@ -528,8 +528,8 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 
 | Modell | Config-Key | Wichtigste Parameter |
 |:---|:---|:---|
+| MSM | `cfg.models.msm` | `k_regimes`, `switching_variance` |
 | HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
-| MS | `cfg.models.markov_switching` | `k_regimes`, `switching_variance` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
 | **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |
