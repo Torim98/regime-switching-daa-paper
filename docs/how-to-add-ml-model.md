@@ -150,6 +150,25 @@ models:
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
 ```
 
+### Farbe für Plots registrieren (optional)
+
+Damit dein Modell in allen Plots eine konsistente Farbe erhält, ergänze 
+unter `plotting.colors` einen Eintrag:
+
+\```yaml
+plotting:
+  colors:
+    # ... bestehende Modelle ...
+    MyModel: "tab:cyan"        # ← Deine Modellfarbe
+\```
+
+> **Hinweis:** Dieser Schritt ist optional. Modelle ohne Eintrag erhalten 
+> automatisch eine Farbe aus dem matplotlib Default-Cycle. Die Farbe wird 
+> über `cfg.color_map` in allen Notebooks (03, 04, 05) konsistent verwendet.
+
+Verfügbare Farbnamen: Alle [matplotlib Named Colors](https://matplotlib.org/stable/gallery/color/named_colors.html) 
+und `tab:`-Palette (z.B. `tab:blue`, `tab:red`, `tab:cyan`).
+
 **Schritt B:** Greife im Notebook auf die Parameter zu:
 
 ```python
@@ -413,6 +432,12 @@ Eine solche Datei sollte enthalten:
 - Input-/Output-Dimensionen
 - Verweis auf den zugehörigen Config-Key (`cfg.models.<name>`)
 
+### Schritt E (optional): Plot-Farbe in `config.yaml` registrieren
+
+Ergänze unter `plotting.colors` eine Farbe für dein Modell, damit es in 
+allen Vergleichsplots (Equity Curves, Regime Comparison, MCS) konsistent 
+dargestellt wird.
+
 ---
 
 ## 8. Code-Template (Copy & Paste)
@@ -422,6 +447,10 @@ Eine solche Datei sollte enthalten:
 Füge unter `models:` hinzu:
 
 ```yaml
+  plotting:
+    colors:
+      # ... bestehende Modelle ...
+      my_model: "tab:cyan"       # ← Plot-Farbe (optional)
   my_model:                       # ← snake_case Schlüsselname
     # --- Architektur ---
     window_size: 20               # Input-Sequenzlänge
@@ -471,6 +500,7 @@ Führe nach der Integration folgende Prüfungen durch:
 
 ### Dokumentations-Prüfungen
 - [ ] Asset-Pfad für den Modell-Plot in `config.yaml` unter `paths.assets` registriert
+- [ ] (Optional) Plot-Farbe unter `plotting.colors` in `config.yaml` registriert
 - [ ] Neuer Abschnitt in Notebook 99 (f-String-Template, Sektion 3) eingefügt
 - [ ] `README.md` — Modell in "Methodik & Modelle" beschrieben
 - [ ] (Optional) Architektur-Dokumentation unter `docs/` angelegt

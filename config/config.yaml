@@ -123,7 +123,15 @@ evaluation:
     sim_years: 10
     trading_days_per_year: 252
 
-# --- regime-switching-daa ---
+## --- Plotting ---
+plotting:
+  colors:
+    MSM: "tab:blue"
+    HMM: "tab:purple"
+    LSTM: "tab:green"
+    Transformer: "darkorange"
+    Buy_Hold: "gray"
+
 ## --- File Paths ---
 paths:
   data_dir: "../data"

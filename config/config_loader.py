@@ -65,6 +65,7 @@ class PipelineConfig:
         self.backtesting = ns.backtesting
         self.evaluation = ns.evaluation
         self.paths = ns.paths
+        self.plotting = ns.plotting
         self.pipeline = ns.pipeline
         self.fast_mode = ns.fast_mode
 
@@ -93,9 +94,13 @@ class PipelineConfig:
         """Transaction cost as decimal (10 bps -> 0.001)."""
         return self.backtesting.transaction_cost_bps / 10_000
 
+    @property
+    def color_map(self) -> dict:
+        """Model → color mapping from config.plotting.colors."""
+        return {k: v for k, v in vars(self.plotting.colors).items()}
+
     def __repr__(self) -> str:
         return f"PipelineConfig(source='{self._path}')"
-
 
 # Singleton — importable from any notebook
 cfg = PipelineConfig()
