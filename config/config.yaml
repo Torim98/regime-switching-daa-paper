@@ -168,6 +168,7 @@ paths:
     transformer_model: "transformer_model.png"
     regime_comparison: "regime_comparison.png"
     statistics_output: "../docs/statistics.md"
+    pipeline_timing: "pipeline_timing.md"
 
 ## --- Pipeline Execution ---
 pipeline:
