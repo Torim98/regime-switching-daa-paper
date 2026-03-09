@@ -61,6 +61,9 @@ Hinter der Pipeline stehen fortgeschrittene Konzepte der Software-Entwicklung un
 ### Daten-Persistierung & Entkopplung
 Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist.
 
+### Modell-Persistierung & Caching
+Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
+
 ### Vermeidung von Look-ahead Bias
 Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks aus der Zukunft. Alle generierten Handelssignale werden systematisch um einen Zeitschritt ($T+1$) verschoben. Entscheidungen werden somit ausschließlich auf Basis der zum Handelszeitpunkt verfügbaren historischen Informationen getroffen.
 
@@ -84,7 +87,7 @@ Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf
 1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
 2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
 3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
-4.  **`03_regime_switching_models`**: Training und Hyperparameteroptimierung der Regime-Switching-Modelle.
+4.  **`03_regime_switching_models`**: Training (oder Laden persistierter Modelle) und Hyperparameteroptimierung der Regime-Switching-Modelle.
 5.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
 6.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
 7.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
@@ -129,13 +132,15 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 ---
 
 ## Projektstruktur
-- `jupyter/` : Ablageort der Jupyter-Notebook-Files mit der gesamten Pipeline.
+
 - `assets/` : Ordner für persistierte Grafiken und Statistiken.
 - `config/` : Konfigurationsparameter der Research-Pipeline.
 - `data/` : Lokale Cache-Daten der Yahoo Finance API.
 - `docs/` : Begleitende Projektdokumentation.
+- `jupyter/` : Ablageort der Jupyter-Notebook-Files mit der gesamten Pipeline.
+- `logs/` : Lokale Log-Dateien der gesamten Pipeline.
+- `models/` : Persistierte Modelldateien.
 - `README.md` : Projektübersicht.
-- `Statistics.md` : Tiefergehende Analyse der Modellergebnisse.
 
 ---
 

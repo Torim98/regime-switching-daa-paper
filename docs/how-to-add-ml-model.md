@@ -16,6 +16,7 @@
    - [Schritt 4: Wahrscheinlichkeiten und Signale erzeugen](#schritt-4-wahrscheinlichkeiten-und-signale-erzeugen)
    - [Schritt 5: Signale in den DataFrame schreiben](#schritt-5-signale-in-den-dataframe-schreiben)
    - [Schritt 6: DataFrame speichern](#schritt-6-dataframe-speichern)
+   - [Schritt 7 (optional): Modell-Persistierung aktivieren](#schritt-7-optional-modell-persistierung-aktivieren)
 5. [Warum das funktioniert: Dynamic Matching](#5-warum-das-funktioniert-dynamic-matching)
 6. [Look-Ahead Bias Prevention (T+1 Shift)](#6-look-ahead-bias-prevention-t1-shift)
 7. [Dokumentation aktualisieren](#7-dokumentation-aktualisieren)
@@ -95,6 +96,7 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 config/
 ├── config.yaml          # Single Source of Truth — alle Parameter
 └── config_loader.py     # PipelineConfig-Klasse + Singleton `cfg`
+                         # Methoden: data_path(), asset_path(), model_path()
 ```
 
 Die `config.yaml` ist hierarchisch nach Pipeline-Sektionen gegliedert:
@@ -128,6 +130,8 @@ cfg.features.model_features          # → ['Returns', 'Vol_20', ...]
 cfg.data_path("test_data")           # → "../data/03_test_df_data.parquet"
 cfg.asset_path("equity_curves")      # → "../assets/equity_curves.png"
 cfg.transaction_cost_rate             # → 0.001 (convenience property)
+cfg.model_path("lstm")               # → "../models/lstm_regime_model.keras"
+cfg.model_persistence.enabled        # → true/false
 ```
 
 ### So fügst du dein Modell zur Config hinzu
@@ -328,6 +332,77 @@ test_df.to_parquet(cfg.data_path("test_data"))
 
 > Du musst an der Speicher-Zelle **nichts ändern**, solange deine neuen Spalten korrekt im `df` / `test_df` DataFrame enthalten sind.
 
+### Schritt 7 (optional): Modell-Persistierung aktivieren
+
+Seit der Einführung der **Modell-Persistierung** können trainierte Modelle im Ordner `models/` zwischengespeichert werden. Dies ist besonders nützlich, wenn das Training rechenintensiv ist (z.B. LSTM, Transformer).
+
+#### Voraussetzung
+
+In `config/config.yaml` existiert die Sektion `model_persistence`:
+
+```yaml
+model_persistence:
+  enabled: true
+  models_dir: "../models"
+  files:
+    msm: "msm_regime_model.pkl"
+    hmm: "hmm_regime_model.pkl"
+    scaler_hmm: "hmm_scaler.pkl"
+    lstm: "lstm_regime_model.keras"
+    scaler_lstm: "lstm_scaler.pkl"
+    transformer: "transformer_regime_model.pt"
+```
+
+#### So fügst du dein Modell hinzu
+
+**1.** Ergänze unter `model_persistence.files` einen Eintrag für dein Modell:
+
+```yaml
+model_persistence:
+  files:
+    # ... bestehende Einträge ...
+    my_model: "my_model.pkl"           # ← Dateiname deines Modells
+    scaler_my_model: "my_model_scaler.pkl"  # ← Falls ein Scaler nötig ist
+```
+
+**2.** Nutze im Notebook `cfg.model_path("my_model")` um den vollständigen Pfad zu erhalten.
+
+**3.** Umschließe Training und Laden mit einem `if/else`-Block:
+
+```python
+import os
+from pathlib import Path
+
+persist = cfg.model_persistence
+model_file = cfg.model_path("my_model")
+
+if persist.enabled and os.path.exists(model_file):
+    # MODUS A: Gespeichertes Modell laden
+    print(f"⏩ {MODEL_NAME}: Lade persistiertes Modell aus {model_file}")
+    model = load_my_model(model_file)
+else:
+    # MODUS B: Normal trainieren + speichern
+    print(f"🏋️ {MODEL_NAME}: Starte Training...")
+    model = train_my_model(...)
+    
+    Path(persist.models_dir).mkdir(parents=True, exist_ok=True)
+    save_my_model(model, model_file)
+    print(f"💾 {MODEL_NAME}: Modell gespeichert unter {model_file}")
+```
+
+**4.** Falls dein Modell einen Scaler benötigt (z.B. `StandardScaler`, `MinMaxScaler`), persistiere diesen ebenfalls. Beim Laden **unbedingt** `transform()` statt `fit_transform()` verwenden!
+
+#### Serialisierungs-Formate nach Bibliothek
+
+| Bibliothek | Speichern | Laden | Dateiendung |
+|:---|:---|:---|:---|
+| `statsmodels` | `results.save(path)` | `sm.load(path)` | `.pkl` |
+| `hmmlearn` / `sklearn` | `joblib.dump(model, path)` | `joblib.load(path)` | `.pkl` |
+| `TensorFlow/Keras` | `model.save(path)` | `load_model(path)` | `.keras` |
+| `PyTorch` | `torch.save(model.state_dict(), path)` | `model.load_state_dict(torch.load(path))` | `.pt` |
+
+> **Hinweis:** Der Ordner `models/` ist in `.gitignore` eingetragen und wird beim ersten Speichern automatisch via `Path(...).mkdir(parents=True, exist_ok=True)` angelegt.
+
 ---
 
 ## 5. Warum das funktioniert: Dynamic Matching
@@ -493,6 +568,12 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] Config-Key stimmt mit dem Zugriff im Notebook überein (z.B. `cfg.models.my_model`)
 - [ ] Falls Fast-Mode-Override gewünscht: Eintrag in `fast_mode.overrides` und `config_loader.py` ergänzt
 
+### Persistierungs-Prüfungen (optional)
+- [ ] Eintrag unter `model_persistence.files` in `config.yaml` angelegt (falls Persistierung gewünscht)
+- [ ] `if/else`-Block für Load/Train im Notebook implementiert
+- [ ] Scaler wird bei Laden mit `transform()` statt `fit_transform()` verwendet
+- [ ] `Path(persist.models_dir).mkdir(parents=True, exist_ok=True)` vor dem ersten Speichern aufgerufen
+
 ### Inhaltliche Prüfungen
 - [ ] Bear-Regime (Signal = 1) weist im Durchschnitt **niedrigere Returns** auf als Bull-Regime (Signal = 0)
 - [ ] Bear-Regime weist im Durchschnitt **höheren VIX** auf als Bull-Regime
@@ -615,3 +696,10 @@ fast_mode:
     mcs_n_paths: 100
 ```
 Dies reduziert Training-Epochs und MCS-Pfade automatisch. Vergiss nicht, vor dem finalen Run `fast_mode.enabled: false` zu setzen.
+
+### Ich habe Hyperparameter geändert, aber die Ergebnisse sind identisch
+**Ursache:** `model_persistence.enabled` ist `true` und ein altes Modell liegt noch unter `models/`.
+**Lösung:** Lösche die betroffene Modelldatei aus `models/` (oder den gesamten Ordner), damit das Modell mit den neuen Parametern neu trainiert wird. Alternativ setze `model_persistence.enabled: false` in der `config.yaml`.
+
+### Wie kann ich ein einzelnes Modell neu trainieren, ohne alle zu löschen?
+**Lösung:** Lösche nur die spezifische Datei (z.B. `models/lstm_regime_model.keras`). Beim nächsten Pipeline-Run wird nur dieses Modell neu trainiert, alle anderen werden weiterhin aus dem Cache geladen.

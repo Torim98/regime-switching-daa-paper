@@ -68,6 +68,7 @@ class PipelineConfig:
         self.plotting = ns.plotting
         self.pipeline = ns.pipeline
         self.fast_mode = ns.fast_mode
+        self.model_persistence = ns.model_persistence
 
         # Dynamic end_date
         if self.data.end_date is None:
@@ -88,6 +89,11 @@ class PipelineConfig:
         """Full path to an asset file: cfg.asset_path("equity_curves")"""
         filename = getattr(self.paths.assets, key)
         return str(Path(self.paths.assets_dir) / filename)
+    
+    def model_path(self, key: str) -> str:
+        """Full path to a model file: cfg.model_path("lstm")"""
+        filename = getattr(self.model_persistence.files, key)
+        return str(Path(self.model_persistence.models_dir) / filename)
 
     @property
     def transaction_cost_rate(self) -> float:

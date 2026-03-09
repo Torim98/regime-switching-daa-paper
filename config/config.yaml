@@ -180,11 +180,23 @@ pipeline:
     - "04_backtesting.ipynb"
     - "05_evaluation.ipynb"
     - "99_statistics_md.ipynb"
+    
 ## --- Fast Mode (Development) ---
-
 fast_mode:
   enabled: true
   overrides:
     lstm_epochs: 5
     transformer_epochs: 10
     mcs_n_paths: 100
+ 
+ ## --- Model Persistence ---
+model_persistence:
+  enabled: true                  # true = Modelle laden statt trainieren (falls vorhanden)
+  models_dir: "../models"        # Ablageort für persistierte Modelle
+  files:
+    msm: "msm_regime_model.pkl"
+    hmm: "hmm_regime_model.pkl"
+    scaler_hmm: "hmm_scaler.pkl"
+    lstm: "lstm_regime_model.keras"
+    scaler_lstm: "lstm_scaler.pkl"
+    transformer: "transformer_regime_model.pt"
