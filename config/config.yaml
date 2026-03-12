@@ -183,9 +183,9 @@ pipeline:
     
 ## --- Fast Mode (Development) ---
 fast_mode:
-  enabled: true
+  enabled: false
   overrides:
-    lstm_epochs: 5
+    lstm_epochs: 10
     transformer_epochs: 10
     mcs_n_paths: 100
  
