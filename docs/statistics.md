@@ -38,7 +38,7 @@ Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
 | Returns_VUSTX |        -18.1352 | 2.4997e-30 |           -2.8619 | Ja           |
 | Returns       |        -17.5528 | 4.1341e-30 |           -2.8619 | Ja           |
 
-**Volatilitätscluster und Autokorrelation (Heteroskedastizität):
+**Volatilitätscluster und Autokorrelation (Heteroskedastizität):**
 ![Volatility Clusters](../assets/eda_volatility_clusters.png)
 
 ### SORR Kontext: Historische Drawdowns
@@ -210,7 +210,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 24.03.2026 17:44<br>
+**Zuletzt aktualisiert:** 24.03.2026 17:50<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Modell-Persistierung:** AKTIV<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
