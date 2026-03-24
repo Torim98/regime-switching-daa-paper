@@ -147,6 +147,10 @@ paths:
     backtesting_sorr: "04_backtesting_sorr_simulation.parquet"
     mcs_data: "05_mcs_data.parquet"
   assets:
+    eda_descriptive_stats: "eda_descriptive_stats.md"
+    eda_adf_tests: "eda_adf_tests.md"
+    eda_volatility_clusters: "eda_volatility_clusters.png"
+    eda_historical_drawdowns: "eda_historical_drawdowns.png"
     equity_curves: "equity_curves.png"
     capital_curve: "capital_curve.png"
     transaction_costs: "transaction_costs.png"
