@@ -56,7 +56,7 @@ models:
     random_state: 42
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   lstm:
-    window_size: &lstm_window 30
+    window_size: &lstm_window 60
     train_test_split: &lstm_train_test_split 0.8
     labels: "MSM_Signal"
     units: 64
