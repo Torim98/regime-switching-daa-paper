@@ -1,17 +1,17 @@
 |                                | Endkapital   | Status        |
 |:-------------------------------|:-------------|:--------------|
-| ('Standard', 'Buy Hold')       | 560,588.11 € | Kapitalerhalt |
-| ('Standard', 'MSM')            | 854,746.70 € | Kapitalerhalt |
-| ('Standard', 'HMM')            | 569,653.31 € | Kapitalerhalt |
-| ('Standard', 'LSTM')           | 420,697.22 € | Kapitalerhalt |
-| ('Standard', 'Transformer')    | 444,565.76 € | Kapitalerhalt |
-| ('Aggressive', 'Buy Hold')     | 404,556.47 € | Kapitalerhalt |
-| ('Aggressive', 'MSM')          | 657,790.11 € | Kapitalerhalt |
-| ('Aggressive', 'HMM')          | 403,560.17 € | Kapitalerhalt |
-| ('Aggressive', 'LSTM')         | 278,787.77 € | Kapitalerhalt |
-| ('Aggressive', 'Transformer')  | 301,467.45 € | Kapitalerhalt |
-| ('Low_Capital', 'Buy Hold')    | 284,342.32 € | Kapitalerhalt |
-| ('Low_Capital', 'MSM')         | 447,195.82 € | Kapitalerhalt |
-| ('Low_Capital', 'HMM')         | 286,427.61 € | Kapitalerhalt |
-| ('Low_Capital', 'LSTM')        | 205,115.18 € | Kapitalerhalt |
-| ('Low_Capital', 'Transformer') | 219,040.02 € | Kapitalerhalt |
+| ('Standard', 'Buy Hold')       | 562,173.72 € | Kapitalerhalt |
+| ('Standard', 'MSM')            | 850,009.98 € | Kapitalerhalt |
+| ('Standard', 'HMM')            | 559,422.91 € | Kapitalerhalt |
+| ('Standard', 'LSTM')           | 424,704.67 € | Kapitalerhalt |
+| ('Standard', 'Transformer')    | 550,543.13 € | Kapitalerhalt |
+| ('Aggressive', 'Buy Hold')     | 401,351.78 € | Kapitalerhalt |
+| ('Aggressive', 'MSM')          | 651,125.35 € | Kapitalerhalt |
+| ('Aggressive', 'HMM')          | 391,806.11 € | Kapitalerhalt |
+| ('Aggressive', 'LSTM')         | 278,530.01 € | Kapitalerhalt |
+| ('Aggressive', 'Transformer')  | 391,354.51 € | Kapitalerhalt |
+| ('Low_Capital', 'Buy Hold')    | 283,696.92 € | Kapitalerhalt |
+| ('Low_Capital', 'MSM')         | 443,711.11 € | Kapitalerhalt |
+| ('Low_Capital', 'HMM')         | 279,781.48 € | Kapitalerhalt |
+| ('Low_Capital', 'LSTM')        | 206,097.91 € | Kapitalerhalt |
+| ('Low_Capital', 'Transformer') | 277,263.00 € | Kapitalerhalt |
