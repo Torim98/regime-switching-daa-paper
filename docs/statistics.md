@@ -46,15 +46,6 @@ Pearson-Korrelationsmatrix der sechs Modell-Features zur Prüfung auf Multikolli
 
 ![Feature Correlation Matrix](../assets/feature_correlation_matrix.png)
 
-|              |     Returns |      Vol_20 |   Distance_SMA |   Momentum |        VIX |   Yield_Spread |
-|:-------------|------------:|------------:|---------------:|-----------:|-----------:|---------------:|
-| Returns      |  1          |  0.00803026 |       0.123805 |  0.308813  | -0.123601  |     -0.0144209 |
-| Vol_20       |  0.00803026 |  1          |      -0.557674 | -0.106384  |  0.799446  |     -0.0137686 |
-| Distance_SMA |  0.123805   | -0.557674   |       1        |  0.38117   | -0.531974  |     -0.115692  |
-| Momentum     |  0.308813   | -0.106384   |       0.38117  |  1         | -0.284532  |     -0.0565313 |
-| VIX          | -0.123601   |  0.799446   |      -0.531974 | -0.284532  |  1         |      0.0747895 |
-| Yield_Spread | -0.0144209  | -0.0137686  |      -0.115692 | -0.0565313 |  0.0747895 |      1         |
-
 ### SORR Kontext: Historische Drawdowns
 Darstellung der extremsten Verlustphasen des 60/40 Portfolios als Motivation für den aktiven Kapitalschutz.
 ![Historical Drawdowns](../assets/eda_historical_drawdowns.png)
@@ -224,7 +215,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 02.04.2026 17:56<br>
+**Zuletzt aktualisiert:** 02.04.2026 17:59<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Modell-Persistierung:** AKTIV<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
