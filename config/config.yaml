@@ -207,3 +207,4 @@ model_persistence:
     lstm: "lstm_regime_model.keras"
     scaler_lstm: "lstm_scaler.pkl"
     transformer: "transformer_regime_model.pt"
+    scaler_transformer: "transformer_scaler.pkl"

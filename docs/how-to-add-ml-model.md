@@ -24,6 +24,7 @@
 9. [Validierungs-Checkliste](#9-validierungs-checkliste)
 10. [Referenz-Implementierungen](#10-referenz-implementierungen)
 11. [FAQ & Troubleshooting](#11-faq--troubleshooting)
+12. [Microservice-Integration](#12-microservice-integration)
 
 ---
 
@@ -156,15 +157,14 @@ models:
 
 ### Farbe für Plots registrieren (optional)
 
-Damit dein Modell in allen Plots eine konsistente Farbe erhält, ergänze 
-unter `plotting.colors` einen Eintrag:
+Damit dein Modell in allen Plots eine konsistente Farbe erhält, ergänze unter `plotting.colors` einen Eintrag:
 
-\```yaml
+```yaml
 plotting:
   colors:
     # ... bestehende Modelle ...
     MyModel: "tab:cyan"        # ← Deine Modellfarbe
-\```
+```
 
 > **Hinweis:** Dieser Schritt ist optional. Modelle ohne Eintrag erhalten 
 > automatisch eine Farbe aus dem matplotlib Default-Cycle. Die Farbe wird 
@@ -306,11 +306,11 @@ Deine Spalten `MyModel_Prob` und `MyModel_Signal` sind jetzt Teil von `df`.
 Die Pipeline stellt eine Helper-Funktion bereit, die Statistiken ausgibt, 
 Plausibilität prüft (mit automatischer Label-Inversion) und formale Assertions durchführt:
 
-\```python
+```python
 # Sanity Check + Validierung (definiert in der Helper-Cell am Anfang des Notebooks)
 validate_regime_signal(df, MODEL_NAME)
 validate_regime_signal(df, MODEL_NAME) # Alternative nach Einschränkung des Testzeitraums
-\```
+```
 
 > **Was passiert intern?**
 > - Regime-Statistik (Returns, VIX, Yield_Spread pro Signal)
@@ -587,6 +587,14 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] (Optional) Architektur-Dokumentation unter `docs/` angelegt
 - [ ] `docs/statistics.md` enthält nach Pipeline-Durchlauf den neuen Modell-Abschnitt mit korrektem Bild
 
+### Microservice-Prüfungen
+- [ ] Trainingslogik in `src/models/` als wiederverwendbares Modul implementiert (nicht nur im Notebook)
+- [ ] Plot-Funktion in `src/models/plots.py` vorhanden
+- [ ] `elif model_name == "my_model":` Block in `services/model_service/routes.py` ergänzt
+- [ ] Modell in der `train_all()`-Funktion des Model Service registriert
+- [ ] Docker-Image neu gebaut (`docker-compose build model-service`)
+- [ ] Endpunkt `POST /models/train/my_model` liefert HTTP 200
+
 ### Pipeline-Integration
 - [ ] `jupyter/03_regime_switching_models.ipynb` läuft fehlerfrei durch
 - [ ] Die Datei `data/03_test_df_data.parquet` wird erfolgreich aktualisiert
@@ -599,6 +607,11 @@ Führe nach der Integration folgende Prüfungen durch:
 ```bash
 # Vollständigen Pipeline-Durchlauf starten:
 # Öffne jupyter/regime-switching-daa.ipynb und führe alle Zellen aus.
+# Oder via Microservices:
+# docker-compose up --build
+# curl -X POST http://localhost:8001/data/ingest
+# curl -X POST http://localhost:8002/models/train/my_model
+# curl -X POST http://localhost:8003/backtest/run
 ```
 
 ---
@@ -703,3 +716,132 @@ Dies reduziert Training-Epochs und MCS-Pfade automatisch. Vergiss nicht, vor dem
 
 ### Wie kann ich ein einzelnes Modell neu trainieren, ohne alle zu löschen?
 **Lösung:** Lösche nur die spezifische Datei (z.B. `models/lstm_regime_model.keras`). Beim nächsten Pipeline-Run wird nur dieses Modell neu trainiert, alle anderen werden weiterhin aus dem Cache geladen.
+
+### Mein Modell funktioniert im Notebook, aber nicht im Microservice
+**Ursache:** Die Trainingslogik liegt nur im Notebook, nicht in einem wiederverwendbaren `src/`-Modul.
+**Lösung:** Extrahiere die Trainingslogik in `src/models/my_model.py` und importiere sie sowohl im Notebook als auch im Service. Siehe [Abschnitt 12: Microservice-Integration](#12-microservice-integration).
+
+---
+
+## 12. Microservice-Integration
+
+Seit [Issue #12](https://github.com/Torim98/regime-switching-daa/issues/12) kann die gesamte Pipeline auch als **Docker-basierte Microservice-Architektur** ausgeführt werden. Damit dein neues Modell auch über den Model Service (`localhost:8002`) trainiert werden kann, sind folgende zusätzliche Schritte nötig.
+
+> **Voraussetzung:** Die Schritte 1–7 (Notebook-Integration) sind abgeschlossen und das Modell funktioniert im Jupyter-Workflow.
+
+### Architektur-Überblick
+
+```
+Notebooks (jupyter/)              Microservices (services/)
+       │                                  │
+       └──── beide importieren ───────────┤
+                                          ▼
+                               src/models/my_model.py    ← Shared Business Logic
+                               src/models/plots.py       ← Shared Plot-Funktionen
+```
+
+Das Prinzip: **Shared Business Logic** in `src/` wird sowohl von Notebooks als auch von Services importiert. Dupliziere niemals Trainingslogik in den Service-Routen.
+
+### Schritt 1: Trainingslogik in `src/models/` extrahieren
+
+Falls dein Modell bisher nur inline im Notebook existiert, extrahiere die Kernlogik in ein eigenes Modul:
+
+```python
+# src/models/my_model.py
+
+def train_my_model(df, feature_cols, cfg):
+    """Trainiert MyModel und gibt den DataFrame mit _Prob/_Signal zurück."""
+    my_cfg = cfg.models.my_model
+    # ... Training ...
+    df[f'MyModel_Prob'] = bear_probabilities
+    df[f'MyModel_Signal'] = (df['MyModel_Prob'] >= my_cfg.threshold).astype(int)
+    return df, model
+```
+
+Im Notebook importierst du dann:
+```python
+from src.models.my_model import train_my_model
+df, model = train_my_model(df, feature_cols, cfg)
+```
+
+### Schritt 2: Plot-Funktion in `src/models/plots.py` ergänzen
+
+Füge eine Plot-Funktion hinzu, die `matplotlib.use("Agg")` kompatibel ist (kein `plt.show()`, stattdessen `plt.savefig()` + `plt.close(fig)`):
+
+```python
+# In src/models/plots.py ergänzen:
+
+def plot_my_model(df, model_name, color, save_path):
+    """Regime-Plot für MyModel."""
+    fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+    # ... Plotting-Logik ...
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+```
+
+### Schritt 3: Route im Model Service registrieren
+
+Öffne `services/model_service/routes.py` und ergänze im `train()`-Endpoint einen neuen `elif`-Block:
+
+```python
+from src.models.my_model import train_my_model
+from src.models.plots import plot_my_model
+
+@router.post("/train/{model_name}")
+def train(model_name: str):
+    # ... bestehende Modelle (msm, hmm, lstm, transformer) ...
+
+    elif model_name == "my_model":
+        df, model = train_my_model(df, feature_cols, cfg)
+        plot_my_model(
+            df, "MyModel",
+            cfg.color_map.get("MyModel", "tab:cyan"),
+            cfg.asset_path("my_model"),
+        )
+```
+
+### Schritt 4: Modell in `train_all()` aufnehmen
+
+Falls der Model Service eine `train_all()`-Funktion hat, die alle Modelle sequenziell trainiert, ergänze dein Modell in der Trainingsreihenfolge:
+
+```python
+@router.post("/train-all")
+def train_all():
+    results = []
+    for model in ["msm", "hmm", "lstm", "transformer", "my_model"]:
+        result = train(model)
+        results.append(result)
+    return results
+```
+
+> **Beachte die Reihenfolge:** Falls dein Modell auf MSM-Labels angewiesen ist (wie LSTM und Transformer), muss es **nach** MSM trainiert werden.
+
+### Schritt 5: Docker-Image neu bauen
+
+```bash
+docker-compose build model-service
+# Oder für alle Services:
+docker-compose build
+```
+
+Da die Trainingslogik in `src/` liegt und `src/` bereits im Dockerfile kopiert wird (`COPY src/ src/`), sind **keine Änderungen am Dockerfile nötig**.
+
+### Schritt 6: Testen
+
+```bash
+# Einzelnes Modell trainieren:
+curl -X POST http://localhost:8002/models/train/my_model
+
+# Oder alle Modelle:
+curl -X POST http://localhost:8002/models/train-all
+```
+
+### Checkliste Microservice-Integration
+
+- [ ] Trainingslogik als Funktion in `src/models/my_model.py` (nicht inline im Notebook)
+- [ ] Plot-Funktion in `src/models/plots.py` mit `plt.close(fig)` (kein `plt.show()`)
+- [ ] `elif`-Block in `services/model_service/routes.py`
+- [ ] Modell in `train_all()`-Liste aufgenommen
+- [ ] `docker-compose build model-service` erfolgreich
+- [ ] `POST /models/train/my_model` liefert HTTP 200
+- [ ] Assets werden unter `assets/` generiert (über Volume-Mount sichtbar)

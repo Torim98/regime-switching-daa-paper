@@ -1,0 +1,15 @@
+.git/
+.claude/
+__pycache__/
+*.pyc
+jupyter/
+docs/
+assets/*.png
+data/bronze/
+data/silver/
+data/gold/
+models/*.pkl
+models/*.keras
+models/*.pt
+.env
+*.ipynb

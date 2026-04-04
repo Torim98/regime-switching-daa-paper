@@ -1,0 +1,244 @@
+"""Generierung des statistics.md Master-Reports für das Git-Repository."""
+
+import datetime
+import os
+
+
+def load_markdown_asset(filepath: str, fallback: str = "") -> str:
+    """Markdown-Datei laden. Gibt Fallback-String zurück wenn nicht gefunden."""
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return fallback
+
+
+def build_model_persistence_table(cfg) -> tuple[str, str]:
+    """
+    Pro Modell prüfen, ob ein persistiertes Modell geladen wurde.
+    Gibt (persist_status_text, model_persistence_table_md) zurück.
+    """
+    persist_enabled = cfg.model_persistence.enabled
+    persist_dir = cfg.model_persistence.models_dir
+    persist_status_text = "AKTIV" if persist_enabled else "DEAKTIVIERT"
+
+    model_status_rows = []
+    for key in ["msm", "hmm", "lstm", "transformer"]:
+        filename = getattr(cfg.model_persistence.files, key)
+        filepath = os.path.join(persist_dir, filename)
+        file_exists = os.path.exists(filepath)
+        if persist_enabled and file_exists:
+            status = "Geladen (persistiert)"
+        else:
+            status = "Neu trainiert"
+        model_status_rows.append(f"| {key.upper()} | `{filename}` | {status} |")
+
+    model_persistence_table = "\n".join(
+        [
+            "| Modell | Datei | Status |",
+            "|:---|:---|:---|",
+        ]
+        + model_status_rows
+    )
+
+    return persist_status_text, model_persistence_table
+
+
+def generate_statistics_report(cfg) -> str:
+    """
+    Liest alle generierten Markdown/PNG-Assets und baut daraus
+    das Master-Dokument statistics.md.
+
+    Lädt alle Teilberichte (EDA, Evaluation, SORR, MCS, Timing etc.)
+    und fügt sie in ein einheitliches Markdown-Template ein.
+
+    Gibt den fertigen Markdown-String zurück.
+    """
+    ASSETS_DIR = cfg.paths.assets_dir
+
+    # Alle Markdown-Assets laden
+    eda_desc_stats_md = load_markdown_asset(cfg.asset_path("eda_descriptive_stats"))
+    eda_adf_tests_md = load_markdown_asset(cfg.asset_path("eda_adf_tests"))
+    evaluation_table_md = load_markdown_asset(cfg.asset_path("evaluation_table"))
+    performance_summary_md = load_markdown_asset(cfg.asset_path("performance_summary"))
+    sorr_summary_md = load_markdown_asset(
+        os.path.join(ASSETS_DIR, cfg.asset_path("sorr_summary"))
+    )
+    mcs_summary_md = load_markdown_asset(
+        os.path.join(ASSETS_DIR, cfg.asset_path("mcs_summary"))
+    )
+    feature_corr_table_md = load_markdown_asset(cfg.asset_path("feature_correlation_table"))
+    pipeline_timing_md = load_markdown_asset(
+        os.path.join(ASSETS_DIR, cfg.asset_path("pipeline_timing")),
+        fallback="*Keine Timing-Daten verfügbar.*",
+    )
+
+    # Fast Mode Status aus config auslesen
+    fast_mode_enabled = cfg.fast_mode.enabled
+    fast_mode_status = "TRUE (Development Mode)" if fast_mode_enabled else "FALSE (Full Run)"
+
+    # Model Persistence Status
+    persist_status_text, model_persistence_table = build_model_persistence_table(cfg)
+    persist_dir = cfg.model_persistence.models_dir
+
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+
+    stats_md_content = f"""
+# Detaillierte statistische Auswertung & Forschungsergebnisse
+
+Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. Alle Auswertungen basieren auf dem Datensatz bis zum gestrigen Tag und werden automatisiert aktualisiert.
+
+---
+
+## 1. Executive Summary: Performance & Risiko
+Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Testzeitraum**.
+
+{performance_summary_md}
+
+> **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
+
+---
+
+## 2. Datenbasis & Baseline Portfolio
+Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
+
+### Explorative Datenanalyse (EDA)
+**Deskriptive Statistik der Basiszeitreihen:**
+{eda_desc_stats_md}
+
+**Prüfung auf Stationarität (Augmented Dickey-Fuller Test):**
+{eda_adf_tests_md}
+
+**Volatilitätscluster und Autokorrelation (Heteroskedastizität):**
+![Volatility Clusters](../assets/{cfg.paths.assets.eda_volatility_clusters})
+
+### Feature-Korrelation
+Pearson-Korrelationsmatrix der sechs Modell-Features zur Prüfung auf Multikollinearität.
+
+![Feature Correlation Matrix](../assets/{cfg.paths.assets.feature_correlation_matrix})
+
+### SORR Kontext: Historische Drawdowns
+Darstellung der extremsten Verlustphasen des 60/40 Portfolios als Motivation für den aktiven Kapitalschutz.
+![Historical Drawdowns](../assets/{cfg.paths.assets.eda_historical_drawdowns})
+
+### 60/40 Portfolio Kapitalkurve
+Die Abbildung zeigt die kumulierte Wertentwicklung des statischen Referenzportfolios (60% Aktien / 40% Anleihen).
+
+![Capital Curve](../assets/{cfg.paths.assets.capital_curve})
+
+*   **Datenquelle:** S&P 500 (`^GSPC`) und Vanguard Long-Term Treasury (`VUSTX`).
+*   **Reproduzierbarkeit:** Der bereinigte Datensatz inkl. aller Features ist hinterlegt unter: `data/02_feature_engineered_data.parquet`.
+
+---
+
+## 3. Regime-Erkennung der Einzelmodelle
+Hier werden die Identifikations-Ergebnisse der Modell-Kategorien (Statistik, Clustering, Deep Learning) visualisiert.
+
+### A. Markov-Switching-Modelle (Ökonometrie)
+Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-Markov-Switching-Modells auf Basis der S&P 500-Renditen.
+![Markov Models](../assets/{cfg.paths.assets.markov_model})
+
+### B. Hidden Markov Model (Unsupervised Clustering)
+![HMM Regimes](../assets/{cfg.paths.assets.hmm_regimes})
+
+### C. LSTM-Netzwerk (Deep Learning)
+Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Markov-Labels).
+![LSTM Model](../assets/{cfg.paths.assets.lstm_model})
+
+### D. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
+"Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Markov-Labels.
+![Transformer Model](../assets/{cfg.paths.assets.transformer_model})
+
+### E. Globaler Regime-Vergleich
+Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
+![Regime Comparison](../assets/{cfg.paths.assets.regime_comparison})
+
+---
+
+## 4. Backtesting & Strategie-Evaluation
+Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in den Geldmarkt.
+
+### Equity Curves im Vergleich
+![Equity Curves](../assets/{cfg.paths.assets.equity_curves})
+
+### Umfassende Kennzahlen-Matrix
+Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
+
+{evaluation_table_md}
+
+### Transaktionskosten
+
+Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Anstiege deuten auf instabile Regime-Wechsel ("Churning") hin.
+
+![Transaction Costs](../assets/{cfg.paths.assets.transaction_costs})
+
+Stress-Test: Sequence of Returns Risk (SORR)
+Außerdem wurde die Überlebensdauer des Kapitals in einer simulierten Entnahmephase (Ruhestandsszenario) durchgeführt.
+
+### SORR-Simulation: Vergleich der Entnahmeszenarien
+
+In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Geringes Kapital) gegenübergestellt.
+
+{sorr_summary_md}
+
+Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
+![SORR Standard](../assets/{cfg.paths.assets.sorr_sim_standard})
+![SORR Aggressive](../assets/{cfg.paths.assets.sorr_sim_aggressive})
+![SORR Low Capital](../assets/{cfg.paths.assets.sorr_sim_low_capital})
+
+### MCS: Block-Bootstrap Robustness-Check
+
+Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
+![MCS Paths](../assets/{cfg.paths.assets.mcs_paths})
+{mcs_summary_md}
+
+Verteilung der Endkapitalwerte:
+
+![MCS Boxplots Standard](../assets/{cfg.paths.assets.mcs_boxplot_standard})
+![MCS Boxplots Aggressive](../assets/{cfg.paths.assets.mcs_boxplot_aggressive})
+![MCS Boxplots Low Capital](../assets/{cfg.paths.assets.mcs_boxplot_low_capital})
+
+Wahrscheinlichkeitskorridore:
+
+Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalentwicklung.
+![MCS Quantiles](../assets/{cfg.paths.assets.mcs_quantiles})
+
+---
+
+## Forschungsnotizen & Methodik
+- **Cash-Komponente:** Bei einem "Bear"-Signal schichtet die Strategie in den aktuellen Geldmarktzins (**^IRX**) um.
+- **Vermeidung von Look-ahead Bias:** Alle Signale werden für das Backtesting um einen Tag zeitversetzt (`shift(1)`), um reale Handelsbedingungen zu simulieren.
+- **Feature-Set:** Die Modelle nutzen Renditen, Volatilität (20d), SMA-Abstand, Momentum, VIX und Yield Spread.
+- **Kostensimulation:** Es wird eine pauschale Gebühr von 10 Basispunkten (0,1%) pro Umschichtung berechnet.
+- **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
+
+---
+
+## Pipeline-Laufzeiten
+
+Ausführungszeiten der einzelnen Pipeline-Notebooks (monolithischer Notebook-Ansatz).
+
+{pipeline_timing_md}
+
+---
+
+## Modell-Persistierung
+
+Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
+
+- **Persistierung:** {persist_status_text}
+- **Modell-Verzeichnis:** `{persist_dir}`
+
+{model_persistence_table}
+
+> **Hinweis:** Bei aktivierter Persistierung werden vortrainierte Modelle aus `{persist_dir}` geladen, sofern die Dateien existieren. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert. Bei Änderungen an Hyperparametern müssen die entsprechenden Modelldateien gelöscht werden.
+
+---
+
+**Zuletzt aktualisiert:** {timestamp}<br>
+**Fast Mode Status zur Laufzeit:** {fast_mode_status}<br>
+**Modell-Persistierung:** {persist_status_text}<br>
+*Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
+"""
+
+    return stats_md_content

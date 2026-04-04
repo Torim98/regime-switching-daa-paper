@@ -1,16 +1,23 @@
 """
 Central Configuration Loader for the Regime-Switching DAA Pipeline.
 
-Usage in any notebook:
+Usage in notebooks:
     import sys; sys.path.insert(0, "../config")
     from config_loader import cfg
+
+Usage in FastAPI services:
+    from config.config_loader import PipelineConfig
+    cfg = PipelineConfig()          # auto-detects project root
+    # or explicitly for Docker:
+    cfg = PipelineConfig(base_dir="/app")
 
     # Access parameters:
     cfg.data.tickers
     cfg.backtesting.transaction_cost_bps
     cfg.transaction_cost_rate        # convenience: 0.001
-    cfg.data_path("preprocessed")    # "../data/01_preprocessed_data.parquet"
-    cfg.asset_path("equity_curves")  # "../assets/equity_curves.png"
+    cfg.data_path("preprocessed")    # "<base_dir>/data/silver/02_preprocessed_data.parquet"
+    cfg.asset_path("equity_curves")  # "<base_dir>/assets/equity_curves.png"
+    cfg.model_path("lstm")           # "<base_dir>/models/lstm_regime_model.keras"
 """
 
 import yaml
@@ -35,7 +42,11 @@ def _dict_to_namespace(d: dict) -> SimpleNamespace:
 class PipelineConfig:
     """Wrapper around the YAML config with convenience methods."""
 
-    def __init__(self, config_path: str | Path | None = None):
+    def __init__(
+        self,
+        config_path: str | Path | None = None,
+        base_dir: str | Path | None = None,
+    ):
         if config_path is None:
             candidates = [
                 Path(__file__).parent / "config.yaml",
@@ -55,6 +66,14 @@ class PipelineConfig:
         self._path = Path(config_path)
         with open(self._path, "r", encoding="utf-8") as f:
             self._raw = yaml.safe_load(f)
+
+        # base_dir = project root for resolving data/assets/models paths
+        # Default: parent of config/ directory (works for notebooks and local runs)
+        # Override: set explicitly for Docker (e.g. base_dir="/app")
+        if base_dir is not None:
+            self._base_dir = Path(base_dir)
+        else:
+            self._base_dir = self._path.parent.parent
 
         ns = _dict_to_namespace(self._raw.copy())
         self.dependencies = ns.dependencies
@@ -83,17 +102,17 @@ class PipelineConfig:
     def data_path(self, key: str) -> str:
         """Full path to a data file: cfg.data_path("preprocessed")"""
         filename = getattr(self.paths.files, key)
-        return str(Path(self.paths.data_dir) / filename)
+        return str(self._base_dir / "data" / filename)
 
     def asset_path(self, key: str) -> str:
         """Full path to an asset file: cfg.asset_path("equity_curves")"""
         filename = getattr(self.paths.assets, key)
-        return str(Path(self.paths.assets_dir) / filename)
-    
+        return str(self._base_dir / "assets" / filename)
+
     def model_path(self, key: str) -> str:
         """Full path to a model file: cfg.model_path("lstm")"""
         filename = getattr(self.model_persistence.files, key)
-        return str(Path(self.model_persistence.models_dir) / filename)
+        return str(self._base_dir / "models" / filename)
 
     @property
     def transaction_cost_rate(self) -> float:
@@ -106,7 +125,8 @@ class PipelineConfig:
         return {k: v for k, v in vars(self.plotting.colors).items()}
 
     def __repr__(self) -> str:
-        return f"PipelineConfig(source='{self._path}')"
+        return f"PipelineConfig(source='{self._path}', base_dir='{self._base_dir}')"
+
 
 # Singleton — importable from any notebook
 cfg = PipelineConfig()
