@@ -155,5 +155,5 @@ backup/
 .ipynb_checkpoints/
 /data/
 logs/
-models/
+/models/
 .claude/

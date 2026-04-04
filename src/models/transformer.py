@@ -1,0 +1,313 @@
+"""Transformer-Netzwerk — Regime Detection via Multi-Head Self-Attention (PyTorch)."""
+
+import numpy as np
+import pandas as pd
+import math
+from pathlib import Path
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import RobustScaler
+import joblib
+
+from .common import create_sequences
+
+
+# --- Positional Encoding ---
+class PositionalEncoding(nn.Module):
+    """Sinusoidale Positionsencoding für Transformer-Architektur."""
+
+    def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, : x.size(1), :]
+        return self.dropout(x)
+
+
+# --- Transformer-Klassifikator ---
+class TransformerRegimeClassifier(nn.Module):
+    """
+    Linear(n_features → d_model) → PositionalEncoding
+    → TransformerEncoder × n_layers → Linear(d_model → 1)
+    """
+
+    def __init__(
+        self,
+        n_features: int,
+        d_model: int,
+        n_heads: int,
+        n_layers: int,
+        dim_feedforward: int,
+        dropout: float,
+    ):
+        super().__init__()
+        self.input_projection = nn.Linear(n_features, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout=dropout)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=n_layers
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(d_model, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        x = self.input_projection(x)
+        x = self.pos_encoder(x)
+        x = self.transformer_encoder(x)
+        x = x[:, -1, :]  # Letzter Zeitschritt
+        x = self.classifier(x)
+        return x
+
+
+def _build_model(
+    n_features: int,
+    d_model: int,
+    n_heads: int,
+    n_layers: int,
+    dim_feedforward: int,
+    dropout: float,
+    device: torch.device,
+) -> TransformerRegimeClassifier:
+    """Transformer-Modell instanziieren und auf Device verschieben."""
+    return TransformerRegimeClassifier(
+        n_features=n_features,
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        dim_feedforward=dim_feedforward,
+        dropout=dropout,
+    ).to(device)
+
+
+def train_transformer(
+    df: pd.DataFrame,
+    features: list[str],
+    labels_col: str,
+    window_size: int,
+    train_test_split: float,
+    d_model: int,
+    n_heads: int,
+    n_layers: int,
+    dim_feedforward: int,
+    dropout: float,
+    learning_rate: float,
+    epochs: int,
+    batch_size: int,
+    validation_split: float,
+    verbose: int,
+    model_file: str,
+    scaler_file: str,
+) -> tuple[TransformerRegimeClassifier, RobustScaler, np.ndarray, int]:
+    """
+    Transformer-Netzwerk trainieren.
+    Typ: Supervised (Labels von MS_Univariate).
+    Transformer-Encoder mit Positional Encoding für zeitreihenbasierte
+    Regime-Klassifikation. Testet Hypothese H2 (Attention > Econometric MSM).
+
+    Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden).
+    BCEWithLogitsLoss erwartet RAW Logits (kein Sigmoid im Modell-Output!).
+    Gewichtung Bear/Bull via sqrt(raw_weight).
+    Modell + Scaler werden persistiert.
+
+    Gibt (model, scaler, test_probs, split_index) zurück.
+    """
+    n_features = len(features)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden)
+    split_point = int(len(df) * train_test_split)
+    scaler = RobustScaler()
+    scaler.fit(df[features].iloc[:split_point])               # fit nur auf Train
+    scaled_data = scaler.transform(df[features])               # transform auf alles
+
+    # Sequenzen erstellen
+    X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
+
+    # Train/Test Split (identisch zum LSTM)
+    split = int(len(X) * train_test_split)
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+
+    # --- Validation-Split (letzte 10% der Trainingsdaten) ---
+    val_split = int(len(X_train) * (1 - validation_split))
+    X_val = X_train[val_split:]
+    y_val = y_train[val_split:]
+    X_train = X_train[:val_split]
+    y_train = y_train[:val_split]
+
+    # Modell instanziieren
+    model = _build_model(
+        n_features=n_features,
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        dim_feedforward=dim_feedforward,
+        dropout=dropout,
+        device=device,
+    )
+
+    # Gewichtung Bear/Bull
+    n_pos = y_train.sum()           # Anzahl Bear-Samples im Training
+    n_neg = len(y_train) - n_pos    # Anzahl Bull-Samples im Training
+    raw_weight = n_neg / n_pos
+    pos_weight = torch.tensor([math.sqrt(raw_weight)], dtype=torch.float32).to(device)
+    print(f"Class Balance — Bull: {int(n_neg)}, Bear: {int(n_pos)}, "
+          f"raw_weight: {raw_weight:.2f}, pos_weight (sqrt): {pos_weight.item():.2f}")
+    # Erwartet: raw_weight: 3.31, pos_weight (sqrt): ~1.82
+
+    # BCEWithLogitsLoss erwartet RAW Logits (kein Sigmoid im Modell-Output!)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    model.classifier = nn.Linear(d_model, 1).to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # DataLoader erstellen
+    X_train_tensor = torch.FloatTensor(X_train).to(device)
+    y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(device)
+    X_test_tensor = torch.FloatTensor(X_test).to(device)
+    X_val_tensor = torch.FloatTensor(X_val).to(device)
+    y_val_tensor = torch.FloatTensor(y_val).unsqueeze(1).to(device)
+
+    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    # Training
+    print("Starte Transformer Training...")
+    model.train()
+    for epoch in range(epochs):
+        epoch_loss = 0.0
+        correct = 0
+        total = 0
+        for batch_X, batch_y in train_loader:
+            optimizer.zero_grad()
+            logits = model(batch_X)          # Raw Logits
+            loss = criterion(logits, batch_y)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+
+            # Accuracy tracking
+            preds = (torch.sigmoid(logits) >= 0.5).float()
+            correct += (preds == batch_y).sum().item()
+            total += batch_y.size(0)
+
+        if verbose and (epoch + 1) % 10 == 0:
+            avg_loss = epoch_loss / len(train_loader)
+            accuracy = correct / total
+
+            # Validation-Loss berechnen
+            model.eval()
+            with torch.no_grad():
+                val_logits = model(X_val_tensor)
+                val_loss = criterion(val_logits, y_val_tensor).item()
+            model.train()
+
+            print(f"  Epoch {epoch+1}/{epochs} — Loss: {avg_loss:.4f}, "
+                  f"Accuracy: {accuracy:.2%}, Val-Loss: {val_loss:.4f}")
+
+    # Vorhersagen auf Test-Set
+    # Sigmoid erst bei der Inference anwenden (Logits → Probabilities)
+    model.eval()
+    with torch.no_grad():
+        logits_test = model(X_test_tensor)
+        transformer_probs_raw = torch.sigmoid(logits_test).cpu().numpy().flatten()
+
+    # Modell + Scaler persistieren
+    Path(model_file).parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), model_file)
+    joblib.dump(scaler, scaler_file)
+    print(f"Transformer: Modell gespeichert unter {model_file}")
+
+    return model, scaler, transformer_probs_raw, split
+
+
+def load_transformer_model(
+    df: pd.DataFrame,
+    features: list[str],
+    labels_col: str,
+    window_size: int,
+    train_test_split: float,
+    d_model: int,
+    n_heads: int,
+    n_layers: int,
+    dim_feedforward: int,
+    dropout: float,
+    model_file: str,
+    scaler_file: str,
+) -> tuple[TransformerRegimeClassifier, RobustScaler, np.ndarray, int]:
+    """
+    Persistiertes Transformer-Modell + Scaler laden (Training überspringen).
+
+    Gibt (model, scaler, test_probs, split_index) zurück.
+    """
+    n_features = len(features)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Modell instanziieren und Gewichte laden
+    model = _build_model(
+        n_features=n_features,
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        dim_feedforward=dim_feedforward,
+        dropout=dropout,
+        device=device,
+    )
+    # BCEWithLogitsLoss → Classifier ohne Sigmoid beim Training
+    model.classifier = nn.Linear(d_model, 1).to(device)
+    model.load_state_dict(torch.load(model_file, map_location=device))
+    model.eval()
+    print(f"Transformer: Lade persistiertes Modell aus {model_file}")
+
+    # Skalierung mit geladenem Scaler
+    scaler = joblib.load(scaler_file)
+    scaled_data = scaler.transform(df[features])
+
+    # Sequenzen erstellen
+    X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
+
+    # Split
+    split = int(len(X) * train_test_split)
+    X_test = X[split:]
+
+    # Vorhersagen auf Test-Set
+    X_test_tensor = torch.FloatTensor(X_test).to(device)
+    with torch.no_grad():
+        logits_test = model(X_test_tensor)
+        transformer_probs_raw = torch.sigmoid(logits_test).cpu().numpy().flatten()
+
+    return model, scaler, transformer_probs_raw, split
+
+
+def predict_transformer(
+    probs_raw: np.ndarray,
+    threshold: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Wahrscheinlichkeiten und binäres Signal ableiten.
+    Signale generieren via Threshold.
+
+    Gibt (probabilities, signal) zurück.
+    """
+    probs = probs_raw.flatten()
+    signal = (probs >= threshold).astype(int)
+    return probs, signal
