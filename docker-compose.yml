@@ -1,0 +1,42 @@
+services:
+  data-service:
+    build:
+      context: .
+      dockerfile: services/data_service/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+
+  model-service:
+    build:
+      context: .
+      dockerfile: services/model_service/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - data-service
+
+  backtest-service:
+    build:
+      context: .
+      dockerfile: services/backtest_service/Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./data:/app/data
+      - ./assets:/app/assets
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - model-service

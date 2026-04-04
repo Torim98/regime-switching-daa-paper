@@ -20,17 +20,19 @@ dependencies = [
 	"joblib==1.4.2",
     "pyyaml==6.0.1",
 	"papermill==2.7.0",
+    "pyarrow>=23.0.1",
+	"tabulate==0.10.0",
 ]
 
 [project.optional-dependencies]
 services = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.34.0",
-    "httpx>=0.28.0",       # Inter-Service-Kommunikation
+    "fastapi==0.135.3",
+    "uvicorn[standard]==0.43.0",
+    "httpx==0.28.1",       # Inter-Service-Kommunikation
 ]
 dev = [
     "nbstripout>=0.8.0",
-    "jupyter>=1.0.0",
+    "jupyter==1.1.1",
     "pytest>=8.0.0",
 ]
 
