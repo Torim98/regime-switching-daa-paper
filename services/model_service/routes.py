@@ -5,18 +5,28 @@ from src.models.hmm import train_hmm, load_hmm, predict_hmm
 from src.models.lstm import train_lstm, load_lstm_model, predict_lstm
 from src.models.transformer import train_transformer, load_transformer_model, predict_transformer
 from src.models.common import validate_regime_signal
+from src.models.plots import (
+    plot_msm_regimes, plot_hmm_regimes, plot_dl_model, plot_regime_comparison,
+)
 from pathlib import Path
 import pandas as pd
+import time
+import logging
 
 router = APIRouter(prefix="/models", tags=["models"])
+
+logger = logging.getLogger("model_service")
 
 def get_cfg():
     return PipelineConfig()
 
 @router.post("/train/{model_name}")
-@router.post("/train/{model_name}")
+
 def train_model(model_name: str):
     """Einzelnes Modell trainieren. model_name: msm|hmm|lstm|transformer"""
+    start = time.time()
+    logger.info(f"Training model: {model_name}")
+    
     cfg = get_cfg()
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
     
@@ -46,6 +56,9 @@ def train_model(model_name: str):
         # Aber wir persistieren MSM-Signale im feature_engineered df
         df.to_parquet(cfg.data_path("feature_engineered"))
         
+        plot_msm_regimes(df, "MSM", cfg.color_map.get("MSM", "tab:blue"),
+                         cfg.asset_path("markov_model"))
+        
     elif model_name == "hmm":
         hmm_features = df[cfg.models.hmm.features]
         model, scaler, X_scaled = train_hmm(
@@ -62,6 +75,9 @@ def train_model(model_name: str):
         df["HMM_Signal"] = signal
         validate_regime_signal(df, "HMM")
         df.to_parquet(cfg.data_path("feature_engineered"))
+        
+        plot_hmm_regimes(df, "HMM", cfg.color_map.get("HMM", "tab:purple"),
+                         cfg.asset_path("hmm_regimes"))
         
     elif model_name == "lstm":
         if "MSM_Signal" not in df.columns:
@@ -108,6 +124,9 @@ def train_model(model_name: str):
         P(test_df_path).parent.mkdir(parents=True, exist_ok=True)
         test_df.to_parquet(test_df_path)
         
+        plot_dl_model(test_df, "LSTM", cfg.color_map.get("LSTM", "tab:green"),
+                      cfg.asset_path("lstm_model"))
+        
     elif model_name == "transformer":
         if test_df is None:
             raise HTTPException(400, "LSTM must be trained first (creates test_df).")
@@ -147,18 +166,34 @@ def train_model(model_name: str):
         
         test_df.to_parquet(test_df_path)
         
+        plot_dl_model(test_df, "Transformer",
+                      cfg.color_map.get("Transformer", "darkorange"),
+                      cfg.asset_path("transformer_model"))
+
+        # Regime Comparison (alle 4 Modelle fertig)
+        plot_regime_comparison(test_df, cfg.color_map,
+                               cfg.asset_path("regime_comparison"))
+        
     else:
         raise HTTPException(400, f"Unknown model: {model_name}")
-    
+
+    elapsed = time.time() - start
+    logger.info(f"Model {model_name} trained in {elapsed:.1f}s")    
     return {"status": "ok", "model": model_name}
 
 @router.post("/train-all")
 def train_all():
     """Alle 4 Modelle sequentiell trainieren (MSM zuerst!)."""
+    start = time.time()
+    logger.info(f"Training model: {model_name}")
+    
     results = []
     for name in ["msm", "hmm", "lstm", "transformer"]:
         result = train_model(name)
         results.append(result)
+    
+    elapsed = time.time() - start
+    logger.info(f"Model {model_name} trained in {elapsed:.1f}s")
     return {"status": "ok", "results": results}
 
 @router.get("/status")

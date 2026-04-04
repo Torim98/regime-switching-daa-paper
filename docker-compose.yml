@@ -7,9 +7,12 @@ services:
       - "8001:8001"
     volumes:
       - ./data:/app/data
+      - ./assets:/app/assets
       - ./config:/app/config
+      - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - TZ=Europe/Berlin
 
   model-service:
     build:
@@ -20,9 +23,12 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ./assets:/app/assets
       - ./config:/app/config
+      - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - TZ=Europe/Berlin
     depends_on:
       - data-service
 
@@ -35,8 +41,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./assets:/app/assets
+      - ./docs:/app/docs
       - ./config:/app/config
+      - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - TZ=Europe/Berlin
     depends_on:
       - model-service
