@@ -59,7 +59,7 @@ Das Projekt folgt einem **modularen Pipeline-Design**. Anstatt eines monolithisc
 Hinter der Pipeline stehen fortgeschrittene Konzepte der Software-Entwicklung und Finanzmathematik, um die Validität der Ergebnisse sicherzustellen:
 
 ### Daten-Persistierung & Entkopplung
-Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist.
+Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist. Die Datenablage folgt einem **[Medallion-Modell](./docs/data-architecture.md)** (Bronze → Silver → Gold) zur klaren Trennung von Rohdaten, bereinigten Zwischenergebnissen und finalen Analyseergebnissen.
 
 ### Modell-Persistierung & Caching
 Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
@@ -135,7 +135,7 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 
 - `assets/` : Ordner für persistierte Grafiken und Statistiken.
 - `config/` : Konfigurationsparameter der Research-Pipeline.
-- `data/` : Lokale Cache-Daten der Yahoo Finance API.
+- `data/` : Datenhaltung nach Medallion-Architektur (Bronze/Silver/Gold).
 - `docs/` : Begleitende Projektdokumentation.
 - `jupyter/` : Ablageort der Jupyter-Notebook-Files mit der gesamten Pipeline.
 - `logs/` : Lokale Log-Dateien der gesamten Pipeline.
