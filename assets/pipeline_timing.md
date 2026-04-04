@@ -1,9 +1,9 @@
 | Notebook | Start | Ende | Dauer (s) |
 |----------|-------|------|-----------|
-| 00_dependencies | 18:23:44 | 18:23:47 | 3.0 |
-| 01_data_preprocessing | 18:23:47 | 18:23:53 | 6.6 |
-| 02_feature_engineering | 18:23:53 | 18:23:58 | 4.6 |
-| 03_regime_switching_models | 18:23:58 | 18:24:11 | 13.0 |
-| 04_backtesting | 18:24:11 | 18:24:16 | 5.2 |
-| 05_evaluation | 18:24:16 | 18:26:10 | 114.1 |
-| **Gesamt** | | | **146.5** (2m 26.5s) |
+| 00_dependencies | 19:45:30 | 19:45:33 | 3.2 |
+| 01_data_preprocessing | 19:45:33 | 19:45:40 | 6.8 |
+| 02_feature_engineering | 19:45:40 | 19:45:45 | 4.7 |
+| 03_regime_switching_models | 19:45:45 | 19:49:15 | 209.6 |
+| 04_backtesting | 19:49:15 | 19:49:19 | 4.8 |
+| 05_evaluation | 19:49:19 | 19:51:14 | 114.6 |
+| **Gesamt** | | | **343.7** (5m 43.7s) |

@@ -13,8 +13,8 @@ Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Tes
 | Buy_Hold    |         1.6649 | +66.49%        | -27.71%        |
 | MSM         |         2.3633 | +136.33%       | -5.81%         |
 | HMM         |         1.6778 | +67.78%        | -5.66%         |
-| LSTM        |         1.3037 | +30.37%        | -25.96%        |
-| Transformer |         1.6525 | +65.25%        | -13.45%        |
+| LSTM        |         1.3602 | +36.02%        | -20.21%        |
+| Transformer |         1.5022 | +50.22%        | -12.00%        |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
@@ -28,7 +28,7 @@ Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
 | Zeitreihe     |   Mittelwert (tägl.) |   Std.Abw. (tägl.) |     Min |     Max |   Schiefe (Skew) |   Kurtosis |
 |:--------------|---------------------:|-------------------:|--------:|--------:|-----------------:|-----------:|
 | Returns_GSPC  |             0.00032  |           0.01139  | -0.1277 |  0.1096 |          -0.3602 |    10.8172 |
-| Returns_VUSTX |             0.000274 |           0.007488 | -0.0605 |  0.1296 |           0.6393 |    14.3665 |
+| Returns_VUSTX |             0.000274 |           0.007488 | -0.0605 |  0.1296 |           0.6393 |    14.3663 |
 | Returns       |             0.000301 |           0.006934 | -0.0662 |  0.0584 |          -0.2273 |     7.7535 |
 | VIX           |            19.4658   |           7.77018  |  9.14   | 82.69   |           2.2003 |     8.6632 |
 | TNX_10Y       |             4.23742  |           1.93226  |  0.499  |  9.09   |           0.3305 |    -0.6388 |
@@ -104,8 +104,8 @@ Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharp
 | Buy Hold    | 67.41%         | 7.60%         | 12.71%        | -27.71%        |           0.64 |            0.83 |           0.27 |                0 | 0.00%                     |
 | MSM         | 137.64%        | 13.10%        | 6.30%         | -5.81%         |           1.99 |            2.56 |           2.26 |               43 | 4.30%                     |
 | HMM         | 68.71%         | 7.72%         | 4.78%         | -5.66%         |           1.58 |            1.45 |           1.36 |               31 | 3.10%                     |
-| LSTM        | 31.09%         | 3.93%         | 10.37%        | -25.96%        |           0.42 |            0.33 |           0.15 |               61 | 6.20%                     |
-| Transformer | 66.16%         | 7.49%         | 8.04%         | -13.45%        |           0.94 |            1.04 |           0.56 |              145 | 14.50%                    |
+| LSTM        | 36.77%         | 4.55%         | 9.96%         | -20.21%        |           0.5  |            0.38 |           0.23 |               77 | 7.80%                     |
+| Transformer | 51.05%         | 6.04%         | 7.39%         | -12.00%        |           0.83 |            0.92 |           0.5  |              137 | 13.70%                    |
 
 ### Transaktionskosten
 
@@ -122,21 +122,21 @@ In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Ger
 
 |                                | Endkapital   | Status        |
 |:-------------------------------|:-------------|:--------------|
-| ('Standard', 'Buy Hold')       | 568,281.55 € | Kapitalerhalt |
-| ('Standard', 'MSM')            | 856,643.54 € | Kapitalerhalt |
-| ('Standard', 'HMM')            | 564,125.86 € | Kapitalerhalt |
-| ('Standard', 'LSTM')           | 405,424.21 € | Kapitalerhalt |
-| ('Standard', 'Transformer')    | 567,688.54 € | Kapitalerhalt |
-| ('Aggressive', 'Buy Hold')     | 407,010.95 € | Kapitalerhalt |
-| ('Aggressive', 'MSM')          | 657,710.82 € | Kapitalerhalt |
-| ('Aggressive', 'HMM')          | 396,471.16 € | Kapitalerhalt |
-| ('Aggressive', 'LSTM')         | 255,413.20 € | Kapitalerhalt |
-| ('Aggressive', 'Transformer')  | 409,817.41 € | Kapitalerhalt |
-| ('Low_Capital', 'Buy Hold')    | 287,212.06 € | Kapitalerhalt |
-| ('Low_Capital', 'MSM')         | 447,675.22 € | Kapitalerhalt |
-| ('Low_Capital', 'HMM')         | 282,590.62 € | Kapitalerhalt |
-| ('Low_Capital', 'LSTM')        | 193,250.86 € | Kapitalerhalt |
-| ('Low_Capital', 'Transformer') | 287,989.41 € | Kapitalerhalt |
+| ('Standard', 'Buy Hold')       | 568,281.51 € | Kapitalerhalt |
+| ('Standard', 'MSM')            | 856,644.01 € | Kapitalerhalt |
+| ('Standard', 'HMM')            | 564,125.82 € | Kapitalerhalt |
+| ('Standard', 'LSTM')           | 430,668.87 € | Kapitalerhalt |
+| ('Standard', 'Transformer')    | 501,372.59 € | Kapitalerhalt |
+| ('Aggressive', 'Buy Hold')     | 407,010.91 € | Kapitalerhalt |
+| ('Aggressive', 'MSM')          | 657,711.21 € | Kapitalerhalt |
+| ('Aggressive', 'HMM')          | 396,471.12 € | Kapitalerhalt |
+| ('Aggressive', 'LSTM')         | 278,763.26 € | Kapitalerhalt |
+| ('Aggressive', 'Transformer')  | 349,038.37 € | Kapitalerhalt |
+| ('Low_Capital', 'Buy Hold')    | 287,212.04 € | Kapitalerhalt |
+| ('Low_Capital', 'MSM')         | 447,675.47 € | Kapitalerhalt |
+| ('Low_Capital', 'HMM')         | 282,590.59 € | Kapitalerhalt |
+| ('Low_Capital', 'LSTM')        | 207,766.12 € | Kapitalerhalt |
+| ('Low_Capital', 'Transformer') | 250,045.48 € | Kapitalerhalt |
 
 Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
 ![SORR Standard](../assets/sorr_sim_standard.png)
@@ -149,21 +149,21 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------|:--------------------------|:--------------------|
-| ('Standard', 'Buy Hold')       | 0.00%                     | 584,925.38 €        |
-| ('Standard', 'MSM')            | 0.00%                     | 1,095,145.08 €      |
-| ('Standard', 'HMM')            | 0.00%                     | 596,008.99 €        |
-| ('Standard', 'LSTM')           | 0.00%                     | 379,440.49 €        |
-| ('Standard', 'Transformer')    | 0.00%                     | 596,497.44 €        |
-| ('Aggressive', 'Buy Hold')     | 4.20%                     | 330,000.64 €        |
-| ('Aggressive', 'MSM')          | 0.00%                     | 758,497.19 €        |
-| ('Aggressive', 'HMM')          | 0.00%                     | 329,994.38 €        |
-| ('Aggressive', 'LSTM')         | 12.40%                    | 151,927.32 €        |
-| ('Aggressive', 'Transformer')  | 0.20%                     | 320,592.78 €        |
-| ('Low_Capital', 'Buy Hold')    | 0.80%                     | 271,586.08 €        |
-| ('Low_Capital', 'MSM')         | 0.00%                     | 549,684.42 €        |
-| ('Low_Capital', 'HMM')         | 0.00%                     | 272,284.51 €        |
-| ('Low_Capital', 'LSTM')        | 2.00%                     | 138,004.89 €        |
-| ('Low_Capital', 'Transformer') | 0.00%                     | 266,700.06 €        |
+| ('Standard', 'Buy Hold')       | 0.00%                     | 584,924.82 €        |
+| ('Standard', 'MSM')            | 0.00%                     | 1,095,144.02 €      |
+| ('Standard', 'HMM')            | 0.00%                     | 596,009.52 €        |
+| ('Standard', 'LSTM')           | 0.00%                     | 424,799.13 €        |
+| ('Standard', 'Transformer')    | 0.00%                     | 488,284.43 €        |
+| ('Aggressive', 'Buy Hold')     | 4.20%                     | 330,001.18 €        |
+| ('Aggressive', 'MSM')          | 0.00%                     | 758,499.04 €        |
+| ('Aggressive', 'HMM')          | 0.00%                     | 329,994.21 €        |
+| ('Aggressive', 'LSTM')         | 6.20%                     | 175,484.61 €        |
+| ('Aggressive', 'Transformer')  | 0.40%                     | 231,992.01 €        |
+| ('Low_Capital', 'Buy Hold')    | 0.80%                     | 271,586.50 €        |
+| ('Low_Capital', 'MSM')         | 0.00%                     | 549,684.73 €        |
+| ('Low_Capital', 'HMM')         | 0.00%                     | 272,284.52 €        |
+| ('Low_Capital', 'LSTM')        | 0.40%                     | 163,993.76 €        |
+| ('Low_Capital', 'Transformer') | 0.00%                     | 207,781.64 €        |
 
 Verteilung der Endkapitalwerte:
 
@@ -193,13 +193,13 @@ Ausführungszeiten der einzelnen Pipeline-Notebooks (monolithischer Notebook-Ans
 
 | Notebook | Start | Ende | Dauer (s) |
 |----------|-------|------|-----------|
-| 00_dependencies | 18:23:44 | 18:23:47 | 3.0 |
-| 01_data_preprocessing | 18:23:47 | 18:23:53 | 6.6 |
-| 02_feature_engineering | 18:23:53 | 18:23:58 | 4.6 |
-| 03_regime_switching_models | 18:23:58 | 18:24:11 | 13.0 |
-| 04_backtesting | 18:24:11 | 18:24:16 | 5.2 |
-| 05_evaluation | 18:24:16 | 18:26:10 | 114.1 |
-| **Gesamt** | | | **146.5** (2m 26.5s) |
+| 00_dependencies | 19:45:30 | 19:45:33 | 3.2 |
+| 01_data_preprocessing | 19:45:33 | 19:45:40 | 6.8 |
+| 02_feature_engineering | 19:45:40 | 19:45:45 | 4.7 |
+| 03_regime_switching_models | 19:45:45 | 19:49:15 | 209.6 |
+| 04_backtesting | 19:49:15 | 19:49:19 | 4.8 |
+| 05_evaluation | 19:49:19 | 19:51:14 | 114.6 |
+| **Gesamt** | | | **343.7** (5m 43.7s) |
 
 ---
 
@@ -221,7 +221,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 04.04.2026 19:34<br>
+**Zuletzt aktualisiert:** 04.04.2026 20:00<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Modell-Persistierung:** AKTIV<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*

@@ -44,13 +44,30 @@ Für die Umsetzung der Forschungsumgebung wurde ein moderner Data-Science-Stack 
 *   **Datenverarbeitung:** `Pandas`, `NumPy`, `PyArrow` (Parquet-Engine)
 *   **Ökonometrie & Statistik:** `Statsmodels` (Markov-Regression), `hmmlearn` (Hidden Markov Models), `SciPy`
 *   **Machine Learning:** `TensorFlow` / `Keras` (LSTM-Architekturen), `PyTorch` (Transformer), `Scikit-Learn`
-*   **Reporting:** `Matplotlib` (Visualisierung), `Tabulate` (Markdown-Export)
+*   **Reporting:** `Matplotlib` (Visualisierung), `Seaborn` (Heatmaps), `Tabulate` (Markdown-Export)
+*   **Microservices:** `FastAPI`, `Uvicorn`, `Docker` / `Docker Compose`
 
 ---
 
 ## Architektur
 
-Das Projekt folgt einem **modularen Pipeline-Design**. Anstatt eines monolithischen Skripts ist der Workflow in spezialisierte Teilschritte unterteilt, um die Reproduzierbarkeit und Skalierbarkeit zu gewährleisten. Ein zentrales Master-Notebook (`regime-switching-daa.ipynb`) orchestriert die Ausführung der einzelnen Module in der korrekten Reihenfolge.
+Das Projekt bietet zwei gleichwertige Ausführungswege, die dieselbe Business Logic (`src/`), Konfiguration (`config/config.yaml`) und Datenpersistierung (Medallion-Architektur) nutzen.
+
+### Notebook-Pipeline (Forschung & Exploration)
+
+Ein modulares Pipeline-Design mit spezialisierten Jupyter Notebooks. Ein zentrales Master-Notebook (`regime-switching-daa.ipynb`) orchestriert die Ausführung der einzelnen Module via Papermill in der korrekten Reihenfolge.
+
+### Microservice-Architektur (Reproduzierbarkeit & Deployment)
+
+Drei containerisierte FastAPI-Services bilden die gesamte Pipeline ab:
+
+| Service | Port | Beschreibung |
+|---------|------|-------------|
+| **Data Service** | 8001 | Datenakquise, Preprocessing, Feature Engineering, EDA |
+| **Model Service** | 8002 | Training & Prediction (MSM, HMM, LSTM, Transformer) |
+| **Backtest Service** | 8003 | Backtesting, SORR, Monte Carlo Simulation, Reporting |
+
+Die Services kommunizieren über gemeinsame Dateisystem-Volumes und werden über `docker-compose` orchestriert. Siehe [Microservice-Dokumentation](docs/microservice-architecture.md) und [Sequenzdiagramm](docs/sequence-diagram.md) für Details.
 
 ---
 
@@ -61,6 +78,9 @@ Hinter der Pipeline stehen fortgeschrittene Konzepte der Software-Entwicklung un
 ### Daten-Persistierung & Entkopplung
 Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist. Die Datenablage folgt einem **[Medallion-Modell](./docs/data-architecture.md)** (Bronze → Silver → Gold) zur klaren Trennung von Rohdaten, bereinigten Zwischenergebnissen und finalen Analyseergebnissen.
 
+### Shared Business Logic
+Die gesamte Fachlogik ist in wiederverwendbaren Python-Modulen unter `src/` gekapselt. Sowohl die Jupyter Notebooks als auch die FastAPI-Services importieren aus denselben Modulen, was Konsistenz zwischen beiden Ausführungswegen garantiert.
+
 ### Modell-Persistierung & Caching
 Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
 
@@ -68,7 +88,7 @@ Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwis
 Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks aus der Zukunft. Alle generierten Handelssignale werden systematisch um einen Zeitschritt ($T+1$) verschoben. Entscheidungen werden somit ausschließlich auf Basis der zum Handelszeitpunkt verfügbaren historischen Informationen getroffen.
 
 ### Data-Driven Automation (Dynamic Matching)
-Das Framework ist **vollständig dynamisch** aufgebaut. Ein spezialisierter Such-Algorithmus identifiziert neue Modell-Outputs automatisch anhand eines definierten Namensschemas (`Modell_Signal`). Dadurch können neue Modell-Architekturen integriert werden, ohne den Code für das Backtesting, die Evaluation oder das Reporting manuell anpassen zu müssen.
+Das Framework ist **vollständig dynamisch** aufgebaut. Ein spezialisierter Such-Algorithmus identifiziert neue Modell-Outputs automatisch anhand eines definierten Namensschemas (`Modell_Signal`). Dadurch können neue Modell-Architekturen integriert werden, ohne den Code für das Backtesting, die Evaluation oder das Reporting manuell anpassen zu müssen. Siehe [How to add a ML Model](docs/how-to-add-ml-model.md).
 
 ### Realitätsnahe Kostensimulation
 Die Simulation berücksichtigt reale Marktreibungen:
@@ -77,6 +97,38 @@ Die Simulation berücksichtigt reale Marktreibungen:
 
 ### Automated Reporting (Live-Docs)
 Die Datei `statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. Hierbei werden Markdown-Tabellen und PNG-Assets direkt in das Dokument eingebettet, was eine lückenlose und stets aktuelle Dokumentation der Forschungsergebnisse ermöglicht.
+
+---
+
+## Quickstart
+
+### Option A: Jupyter Notebooks (Forschung)
+
+```bash
+git clone https://github.com/Torim98/regime-switching-daa.git
+cd regime-switching-daa
+conda env create -f environment.yml
+conda activate regime-daa
+pip install -e .
+# Master-Notebook ausführen:
+jupyter notebook jupyter/regime-switching-daa.ipynb
+```
+
+### Option B: Docker Compose (ein Befehl)
+
+```bash
+git clone https://github.com/Torim98/regime-switching-daa.git
+cd regime-switching-daa
+docker-compose up --build -d
+
+# Pipeline ausführen:
+curl -X POST http://localhost:8001/data/ingest
+curl -X POST http://localhost:8002/models/train-all
+curl -X POST http://localhost:8003/backtest/run
+curl -X POST http://localhost:8003/backtest/evaluate
+
+# Swagger UIs: http://localhost:8001/docs, :8002/docs, :8003/docs
+```
 
 ---
 
@@ -121,50 +173,57 @@ Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichti
 
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
-### 5. Statistische Siginifika
-nz (Monte-Carlo-Simulation (MCS)
+### 5. Statistische Signifikanz (Monte-Carlo-Simulation)
 Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 
-👉 **Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen findest du in der [statistics.md](./docs/statistics.md).**
+Detaillierte statistische Auswertungen, Tabellen und Einzelauswertungen: **[statistics.md](./docs/statistics.md)**
 
 ---
 
 ## Projektstruktur
 
-- `assets/` : Ordner für persistierte Grafiken und Statistiken.
-- `config/` : Konfigurationsparameter der Research-Pipeline.
-- `data/` : Datenhaltung nach Medallion-Architektur (Bronze/Silver/Gold).
-- `docs/` : Begleitende Projektdokumentation.
-- `jupyter/` : Ablageort der Jupyter-Notebook-Files mit der gesamten Pipeline.
-- `logs/` : Lokale Log-Dateien der gesamten Pipeline.
-- `models/` : Persistierte Modelldateien.
-- `README.md` : Projektübersicht.
+```
+regime-switching-daa/
+├── assets/          Generierte Grafiken und Statistiken (PNG, Markdown)
+├── config/          Zentrale Konfiguration (config.yaml, config_loader.py)
+├── data/            Medallion-Architektur (bronze/ silver/ gold/)
+├── docs/            Projektdokumentation
+├── jupyter/         Jupyter Notebooks (Pipeline 00–99)
+├── logs/            Log-Dateien (Notebook-Pipeline + Services)
+├── models/          Persistierte Modelldateien (.pkl, .keras, .pt)
+├── services/        FastAPI Microservices
+│   ├── data_service/
+│   ├── model_service/
+│   └── backtest_service/
+├── src/             Shared Business Logic
+│   ├── data/        Ingestion, Preprocessing, Feature Engineering, EDA, Plots
+│   ├── models/      MSM, HMM, LSTM, Transformer, Plots
+│   └── backtest/    Engine, SORR, Evaluation, Reporting, Plots
+├── docker-compose.yml
+├── pyproject.toml
+└── README.md
+```
 
 ---
 
-## Installation & Start
+## Dokumentation
 
-1. **Repository klonen:**
-   ```bash
-   git clone https://github.com/Torim98/regime-switching-daa.git
-2. **Pipeline ausführen:**
-   Starte das Master-Notebook `regime-switching-daa.ipynb` im Verzeichnis `jupyter/`. Dies triggert alle Teilschritte und aktualisiert automatisch alle Grafiken und Statistiken.
-   Ggf. muss in der `00_dependencies.ipynb` Code auskommentiert werden, um Abhängigkeiten automatisch zu installieren.
+| Dokument | Beschreibung |
+|----------|-------------|
+| [Data Architecture](docs/data-architecture.md) | Medallion-Modell (Bronze/Silver/Gold) |
+| [Microservice Architecture](docs/microservice-architecture.md) | Services, Endpunkte, Volumes, Logging |
+| [Sequence Diagram](docs/sequence-diagram.md) | Mermaid-Diagramme des Pipeline-Ablaufs |
+| [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
+| [Transformer Architecture](docs/transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
+| [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
+
 ---
 
-## Ausblick & Offene Punkte (Roadmap)
+## Reproduzierbarkeit
 
-Um die Robustheit und Praxistauglichkeit der dynamischen Asset-Allokation weiter zu steigern, sind folgende Entwicklungsschritte geplant:
-
-### 1. Modell-Erweiterungen
-*   **Hyperparameter-Optimierung:** Implementierung einer systematischen (ggf. automatisierten) Suche nach optimalen Parametern (z. B. Sensitivitätsanalyse der `window_size`).
-
-### 2. Analyse & Infrastruktur
-*   **Workflow-Optimierung:** Kontinuierliche Verfeinerung der Repository-Struktur und der automatisierten Dokumentations-Pipelines für eine maximale Reproduzierbarkeit.
-*   **Erweiterte Visualisierung:** Aufbau umfangreicherer Dashboards zur explorativen Datenanalyse und zur grafischen Aufarbeitung der Modell-Fehlentscheidungen.
-*   **Systemarchitektur-Diagramm:** Erstellung eines detaillierten konzeptionellen Architekturdiagramms (Flow-Chart), um den modularen Datenfluss, die Interaktionen zwischen den Paradigmen (Ökonometrie & ML) sowie die Persistierungs-Logik innerhalb der Pipeline visuell darzustellen.
+Beide Pipelines (Notebook und Docker) erzeugen identische Ergebnisse für deterministische Modelle (MSM, HMM). LSTM und Transformer weichen durch nicht-deterministisches Training (zufällige Gewichtsinitialisierung, Batch-Shuffling) zwischen Läufen leicht ab — die Abweichungen kaskadieren in Backtesting, SORR und Monte Carlo Simulation.
 
 ---
 
