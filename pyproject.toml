@@ -1,0 +1,35 @@
+[project]
+name = "regime-switching-daa"
+version = "0.1.0"
+description = "Regime-Switching Dynamic Asset Allocation – Master Thesis"
+requires-python = ">=3.11"
+
+dependencies = [
+    # --- Pinned Versions ---
+    "yfinance==1.1.0",
+    "pandas==2.3.3",
+    "numpy==2.3.5",
+	"matplotlib==3.9.2",
+    "seaborn==0.13.2",
+    "statsmodels==0.14.6",
+	"scikit-learn==1.8.0",
+    "hmmlearn==0.3.3",
+    "tensorflow==2.20.0",
+	"keras==3.14.0",
+    "torch==2.6.0",
+	"joblib==1.4.2",
+    "pyyaml==6.0.1",
+	"papermill==2.7.0",
+]
+
+[project.optional-dependencies]
+services = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "httpx>=0.28.0",       # Inter-Service-Kommunikation
+]
+dev = [
+    "nbstripout>=0.8.0",
+    "jupyter>=1.0.0",
+    "pytest>=8.0.0",
+]
