@@ -107,9 +107,15 @@ Die Datei `statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. 
 ```bash
 git clone https://github.com/Torim98/regime-switching-daa.git
 cd regime-switching-daa
-conda env create -f environment.yml
-conda activate regime-daa
+
+# Virtuelle Umgebung erstellen und aktivieren:
+python -m venv .venv
+source .venv/bin/activate        # Linux/macOS
+# .venv\Scripts\activate         # Windows
+
+# Abhängigkeiten installieren:
 pip install -e .
+
 # Master-Notebook ausführen:
 jupyter notebook jupyter/regime-switching-daa.ipynb
 ```
