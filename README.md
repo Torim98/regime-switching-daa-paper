@@ -67,7 +67,17 @@ Drei containerisierte FastAPI-Services bilden die gesamte Pipeline ab:
 | **Model Service** | 8002 | Training & Prediction (MSM, HMM, LSTM, Transformer) |
 | **Backtest Service** | 8003 | Backtesting, SORR, Monte Carlo Simulation, Reporting |
 
-Die Services kommunizieren über gemeinsame Dateisystem-Volumes und werden über `docker-compose` orchestriert. Siehe [Microservice-Dokumentation](docs/microservice-architecture.md) und [Sequenzdiagramm](docs/sequence-diagram.md) für Details.
+Die Services kommunizieren über gemeinsame Dateisystem-Volumes und werden über `docker-compose` orchestriert.
+
+**Weiterführende Dokumentationen:**
+* [Microservice-Architektur & Setup](docs/microservice-architecture.md)
+* [Sequenzdiagramm der Pipeline](docs/sequence-diagram.md)
+* [API Endpoints & Routen](docs/api-endpoints.md)
+
+> Da die Services auf FastAPI basieren, steht für jeden Service nach dem Start (via `docker-compose up`) auch eine interaktive **Swagger UI** zur Verfügung, über die die Endpoints direkt im Browser getestet werden können:
+> * Data Service: [http://localhost:8001/docs](http://localhost:8001/docs)
+> * Model Service: [http://localhost:8002/docs](http://localhost:8002/docs)
+> * Backtest Service: [http://localhost:8003/docs](http://localhost:8003/docs)
 
 ---
 
