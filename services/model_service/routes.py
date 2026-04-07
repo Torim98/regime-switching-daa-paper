@@ -95,13 +95,13 @@ def train_model(model_name: str):
             labels_col=lstm_cfg.labels,
             window_size=window_size,
             train_test_split=lstm_cfg.train_test_split,
-            units=lstm_cfg.units,
+            units_l1=lstm_cfg.units_l1,
+            units_l2=lstm_cfg.units_l2,
             return_sequences=lstm_cfg.return_sequences,
             dropout=lstm_cfg.dropout,
             dense=lstm_cfg.dense,
             activation=lstm_cfg.activation,
             optimizer=lstm_cfg.optimizer,
-            loss=lstm_cfg.loss,
             metrics=lstm_cfg.metrics,
             epochs=lstm_cfg.epochs,
             batch_size=lstm_cfg.batch_size,
@@ -185,15 +185,15 @@ def train_model(model_name: str):
 def train_all():
     """Alle 4 Modelle sequentiell trainieren (MSM zuerst!)."""
     start = time.time()
-    logger.info(f"Training model: {model_name}")
-    
+    logger.info("Training all models: msm, hmm, lstm, transformer")
+
     results = []
     for name in ["msm", "hmm", "lstm", "transformer"]:
         result = train_model(name)
         results.append(result)
-    
+
     elapsed = time.time() - start
-    logger.info(f"Model {model_name} trained in {elapsed:.1f}s")
+    logger.info(f"All models trained in {elapsed:.1f}s")
     return {"status": "ok", "results": results}
 
 @router.get("/status")
