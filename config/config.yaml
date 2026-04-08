@@ -59,7 +59,7 @@ models:
     window_size: &lstm_window 60
     train_test_split: &lstm_train_test_split 0.8
     labels: "MSM_Signal"
-    units_l1: 30
+    units_l1: 32
     units_l2: 64
     return_sequences: true
     epochs: 30
