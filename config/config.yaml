@@ -75,7 +75,7 @@ models:
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
-    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM (30)
+    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM
     train_test_split: *lstm_train_test_split       # 80/20 wie LSTM
     labels: "MSM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---

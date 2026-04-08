@@ -36,7 +36,7 @@ def build_lstm(
     window_size: int,
     n_features: int,
     units_l1: int,
-    units_l2: int, 
+    units_l2: int,
     return_sequences: bool,
     dropout: float,
     dense: int,
@@ -175,9 +175,11 @@ def load_lstm_model(
     Gibt (model, scaler, test_probs, split_index) zurück.
     """
     print(f"LSTM: Lade persistiertes Modell aus {model_file}")
-    # (Hinweis): custom_objects, damit Keras die weighted_bce beim
-    #     Laden wiederfindet. Alternativ: compile=False und anschließend
-    #     model.compile(...) erneut aufrufen, wenn nur Inference nötig ist.
+    # compile=False: das geladene Modell wird nur für Inference genutzt,
+    # daher muss Keras die custom weighted_bce-Loss nicht deserialisieren.
+    # Falls später inkrementell weitertrainiert werden soll, hier stattdessen
+    # custom_objects={"loss": weighted_bce(pos_weight)} übergeben oder das
+    # Modell nach dem Laden neu compilen.
     model = load_model(model_file, compile=False)
     scaler = joblib.load(scaler_file)
 
