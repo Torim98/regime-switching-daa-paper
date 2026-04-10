@@ -28,6 +28,14 @@ def train_model(model_name: str):
     logger.info(f"Training model: {model_name}")
     
     cfg = get_cfg()
+    
+    if cfg.walk_forward.enabled:
+        raise HTTPException(
+            400,
+            f"Einzelnes Modell-Training nicht verfügbar im Walk-Forward-Modus. "
+            f"Verwende /models/train-all stattdessen."
+        )
+
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
     
     # Versuche existierenden test_df zu laden (enthält bereits Signale vorheriger Modelle)
@@ -183,18 +191,119 @@ def train_model(model_name: str):
 
 @router.post("/train-all")
 def train_all():
-    """Alle 4 Modelle sequentiell trainieren (MSM zuerst!)."""
+    """Alle 4 Modelle trainieren — Single-Split oder Walk-Forward."""
     start = time.time()
-    logger.info("Training all models: msm, hmm, lstm, transformer")
+    cfg = get_cfg()
 
-    results = []
-    for name in ["msm", "hmm", "lstm", "transformer"]:
-        result = train_model(name)
-        results.append(result)
+    if cfg.walk_forward.enabled:
+        # ============================================================
+        # Walk-Forward-Modus: run_walk_forward steuert alles
+        # ============================================================
+        import hashlib
+        from src.backtest.walk_forward import (
+            walk_forward_splits,
+            summarize_splits,
+            assert_no_leakage,
+            run_walk_forward,
+            _walk_forward_fingerprint,
+            load_walk_forward_cache,
+            save_walk_forward_cache,
+        )
 
-    elapsed = time.time() - start
-    logger.info(f"All models trained in {elapsed:.1f}s")
-    return {"status": "ok", "results": results}
+        df = pd.read_parquet(cfg.data_path("feature_engineered"))
+
+        logger.info(
+            f"Walk-Forward: mode={cfg.walk_forward.mode}, "
+            f"train={cfg.walk_forward.train_window_years}y, "
+            f"test={cfg.walk_forward.test_window_months}m, "
+            f"step={cfg.walk_forward.step_months}m"
+        )
+
+        # 1. Splits generieren
+        splits = walk_forward_splits(
+            index=df.index,
+            mode=cfg.walk_forward.mode,
+            train_window_years=cfg.walk_forward.train_window_years,
+            test_window_months=cfg.walk_forward.test_window_months,
+            step_months=cfg.walk_forward.step_months,
+            min_train_years=cfg.walk_forward.min_train_years,
+        )
+        assert_no_leakage(splits)
+        logger.info(f"Walk-Forward: {len(splits)} Folds generiert.")
+
+        # 2. Cache prüfen
+        cache_path = cfg.data_path("walk_forward_cache")
+        idx_hash = hashlib.sha256(
+            df.index.astype(str).str.cat().encode()
+        ).hexdigest()[:16]
+        fingerprint = _walk_forward_fingerprint(cfg, df.shape, idx_hash)
+        logger.info(f"Walk-Forward-Fingerprint: {fingerprint}")
+
+        use_cache = getattr(cfg.walk_forward, "cache_enabled", False)
+        cached_df = None
+        if use_cache:
+            cached_df = load_walk_forward_cache(cache_path, fingerprint)
+
+        if cached_df is not None:
+            test_df = cached_df
+            logger.info(f"Cache-Hit! {len(test_df)} OOS-Zeilen geladen.")
+        else:
+            # 3. Walk-Forward ausführen
+            test_df = run_walk_forward(
+                df=df,
+                splits=splits,
+                cfg=cfg,
+                models_to_run=["MSM", "HMM", "LSTM", "Transformer"],
+            )
+
+            # Train-only-Zeilen verwerfen
+            signal_cols = [c for c in test_df.columns if c.endswith("_Signal")]
+            test_df = test_df.dropna(subset=signal_cols, how="all").copy()
+
+            if use_cache:
+                save_walk_forward_cache(test_df, fingerprint, cache_path)
+
+        # 4. Validierung
+        for model_name in ["MSM", "HMM", "LSTM", "Transformer"]:
+            sig_col = f"{model_name}_Signal"
+            if sig_col in test_df.columns and test_df[sig_col].notna().any():
+                sub = test_df.dropna(subset=[sig_col]).copy()
+                validate_regime_signal(sub, model_name)
+                logger.info(f"{model_name}: {len(sub)} OOS-Tage validiert.")
+            else:
+                logger.warning(f"{model_name}: Keine OOS-Vorhersagen!")
+
+        # 5. Plots generieren
+        plot_regime_comparison(test_df, cfg.color_map,
+                               cfg.asset_path("regime_comparison"))
+
+        # 6. test_df persistieren (für Backtest-Service)
+        test_df_path = cfg.data_path("test_data")
+        Path(test_df_path).parent.mkdir(parents=True, exist_ok=True)
+        test_df.to_parquet(test_df_path)
+
+        elapsed = time.time() - start
+        logger.info(f"Walk-Forward complete in {elapsed:.1f}s")
+        return {
+            "status": "ok",
+            "mode": "walk_forward",
+            "folds": len(splits),
+            "oos_days": len(test_df),
+        }
+
+    else:
+        # ============================================================
+        # Single-Split-Modus: bisherige Logik (sequentiell)
+        # ============================================================
+        logger.info("Single-Split: Training MSM → HMM → LSTM → Transformer")
+        results = []
+        for name in ["msm", "hmm", "lstm", "transformer"]:
+            result = train_model(name)
+            results.append(result)
+
+        elapsed = time.time() - start
+        logger.info(f"All models trained in {elapsed:.1f}s")
+        return {"status": "ok", "mode": "single_split", "results": results}
 
 @router.get("/status")
 def model_status():

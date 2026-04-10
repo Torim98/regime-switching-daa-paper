@@ -1,12 +1,19 @@
 from fastapi import APIRouter, HTTPException
 from config.config_loader import PipelineConfig
-from src.backtest.engine import run_all_backtests, calculate_performance_summary
 from src.backtest.sorr import run_sorr_simulation, build_sorr_scenarios, build_sorr_summary
 from src.backtest.evaluation import evaluate_strategies, run_monte_carlo_simulation
 from src.backtest.reporting import generate_statistics_report
+from src.backtest.engine import (
+    run_all_backtests,
+    calculate_performance_summary,
+    calculate_annualized_metrics,
+    calculate_crisis_performance,
+    calculate_rolling_sharpe,
+)
 from src.backtest.plots import (
     plot_equity_curves, plot_transaction_costs, plot_sorr_scenario,
     plot_mcs_boxplots, plot_mcs_paths, plot_mcs_quantiles,
+    plot_rolling_sharpe, plot_drawdown,
 )
 from pathlib import Path
 import pandas as pd
@@ -31,6 +38,16 @@ def run_backtest():
 
     test_df = pd.read_parquet(cfg.data_path("test_data"))
 
+    # Walk-Forward: gemeinsames OOS-Fenster (alle Modelle müssen Signal haben)
+    if cfg.walk_forward.enabled:
+        signal_cols = [c for c in test_df.columns if c.endswith("_Signal")]
+        n_before = len(test_df)
+        test_df = test_df.dropna(subset=signal_cols, how="any").copy()
+        logger.info(
+            f"Walk-Forward OOS-Fenster: {n_before} → {len(test_df)} Zeilen "
+            f"({test_df.index.min().date()} → {test_df.index.max().date()})"
+        )
+
     # Backtesting
     backtesting_results, backtesting_costs = run_all_backtests(
         test_df=test_df,
@@ -42,12 +59,26 @@ def run_backtest():
     performance_summary = calculate_performance_summary(backtesting_results)
     performance_summary.to_markdown(cfg.asset_path("performance_summary"))
 
+    # Annualisierte Metriken
+    annualized = calculate_annualized_metrics(backtesting_results)
+    annualized.to_markdown(cfg.asset_path("annualized_metrics"))
+
+    crisis = calculate_crisis_performance(backtesting_results)
+    if not crisis.empty:
+        crisis.to_markdown(cfg.asset_path("crisis_performance"))
+
+    rolling_sharpe = calculate_rolling_sharpe(backtesting_results)
+    plot_rolling_sharpe(rolling_sharpe, cfg.color_map,
+                        cfg.asset_path("rolling_sharpe"))
+    plot_drawdown(backtesting_results, cfg.color_map,
+                  cfg.asset_path("drawdown"))
+
     # Persistieren
     Path(cfg.data_path("backtesting_results")).parent.mkdir(parents=True, exist_ok=True)
     backtesting_results.to_parquet(cfg.data_path("backtesting_results"))
     backtesting_costs.to_parquet(cfg.data_path("backtesting_costs"))
 
-    # Plots
+    # Plots (bisherig)
     plot_equity_curves(backtesting_results, cfg.color_map,
                        cfg.asset_path("equity_curves"))
     plot_transaction_costs(backtesting_costs, cfg.transaction_cost_rate,
