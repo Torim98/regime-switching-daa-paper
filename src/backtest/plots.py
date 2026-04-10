@@ -157,3 +157,51 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
+    
+def plot_rolling_sharpe(rolling_sharpe: pd.DataFrame, color_map: dict, save_path: str):
+    """Rollierender 1-Jahres Sharpe Ratio aller Strategien."""
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    ax.plot(rolling_sharpe["Buy_Hold"],
+            label="Buy & Hold (Benchmark)",
+            color=color_map.get("Buy_Hold", "gray"), alpha=0.5, linestyle="--")
+
+    for col in rolling_sharpe.columns:
+        if col == "Buy_Hold":
+            continue
+        color = color_map.get(col, None)
+        ax.plot(rolling_sharpe[col],
+                label=f"Strategie: {col}", color=color, linewidth=1.5, alpha=0.8)
+
+    ax.axhline(y=0, color="black", linewidth=0.5, linestyle="-")
+    ax.set_title("Rollierender Sharpe Ratio (252-Tage-Fenster)")
+    ax.set_xlabel("Datum")
+    ax.set_ylabel("Sharpe Ratio (annualisiert)")
+    ax.legend(loc="upper left", ncol=2, fontsize="small")
+    ax.grid(True, alpha=0.2)
+
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+ 
+def plot_drawdown(backtesting_results: pd.DataFrame, color_map: dict, save_path: str):
+    """Drawdown-Verläufe aller Strategien."""
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    for col in backtesting_results.columns:
+        equity = backtesting_results[col]
+        dd = (equity / equity.cummax() - 1) * 100
+        color = color_map.get(col, None)
+        style = "--" if col == "Buy_Hold" else "-"
+        alpha = 0.5 if col == "Buy_Hold" else 0.8
+        ax.fill_between(dd.index, dd, 0, alpha=0.15, color=color)
+        ax.plot(dd, label=col, color=color, linewidth=1.2,
+                linestyle=style, alpha=alpha)
+
+    ax.set_title("Drawdown-Verlauf aller Strategien")
+    ax.set_xlabel("Datum")
+    ax.set_ylabel("Drawdown (%)")
+    ax.legend(loc="lower left", ncol=2, fontsize="small")
+    ax.grid(True, alpha=0.2)
+
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)

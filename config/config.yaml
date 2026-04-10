@@ -57,7 +57,7 @@ models:
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   lstm:
     window_size: &lstm_window 60
-    train_test_split: &lstm_train_test_split 0.8
+    train_test_split: &lstm_train_test_split 0.8        # Wird nur bei walk_forward.enabled: false genutzt
     labels: "MSM_Signal"
     units_l1: 32
     units_l2: 64
@@ -76,7 +76,7 @@ models:
   transformer:
     # --- Data ---
     window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM
-    train_test_split: *lstm_train_test_split       # 80/20 wie LSTM
+    train_test_split: *lstm_train_test_split       # 80/20 wie LSTM, Wird nur bei walk_forward.enabled: false genutzt
     labels: "MSM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
     d_model: 64                  # Embedding-Dimension (Transformer interne Dimension)
@@ -94,6 +94,18 @@ models:
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
      # --- Class Balancing ---
     pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
+
+# --- Walk-Forward-Validierung (03_regime_switching_models) ---
+walk_forward:
+  enabled: true                    # false = Fallback auf alten 80/20-Split
+  mode: "rolling"                  # "rolling" oder "expanding"
+  train_window_years: 5            # Länge des Train-Fensters (nur bei rolling)
+  test_window_months: 6            # Länge je OOS-Fold
+  step_months: 6                   # Schrittweite (= test_window für nicht-überlappende Folds)
+  min_train_years: 5               # Mindest-Trainingsdatenmenge im ersten Fold (expanding)
+  retrain_dl: true                 # LSTM/Transformer in jedem Fold neu trainieren
+  retrain_msm_hmm: true            # MSM/HMM in jedem Fold neu trainieren
+  cache_enabled: true
 
 # --- Backtesting (04_backtesting) ---
 backtesting:
@@ -143,6 +155,7 @@ paths:
     preprocessed: "silver/02_preprocessed_data.parquet"
     feature_engineered: "silver/03_feature_engineered_data.parquet"
     test_data: "silver/04_test_df_data.parquet"
+    walk_forward_cache: "silver/wf_cache.parquet"
     backtesting_results: "gold/05_backtesting_results_data.parquet"
     backtesting_costs: "gold/05_backtesting_transaction_costs_data.parquet"
     backtesting_sorr: "gold/05_backtesting_sorr_simulation.parquet"
@@ -156,6 +169,11 @@ paths:
     capital_curve: "capital_curve.png"
     feature_correlation_matrix: "feature_correlation_matrix.png"
     feature_correlation_table: "feature_correlation_table.md"
+    # Walk-Forward-spezifische Assets
+    annualized_metrics: "annualized_metrics.md"
+    crisis_performance: "crisis_performance.md"
+    rolling_sharpe: "rolling_sharpe.png"
+    drawdown: "drawdown.png"
     transaction_costs: "transaction_costs.png"
     sorr_sim_standard: "sorr_sim_standard.png"
     sorr_sim_aggressive: "sorr_sim_aggressive.png"
@@ -195,6 +213,8 @@ fast_mode:
     lstm_epochs: 10
     transformer_epochs: 10
     mcs_n_paths: 100
+    walk_forward_test_window_months: 12   # größere Folds = weniger Folds = schneller
+    walk_forward_step_months: 12
  
  ## --- Model Persistence ---
 model_persistence:

@@ -239,6 +239,187 @@ def train_transformer(
 
     return model, scaler, transformer_probs_raw, split
 
+def train_transformer_fold(
+    df_train: pd.DataFrame,
+    df_test: pd.DataFrame,
+    features: list[str],
+    labels_col: str,
+    window_size: int,
+    d_model: int,
+    n_heads: int,
+    n_layers: int,
+    dim_feedforward: int,
+    dropout: float,
+    learning_rate: float,
+    epochs: int,
+    batch_size: int,
+    validation_split: float,
+    verbose: int,
+) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    """
+    Transformer-Netzwerk auf einem Walk-Forward-Fold trainieren.
+
+    Analog zu train_lstm_fold:
+    - Erhält Train- und Test-Slices explizit.
+    - Fittet den Scaler ausschließlich auf df_train.
+    - Persistiert NICHTS.
+    - Gibt OOS-Probabilities samt zugehörigem DatetimeIndex zurück.
+
+    Parameter
+    ---------
+    df_train, df_test : pd.DataFrame
+        Train- bzw. Test-Slice (DatetimeIndex), zeitlich disjunkt.
+    Übrige Parameter :
+        Identische Bedeutung wie in train_transformer.
+
+    Rückgabe
+    --------
+    tuple[np.ndarray, pd.DatetimeIndex]
+        (probs_raw, prediction_index)
+        probs_raw : 1D-Array der Bear-Probabilities auf dem OOS-Test-Bereich.
+        prediction_index : df_test.index[window_size:].
+
+    Hinweise
+    --------
+    - BCEWithLogitsLoss erwartet RAW Logits; der Classifier ist daher ein
+      reines nn.Linear ohne Sigmoid (identisch zu train_transformer).
+      Sigmoid wird erst bei der Inference angewendet.
+    - pos_weight wird ausschließlich aus den Train-Labels berechnet.
+    - validation_split: die letzten X% von X_train werden als interne
+      Validation verwendet (zeitlich geordnet, leakage-frei).
+    """
+    n_features = len(features)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # --- 1. Sanity-Checks ---
+    if len(df_train) <= window_size:
+        raise ValueError(
+            f"df_train hat nur {len(df_train)} Zeilen, benötigt > window_size={window_size}."
+        )
+    if len(df_test) <= window_size:
+        raise ValueError(
+            f"df_test hat nur {len(df_test)} Zeilen, benötigt > window_size={window_size}."
+        )
+    if df_train.index.max() >= df_test.index.min():
+        raise ValueError(
+            f"df_train endet ({df_train.index.max()}) nicht strikt vor df_test "
+            f"({df_test.index.min()}) — Look-Ahead-Verdacht!"
+        )
+
+    # --- 2. Skalierung — fit NUR auf Trainingsdaten ---
+    scaler = RobustScaler()
+    scaler.fit(df_train[features])
+    train_scaled = scaler.transform(df_train[features])
+    test_scaled = scaler.transform(df_test[features])
+
+    # --- 3. Sequenzen erzeugen — mit Warm-up-Buffer für Test ---
+    # Train-Sequenzen nur aus df_train.
+    X_train, y_train = create_sequences(
+        train_scaled, df_train[labels_col].values, window_size,
+    )
+
+    # Test-Sequenzen MIT Warm-up: die letzten window_size Zeilen aus df_train
+    # als "Geschichte" voranstellen, damit die erste Test-Sequenz am ersten
+    # Test-Tag prädizieren kann (statt erst window_size Tage später).
+    # WICHTIG: Diese Buffer-Zeilen werden NICHT zum Trainieren verwendet;
+    # sie liefern nur die Input-Features für die Test-Sequenzen.
+    buffer_scaled = train_scaled[-window_size:]
+    test_scaled_with_buffer = np.concatenate([buffer_scaled, test_scaled], axis=0)
+
+    buffer_labels = df_train[labels_col].values[-window_size:]
+    test_labels_with_buffer = np.concatenate(
+        [buffer_labels, df_test[labels_col].values], axis=0,
+    )
+
+    X_test, _ = create_sequences(
+        test_scaled_with_buffer, test_labels_with_buffer, window_size,
+    )
+
+    # prediction_index: jetzt der GESAMTE df_test.index (nicht mehr [window_size:]),
+    # weil die erste Test-Sequenz dank Buffer schon am ersten Test-Tag prädizieren kann.
+    prediction_index = df_test.index
+    assert len(prediction_index) == len(X_test), (
+        f"Index-Mismatch nach Warm-up-Buffer: prediction_index={len(prediction_index)}, "
+        f"X_test={len(X_test)}"
+    )
+
+
+    # --- 4. Validation-Split innerhalb der Train-Sequenzen (zeitlich am Ende) ---
+    val_split = int(len(X_train) * (1 - validation_split))
+    X_val = X_train[val_split:]
+    y_val = y_train[val_split:]
+    X_train = X_train[:val_split]
+    y_train = y_train[:val_split]
+
+    # --- 5. Modell instanziieren ---
+    model = _build_model(
+        n_features=n_features,
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        dim_feedforward=dim_feedforward,
+        dropout=dropout,
+        device=device,
+    )
+
+    # --- 6. Klassengewichtung (nur auf Train-Labels!) ---
+    n_pos = int(y_train.sum())
+    n_neg = int(len(y_train) - n_pos)
+    if n_pos == 0 or n_neg == 0:
+        raise ValueError(
+            f"Train-Fold enthält nur eine Klasse (n_neg={n_neg}, n_pos={n_pos}). "
+            f"Walk-Forward-Fenster zu kurz oder Regime-frei?"
+        )
+    raw_weight = n_neg / n_pos
+    pos_weight = torch.tensor([math.sqrt(raw_weight)], dtype=torch.float32).to(device)
+    if verbose:
+        print(
+            f"  [Transformer Fold] Train: {len(df_train)} rows, Test: {len(df_test)} rows | "
+            f"Bull: {n_neg}, Bear: {n_pos}, pos_weight (sqrt): {pos_weight.item():.2f}"
+        )
+
+    # --- 7. Loss + Classifier-Override (Raw Logits) ---
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    model.classifier = nn.Linear(d_model, 1).to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # --- 8. Tensoren + DataLoader ---
+    X_train_tensor = torch.FloatTensor(X_train).to(device)
+    y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(device)
+    X_val_tensor = torch.FloatTensor(X_val).to(device)
+    y_val_tensor = torch.FloatTensor(y_val).unsqueeze(1).to(device)
+    X_test_tensor = torch.FloatTensor(X_test).to(device)
+
+    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    # --- 9. Training ---
+    model.train()
+    for epoch in range(epochs):
+        for batch_X, batch_y in train_loader:
+            optimizer.zero_grad()
+            logits = model(batch_X)
+            loss = criterion(logits, batch_y)
+            loss.backward()
+            optimizer.step()
+
+        # Optional: Val-Loss am Ende jeder Epoche bei verbose
+        if verbose and (epoch + 1) % 10 == 0:
+            model.eval()
+            with torch.no_grad():
+                val_logits = model(X_val_tensor)
+                val_loss = criterion(val_logits, y_val_tensor).item()
+            model.train()
+            print(f"    Epoch {epoch+1}/{epochs} — Val-Loss: {val_loss:.4f}")
+
+    # --- 10. OOS-Vorhersagen ---
+    model.eval()
+    with torch.no_grad():
+        logits_test = model(X_test_tensor)
+        probs_raw = torch.sigmoid(logits_test).cpu().numpy().flatten()
+
+    return probs_raw, prediction_index
 
 def load_transformer_model(
     df: pd.DataFrame,
