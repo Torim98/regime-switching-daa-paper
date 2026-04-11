@@ -82,6 +82,7 @@ class PipelineConfig:
         self.portfolio = ns.portfolio
         self.models = ns.models
         self.backtesting = ns.backtesting
+        self.walk_forward = ns.walk_forward
         self.evaluation = ns.evaluation
         self.paths = ns.paths
         self.plotting = ns.plotting
@@ -98,6 +99,8 @@ class PipelineConfig:
             self.models.lstm.epochs = self.fast_mode.overrides.lstm_epochs
             self.models.transformer.epochs = self.fast_mode.overrides.transformer_epochs
             self.evaluation.mcs.n_paths = self.fast_mode.overrides.mcs_n_paths
+            self.walk_forward.test_window_months = self.fast_mode.overrides.walk_forward_test_window_months
+            self.walk_forward.step_months = self.fast_mode.overrides.walk_forward_step_months
 
     def data_path(self, key: str) -> str:
         """Full path to a data file: cfg.data_path("preprocessed")"""

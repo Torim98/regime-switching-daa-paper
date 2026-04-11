@@ -94,6 +94,9 @@ Die gesamte Fachlogik ist in wiederverwendbaren Python-Modulen unter `src/` geka
 ### Modell-Persistierung & Caching
 Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
 
+### Walk-Forward-Validierung
+Für die robuste Out-of-Sample-Evaluation steht ein konfigurierbares Walk-Forward-Framework zur Verfügung (`walk_forward.enabled: true` in `config.yaml`). Anstelle eines einzelnen 80/20-Splits werden rollierende Folds generiert (z.B. 5 Jahre Training, 6 Monate Test, 6 Monate Step), in denen jedes Modell pro Fold neu trainiert wird. Die OOS-Vorhersagen aller Folds werden zu einer durchgehenden Serie aggregiert. Ein fingerprint-basierter Parquet-Cache verhindert unnötiges Re-Training bei unveränderter Konfiguration. Im Walk-Forward-Modus ist die Modell-Persistierung deaktiviert, da jeder Fold ein eigenes Modell erzeugt.
+
 ### Vermeidung von Look-ahead Bias
 Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks aus der Zukunft. Alle generierten Handelssignale werden systematisch um einen Zeitschritt ($T+1$) verschoben. Entscheidungen werden somit ausschließlich auf Basis der zum Handelszeitpunkt verfügbaren historischen Informationen getroffen.
 
@@ -155,7 +158,7 @@ Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf
 1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
 2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
 3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
-4.  **`03_regime_switching_models`**: Training (oder Laden persistierter Modelle) und Hyperparameteroptimierung der Regime-Switching-Modelle.
+4.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
 5.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
 6.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
 7.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
@@ -176,7 +179,12 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 
 ![Regime Comparison](./assets/regime_comparison.png)
 
-### 3. Zusammenfassung der Kennzahlen
+### 3. Drawdown-Verlauf
+Zeitlicher Verlauf der Drawdowns aller Strategien. Zeigt, wo Regime-Switching Krisen-Drawdowns reduziert.
+
+![Drawdown](./assets/drawdown.png)
+
+### 4. Zusammenfassung der Kennzahlen
 | Kategorie | Kennzahlen | Relevanz für die Thesis |
 | :--- | :--- | :--- |
 | **Risikoschutz (SORR)** | **Max Drawdown, Calmar Ratio** | Die primäre Zielgröße. Misst die Effektivität der Verlustvermeidung und das Verhältnis von Rendite zu maximalem Drawdown. |
@@ -184,12 +192,12 @@ Visualisierung der berechneten Wahrscheinlichkeiten für ein Bärenmarkt-Regime 
 | **Wachstumsdynamik** | **Total Return, CAGR (p.a.)** | Zeigt, ob die Modelle trotz der defensiven Ausrichtung in Bärenmärkten langfristig in der Lage sind, den Markt (Buy & Hold) zu schlagen. |
 | **Modellstabilität** | **Regime-Wechsel, Volatilität** | Evaluiert die praktische Umsetzbarkeit. Eine hohe Anzahl an Wechseln ("Churning") deutet auf Instabilität und hohe Transaktionskosten hin. |
 
-### 4. Risikoprofil (SORR Stress-Test)
+### 5. Risikoprofil (SORR Stress-Test)
 Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichtigung von Marktschocks und monatlichen Rentenzahlungen?
 
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
-### 5. Statistische Signifikanz (Monte-Carlo-Simulation)
+### 6. Statistische Signifikanz (Monte-Carlo-Simulation)
 Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
@@ -216,7 +224,7 @@ regime-switching-daa/
 ├── src/             Shared Business Logic
 │   ├── data/        Ingestion, Preprocessing, Feature Engineering, EDA, Plots
 │   ├── models/      MSM, HMM, LSTM, Transformer, Plots
-│   └── backtest/    Engine, SORR, Evaluation, Reporting, Plots
+│   └── backtest/    Engine, Walk-Forward, SORR, Evaluation, Reporting, Plots
 ├── docker-compose.yml
 ├── pyproject.toml
 └── README.md
@@ -234,6 +242,7 @@ regime-switching-daa/
 | [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
 | [Transformer Architecture](docs/transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
 | [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
+| [FastAPI Endpoints](docs/fastapi-endpoints.md) | API-Routen und Parameter |
 
 ---
 

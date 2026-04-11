@@ -20,10 +20,10 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur, die in d
 
 ### `POST /models/train/{model_name}`
 - **Parameter**: `model_name` (String: `msm` | `hmm` | `lstm` | `transformer`)
-- **Beschreibung**: Trainiert ein einzelnes, spezifiziertes Modell auf den Feature-Daten, generiert die entsprechenden Regime-Wahrscheinlichkeiten und Handelssignale, validiert diese und persistiert das trainierte Modell. Erstellt zudem modellspezifische Evaluierungsplots. *(Achtung: `lstm` und `transformer` benötigen die Signale des `msm` als Labels).*
+- **Beschreibung**: Trainiert ein einzelnes, spezifiziertes Modell. **Nur verfügbar bei `walk_forward.enabled: false`.** Im Walk-Forward-Modus gibt dieser Endpoint HTTP 400 zurück mit dem Hinweis, `/models/train-all` zu verwenden.
 
 ### `POST /models/train-all`
-- **Beschreibung**: Trainiert alle vier Modelle (Markov-Switching Model, Hidden Markov Model, LSTM und Transformer) automatisiert in der korrekten, sequenziellen Reihenfolge (MSM zuerst), sodass die Pipeline-Abhängigkeiten gewahrt bleiben.
+- **Beschreibung**: Trainiert alle vier Modelle. Bei `walk_forward.enabled: false` sequentiell im Single-Split-Modus. Bei `walk_forward.enabled: true` über die Walk-Forward-Engine (`run_walk_forward`) mit rollierenden Folds, fingerprint-basiertem Cache und OOS-Aggregation. Gibt im Walk-Forward-Modus zusätzlich `folds` und `oos_days` zurück.
 
 ### `GET /models/status`
 - **Beschreibung**: Überprüft das Dateisystem und gibt für jedes der vier Modelle als Boolean (`true`/`false`) zurück, ob das jeweilige Modell bereits trainiert und erfolgreich auf der Festplatte persistiert wurde.
@@ -34,7 +34,7 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur, die in d
 *Zuständig für die Strategie-Evaluation, Monte Carlo Simulationen und das finale Reporting.*
 
 ### `POST /backtest/run`
-- **Beschreibung**: Führt das historische Backtesting der durch die Modelle generierten Signale durch. Berechnet Transaktionskosten, generiert Performance Summaries und Equity Curves. Führt zusätzlich die "Sequence of Returns Risk" (SORR) Simulationen auf Basis definierter Entnahme-Szenarien durch und generiert entsprechende Visualisierungen.
+- **Beschreibung**: Führt das historische Backtesting durch. Im Walk-Forward-Modus wird `test_df` auf das gemeinsame OOS-Fenster beschnitten (`dropna(how="any")`). Erzeugt neben Equity Curves und Transaktionskosten auch annualisierte Metriken, Krisen-Performance-Tabelle, Rolling-Sharpe-Plot und Drawdown-Plot. Führt SORR-Simulationen für alle konfigurierten Szenarien durch.
 
 ### `POST /backtest/evaluate`
 - **Beschreibung**: Evaluiert alle Strategien tiefgreifend. Führt eine Block-Bootstrap Monte Carlo Simulation durch, um die Robustheit der Strategien zu testen. Erstellt detaillierte Performance-Metriken, Boxplots, Quantil-Visualisierungen und MCS-Pfade. Stößt am Ende automatisiert die Report-Erstellung an.

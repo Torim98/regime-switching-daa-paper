@@ -1,17 +1,17 @@
-|                                | Endkapital   | Status        |
-|:-------------------------------|:-------------|:--------------|
-| ('Standard', 'Buy Hold')       | 569,631.93 € | Kapitalerhalt |
-| ('Standard', 'MSM')            | 849,217.94 € | Kapitalerhalt |
-| ('Standard', 'HMM')            | 564,158.40 € | Kapitalerhalt |
-| ('Standard', 'LSTM')           | 579,124.14 € | Kapitalerhalt |
-| ('Standard', 'Transformer')    | 509,320.08 € | Kapitalerhalt |
-| ('Aggressive', 'Buy Hold')     | 407,941.93 € | Kapitalerhalt |
-| ('Aggressive', 'MSM')          | 650,373.15 € | Kapitalerhalt |
-| ('Aggressive', 'HMM')          | 396,455.91 € | Kapitalerhalt |
-| ('Aggressive', 'LSTM')         | 409,207.70 € | Kapitalerhalt |
-| ('Aggressive', 'Transformer')  | 357,055.58 € | Kapitalerhalt |
-| ('Low_Capital', 'Buy Hold')    | 287,882.49 € | Kapitalerhalt |
-| ('Low_Capital', 'MSM')         | 443,249.17 € | Kapitalerhalt |
-| ('Low_Capital', 'HMM')         | 282,594.21 € | Kapitalerhalt |
-| ('Low_Capital', 'LSTM')        | 290,835.67 € | Kapitalerhalt |
-| ('Low_Capital', 'Transformer') | 254,837.21 € | Kapitalerhalt |
+|                                | Endkapital     | Status           |
+|:-------------------------------|:---------------|:-----------------|
+| ('Standard', 'Buy Hold')       | 1,315,694.10 € | Kapitalerhalt    |
+| ('Standard', 'MSM')            | 25,128.30 €    | Kapitalerhalt    |
+| ('Standard', 'HMM')            | 112,383.68 €   | Kapitalerhalt    |
+| ('Standard', 'LSTM')           | 474,613.22 €   | Kapitalerhalt    |
+| ('Standard', 'Transformer')    | 0.00 €         | Erschöpft (2022) |
+| ('Aggressive', 'Buy Hold')     | 0.00 €         | Erschöpft (2017) |
+| ('Aggressive', 'MSM')          | 0.00 €         | Erschöpft (2009) |
+| ('Aggressive', 'HMM')          | 0.00 €         | Erschöpft (2008) |
+| ('Aggressive', 'LSTM')         | 0.00 €         | Erschöpft (2012) |
+| ('Aggressive', 'Transformer')  | 0.00 €         | Erschöpft (2008) |
+| ('Low_Capital', 'Buy Hold')    | 158,146.48 €   | Kapitalerhalt    |
+| ('Low_Capital', 'MSM')         | 0.00 €         | Erschöpft (2013) |
+| ('Low_Capital', 'HMM')         | 0.00 €         | Erschöpft (2013) |
+| ('Low_Capital', 'LSTM')        | 0.00 €         | Erschöpft (2019) |
+| ('Low_Capital', 'Transformer') | 0.00 €         | Erschöpft (2012) |
