@@ -96,6 +96,36 @@ Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in d
 ### Equity Curves im Vergleich
 ![Equity Curves](../assets/equity_curves.png)
 
+### Annualisierte Performance-Metriken
+Normalisierte Kennzahlen (CAGR, Sharpe, Sortino, Calmar) für den Vergleich über unterschiedlich lange Evaluationszeiträume.
+
+| Strategie   | CAGR   | Ann. Volatilität   |   Sharpe Ratio |   Sortino Ratio | Max Drawdown   |   Calmar Ratio |   OOS-Tage |   OOS-Jahre |
+|:------------|:-------|:-------------------|---------------:|----------------:|:---------------|---------------:|-----------:|------------:|
+| Buy_Hold    | +7.48% | 11.33%             |          0.661 |           0.871 | -34.77%        |          0.215 |       7651 |        30.4 |
+| MSM         | +5.32% | 7.49%              |          0.71  |           0.846 | -31.61%        |          0.168 |       7651 |        30.4 |
+| HMM         | +5.53% | 5.46%              |          1.012 |           1.002 | -16.30%        |          0.339 |       7651 |        30.4 |
+| LSTM        | +5.96% | 8.48%              |          0.703 |           0.819 | -30.35%        |          0.197 |       7651 |        30.4 |
+| Transformer | +4.04% | 7.41%              |          0.545 |           0.647 | -43.18%        |          0.094 |       7651 |        30.4 |
+
+### Krisen-Performance
+Return und Max Drawdown während historischer Krisenperioden — der zentrale Nachweis für den Tail-Risk-Schutz der Regime-Switching-Modelle.
+
+| Krise                                | ('Return', 'Buy_Hold')   | ('Return', 'HMM')   | ('Return', 'LSTM')   | ('Return', 'MSM')   | ('Return', 'Transformer')   | ('Max Drawdown', 'Buy_Hold')   | ('Max Drawdown', 'HMM')   | ('Max Drawdown', 'LSTM')   | ('Max Drawdown', 'MSM')   | ('Max Drawdown', 'Transformer')   |
+|:-------------------------------------|:-------------------------|:--------------------|:---------------------|:--------------------|:----------------------------|:-------------------------------|:--------------------------|:---------------------------|:--------------------------|:----------------------------------|
+| COVID Crash (2020-02 – 2020-03)      | -8.24%                   | +0.13%              | -2.80%               | +0.73%              | -0.88%                      | -18.53%                        | -0.00%                    | -3.36%                     | -1.81%                    | -3.36%                            |
+| Dot-Com (2000-03 – 2002-10)          | -13.31%                  | -5.90%              | -19.88%              | -23.55%             | -34.51%                     | -27.27%                        | -16.30%                   | -25.44%                    | -26.33%                   | -34.82%                           |
+| EU-Schuldenkrise (2011-07 – 2011-11) | +4.10%                   | -3.34%              | +4.10%               | -1.37%              | -1.63%                      | -7.24%                         | -4.46%                    | -7.24%                     | -8.17%                    | -7.24%                            |
+| GFC (2007-10 – 2009-03)              | -25.67%                  | +1.78%              | -15.84%              | -4.19%              | -1.24%                      | -34.77%                        | -1.17%                    | -20.32%                    | -5.71%                    | -3.33%                            |
+| Zinsanstieg (2022-01 – 2022-10)      | -24.20%                  | +0.46%              | -2.20%               | -4.82%              | -6.82%                      | -26.98%                        | -1.28%                    | -3.37%                     | -7.15%                    | -7.40%                            |
+
+### Drawdown-Verlauf
+![Drawdown](../assets/drawdown.png)
+
+### Rollierender Sharpe Ratio
+Zeitvariierender, risikoadjustierter Rendite-Vergleich über ein rollendes 252-Tage-Fenster.
+
+![Rolling Sharpe](../assets/rolling_sharpe.png)
+
 ### Umfassende Kennzahlen-Matrix
 Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
 
@@ -221,7 +251,8 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 10.04.2026 19:35<br>
+**Zuletzt aktualisiert:** 11.04.2026 08:31<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
+**Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 5J, Test: 6M, Step: 6M)<br>
 **Modell-Persistierung:** AKTIV<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*

@@ -34,6 +34,8 @@ data/
 │   ├── 02_preprocessed_data.parquet
 │   ├── 03_feature_engineered_data.parquet
 │   └── 04_test_df_data.parquet
+│   └── wf_cache.parquet
+│   └── wf_cache.parquet.fingerprint
 └── gold/
     ├── 05_backtesting_results_data.parquet
     ├── 05_backtesting_transaction_costs_data.parquet
@@ -63,6 +65,7 @@ Endergebnisse.
 | `02_preprocessed_data.parquet` | `01_data_preprocessing.ipynb` / Data Service | Portfolio-Renditen, Cash-Renditen, VIX, Zinsen |
 | `03_feature_engineered_data.parquet` | `02_feature_engineering.ipynb` / Data Service | Zusätzliche Features: SMA, Volatilität, Momentum, Yield Spread |
 | `04_test_df_data.parquet` | `03_regime_switching_models.ipynb` / Model Service | Test-Datensatz mit Regime-Vorhersagen aller Modelle |
+| `wf_cache.parquet` | `03_regime_switching_models.ipynb` / Model Service | Walk-Forward OOS-Cache mit Fingerprint-Validierung (nur bei `walk_forward.cache_enabled: true`) |
 
 ### Gold – Endergebnisse
 

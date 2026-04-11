@@ -72,10 +72,30 @@ def generate_statistics_report(cfg) -> str:
         os.path.join(ASSETS_DIR, cfg.asset_path("pipeline_timing")),
         fallback="*Keine Timing-Daten verfügbar.*",
     )
+    annualized_metrics_md = load_markdown_asset(
+        cfg.asset_path("annualized_metrics"),
+        fallback="*Keine annualisierten Metriken verfügbar.*",
+    )
+    crisis_performance_md = load_markdown_asset(
+        cfg.asset_path("crisis_performance"),
+        fallback="*Keine Krisen-Performance verfügbar.*",
+    )
 
     # Fast Mode Status aus config auslesen
     fast_mode_enabled = cfg.fast_mode.enabled
     fast_mode_status = "TRUE (Development Mode)" if fast_mode_enabled else "FALSE (Full Run)"
+
+    # Walk-Forward Status
+    wf_enabled = getattr(cfg.walk_forward, "enabled", False)
+    if wf_enabled:
+        wf_status = (
+            f"AKTIV (Modus: {cfg.walk_forward.mode}, "
+            f"Train: {cfg.walk_forward.train_window_years}J, "
+            f"Test: {cfg.walk_forward.test_window_months}M, "
+            f"Step: {cfg.walk_forward.step_months}M)"
+        )
+    else:
+        wf_status = "DEAKTIVIERT (Single 80/20 Split)"
 
     # Model Persistence Status
     persist_status_text, model_persistence_table = build_model_persistence_table(cfg)
@@ -161,6 +181,24 @@ Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in d
 ### Equity Curves im Vergleich
 ![Equity Curves](../assets/{cfg.paths.assets.equity_curves})
 
+### Annualisierte Performance-Metriken
+Normalisierte Kennzahlen (CAGR, Sharpe, Sortino, Calmar) für den Vergleich über unterschiedlich lange Evaluationszeiträume.
+
+{annualized_metrics_md}
+
+### Krisen-Performance
+Return und Max Drawdown während historischer Krisenperioden — der zentrale Nachweis für den Tail-Risk-Schutz der Regime-Switching-Modelle.
+
+{crisis_performance_md}
+
+### Drawdown-Verlauf
+![Drawdown](../assets/{cfg.paths.assets.drawdown})
+
+### Rollierender Sharpe Ratio
+Zeitvariierender, risikoadjustierter Rendite-Vergleich über ein rollendes 252-Tage-Fenster.
+
+![Rolling Sharpe](../assets/{cfg.paths.assets.rolling_sharpe})
+
 ### Umfassende Kennzahlen-Matrix
 Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
 
@@ -237,6 +275,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 **Zuletzt aktualisiert:** {timestamp}<br>
 **Fast Mode Status zur Laufzeit:** {fast_mode_status}<br>
+**Walk-Forward-Validierung:** {wf_status}<br>
 **Modell-Persistierung:** {persist_status_text}<br>
 *Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
 """

@@ -24,14 +24,15 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei contain
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
 | POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (`msm`, `hmm`, `lstm`, `transformer`) |
-| POST | `/models/train-all` | Alle 4 Modelle sequentiell trainieren |
+| POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (nur bei `walk_forward.enabled: false`) |
+| POST | `/models/train-all` | Alle 4 Modelle trainieren; Single-Split oder Walk-Forward je nach Config |
 | GET | `/models/status` | Persistierungsstatus aller Modelle |
 
 ### Backtest Service (`:8003`)
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
-| POST | `/backtest/run` | Backtesting + Equity Curves + SORR-Simulation |
+| POST | `/backtest/run` | Backtesting + Equity Curves + Drawdown + Rolling Sharpe + SORR + Krisen-Performance |
 | POST | `/backtest/evaluate` | Evaluation-Tabelle + Monte Carlo Simulation + `statistics.md` |
 | GET | `/backtest/results` | Evaluation-Tabelle als Markdown |
 
@@ -52,6 +53,7 @@ Innerhalb des Model Service gilt eine feste Trainingsreihenfolge:
 2. **HMM** (Hidden Markov) — unabhängig, aber konventionell nach MSM
 3. **LSTM** — benötigt MSM-Labels, erstellt `test_df`
 4. **Transformer** — benötigt `test_df` aus dem LSTM-Schritt
+Bei `walk_forward.enabled: true` wird `/models/train-all` direkt aufgerufen und steuert alle Modelle über `run_walk_forward()`. Die Einzelrouten `/models/train/{model_name}` sind in diesem Modus blockiert (HTTP 400). Ein fingerprint-basierter Parquet-Cache beschleunigt wiederholte Durchläufe bei unveränderter Konfiguration.
 
 ## Shared Volumes
 

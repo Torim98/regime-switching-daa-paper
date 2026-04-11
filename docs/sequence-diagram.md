@@ -68,3 +68,45 @@ sequenceDiagram
     BS->>BS: generate_statistics_report
     BS->>FS: docs/statistics.md
     BS-->>Client: 200 OK {evaluation, mcs_scenarios}
+```
+
+## Walk-Forward-Modus (`walk_forward.enabled: true`)
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant MS as Model Service<br/>:8002
+    participant WF as run_walk_forward<br/>(src/backtest)
+    participant FS as Filesystem<br/>(Shared Volumes)
+    participant BS as Backtest Service<br/>:8003
+
+    Note over Client,FS: Phase 2: Walk-Forward Training
+    Client->>MS: POST /models/train-all
+    MS->>FS: read feature_engineered_data
+    MS->>MS: walk_forward_splits() → 60 Folds
+    MS->>MS: check cache (fingerprint)
+    alt Cache Hit
+        MS->>FS: load wf_cache.parquet
+    else Cache Miss
+        loop Fold 1..60
+            MS->>WF: train_msm_fold(train, test)
+            MS->>WF: train_hmm_fold(train, test)
+            MS->>WF: train_lstm_fold(train, test)
+            MS->>WF: train_transformer_fold(train, test)
+            WF->>WF: write OOS predictions to result_df
+        end
+        MS->>FS: save wf_cache.parquet + .fingerprint
+    end
+    MS->>FS: test_df_data.parquet (OOS only)
+    MS->>FS: regime_comparison plot
+    MS-->>Client: 200 OK {mode: walk_forward, folds: 60}
+
+    Note over Client,FS: Phase 3: Backtesting (identisch)
+    Client->>BS: POST /backtest/run
+    BS->>FS: read test_df_data
+    BS->>BS: dropna(how="any") → gemeinsames OOS-Fenster
+    BS->>BS: run_all_backtests + extended metrics
+    BS->>FS: backtesting_results + annualized_metrics + crisis_performance
+    BS->>FS: equity_curves + drawdown + rolling_sharpe
+    BS-->>Client: 200 OK
+```
