@@ -205,3 +205,34 @@ def plot_drawdown(backtesting_results: pd.DataFrame, color_map: dict, save_path:
 
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
+ 
+def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
+    """Optuna-Visualisierungen (History, Importance, Contour, Slice) als PNG speichern."""
+    from pathlib import Path
+    from optuna.visualization import (
+        plot_optimization_history,
+        plot_param_importances,
+        plot_contour,
+        plot_slice,
+    )
+
+    plots = {
+        "optuna_history": plot_optimization_history(study),
+        "optuna_importance": plot_param_importances(study),
+        "optuna_contour": plot_contour(study),
+        "optuna_slice": plot_slice(study),
+    }
+
+    saved = {}
+    for key, fig in plots.items():
+        # Template enthält {model} → ersetzen, dann über cfg.asset_path auflösen
+        raw_template = getattr(cfg.paths.assets, key)       # "optuna_{model}_history.png"
+        filename = raw_template.replace("{model}", model_name)
+        # asset_path nutzt _base_dir → funktioniert in Jupyter UND Docker
+        path = Path(cfg.asset_path(key).replace(raw_template, filename))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.write_image(str(path), scale=2)
+        saved[key] = str(path)
+        print(f"  ✓ {path}")
+
+    return saved

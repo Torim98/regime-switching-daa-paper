@@ -248,7 +248,7 @@ def run_walk_forward(
         if "HMM" in models_to_run:
             try:
                 hmm_cfg = cfg.models.hmm
-                probs, signal = train_hmm_fold(
+                probs, signal, signal_train = train_hmm_fold(
                     features_df_train=df_train[hmm_cfg.features],
                     features_df_test=df_test[hmm_cfg.features],
                     returns_train=df_train["Returns"],

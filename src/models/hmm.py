@@ -138,7 +138,14 @@ def train_hmm_fold(
     probs = pd.Series(bear_probs, index=features_df_test.index)
     signal = (probs >= threshold).astype(int)
 
-    return probs, signal
+    # Train-Signal für DL-Label-Injection (analog zu train_msm_fold)
+    train_probs_raw = model.predict_proba(X_train_scaled)[:, bear_state]
+    signal_train = pd.Series(
+        (train_probs_raw >= threshold).astype(int),
+        index=features_df_train.index,
+    )
+
+    return probs, signal, signal_train
 
 def load_hmm(
     model_file: str,

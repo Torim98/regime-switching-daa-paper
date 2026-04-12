@@ -44,7 +44,7 @@ models:
   msm:
     k_regimes: 2
     switching_variance: true
-    threshold: &threshold 0.5   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold
+    threshold: &threshold 0.5   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: &msm_train_test_split 0.8  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   hmm:
     features:
@@ -52,22 +52,22 @@ models:
       - "VIX"
       - "Yield_Spread"
     n_components: 2
-    covariance_type: "full"
+    covariance_type: "full"     # Intitialwert der Thesis "full"
     n_iter: 1000
     random_state: 42
-    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   lstm:
-    window_size: &lstm_window 60
+    window_size: &lstm_window 60    # Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
     labels: "HMM_Signal"
-    units_l1: 32
-    units_l2: 64
+    units_l1: 32                # Initialwert der Thesis 32
+    units_l2: 64                # Initialwert der Thesis 64
     return_sequences: true
-    epochs: 30
+    epochs: 30                  # Initialwert der Thesis 30
     batch_size: 32
-    learning_rate: 0.001
-    dropout: 0.2
+    learning_rate: 0.001        # Initialwert der Thesis 0.001
+    dropout: 0.2                # Initialwert der Thesis 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
@@ -77,19 +77,19 @@ models:
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
-    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM
+    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
     labels: "HMM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
-    d_model: 64                  # Embedding-Dimension (Transformer interne Dimension)
-    n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!)
-    n_layers: 2                  # Anzahl Transformer-Encoder-Layer
-    dim_feedforward: 128         # Dimension des Feed-Forward-Netzwerks im Encoder
-    dropout: 0.1                 # Dropout-Rate (Regularisierung)
+    d_model: 64                  # Embedding-Dimension (Transformer interne Dimension); Initialwert der Thesis 64
+    n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!); Initialwert der Thesis 4
+    n_layers: 2                  # Anzahl Transformer-Encoder-Layer; Initialwert der Thesis 2
+    dim_feedforward: 128         # Dimension des Feed-Forward-Netzwerks im Encoder; Initialwert der Thesis 128
+    dropout: 0.1                 # Dropout-Rate (Regularisierung); Initialwert der Thesis 0.1
     # --- Training ---
-    epochs: 50
+    epochs: 50                  # Initialwert der Thesis 50
     batch_size: 32
-    learning_rate: 0.0001
+    learning_rate: 0.0001       # Initialwert der Thesis 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
@@ -110,6 +110,19 @@ walk_forward:
   cache_enabled: true
 
 # --- Backtesting (04_backtesting) ---
+## --- Hyperparameter-Optimierung (Optuna) ---
+optimization:
+  enabled: false                    # Setze enabled: true wenn du Optuna laufen lassen willst, false wenn du die gefundenen Params bereits in der Config hast und nur noch den finalen WF-Lauf machst.
+  n_trials: 50                      # Anzahl Optuna-Trials pro Modell
+  metric: "sharpe"                  # Optimierungsziel: "sharpe", "sortino", "calmar"
+  n_folds_subset: null              # null = alle Folds, int = nur jeden n-ten Fold (Speed)
+  models:
+    - "MSM"
+    - "HMM"
+    - "LSTM"
+    - "Transformer"
+  storage: "sqlite:///models/optuna_studies.db"   # Optional: Persistieren der Optuna-DB
+
 backtesting:
   transaction_cost_bps: 10    # Basis points (10 = 0.1%)
   signal_shift: 1             # T+1 shift for look-ahead bias prevention
@@ -196,6 +209,10 @@ paths:
     regime_comparison: "regime_comparison.png"
     statistics_output: "../docs/statistics.md"
     pipeline_timing: "pipeline_timing.md"
+    optuna_history: "optuna_{model}_history.png"
+    optuna_importance: "optuna_{model}_importance.png"
+    optuna_contour: "optuna_{model}_contour.png"
+    optuna_slice: "optuna_{model}_slice.png"
 
 ## --- Pipeline Execution ---
 pipeline:
@@ -230,3 +247,4 @@ model_persistence:
     scaler_lstm: "lstm_scaler.pkl"
     transformer: "transformer_regime_model.pt"
     scaler_transformer: "transformer_scaler.pkl"
+    optuna_db: "optuna_studies.db"

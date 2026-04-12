@@ -31,6 +31,7 @@ services:
       - TZ=Europe/Berlin
     depends_on:
       - data-service
+    command: uvicorn services.model_service.main:app --host 0.0.0.0 --port 8002 --timeout-keep-alive 28800
 
   backtest-service:
     build:

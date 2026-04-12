@@ -2,6 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Chromium für Kaleido/Plotly PNG-Export
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends chromium && \
+    rm -rf /var/lib/apt/lists/*
+ENV CHROME_PATH=/usr/bin/chromium
+
 COPY pyproject.toml .
 RUN pip install --no-cache-dir ".[services]"
 

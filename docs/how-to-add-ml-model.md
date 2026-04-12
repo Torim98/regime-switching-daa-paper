@@ -91,6 +91,12 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 
 > **Wichtig:** Seit [Issue #3](https://github.com/Torim98/regime-switching-daa/issues/3) werden **alle Pipeline-Parameter zentral** in [`config/config.yaml`](../config/config.yaml) verwaltet. Hardcoded Hyperparameter in Notebooks sind nicht mehr erlaubt.
 
+> **Hyperparameter-Optimierung:** Optuna kann `config.yaml`-Parameter programmatisch
+> überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)).
+> Um ein neues Modell in die Optimierung aufzunehmen, muss in `src/backtest/optimize.py`
+> eine `objective_<modell>`-Funktion mit den passenden `trial.suggest_*()`-Aufrufen
+> definiert und in `_OBJECTIVE_MAP` registriert werden.
+
 ### Architektur-Übersicht
 
 ```

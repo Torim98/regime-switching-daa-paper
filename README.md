@@ -44,6 +44,7 @@ Für die Umsetzung der Forschungsumgebung wurde ein moderner Data-Science-Stack 
 *   **Datenverarbeitung:** `Pandas`, `NumPy`, `PyArrow` (Parquet-Engine)
 *   **Ökonometrie & Statistik:** `Statsmodels` (Markov-Regression), `hmmlearn` (Hidden Markov Models), `SciPy`
 *   **Machine Learning:** `TensorFlow` / `Keras` (LSTM-Architekturen), `PyTorch` (Transformer), `Scikit-Learn`
+*   **Hyperparameter-Optimierung:** `Optuna` (Bayessche Optimierung via TPE)
 *   **Reporting:** `Matplotlib` (Visualisierung), `Seaborn` (Heatmaps), `Tabulate` (Markdown-Export)
 *   **Microservices:** `FastAPI`, `Uvicorn`, `Docker` / `Docker Compose`
 
@@ -103,6 +104,9 @@ Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks au
 ### Data-Driven Automation (Dynamic Matching)
 Das Framework ist **vollständig dynamisch** aufgebaut. Ein spezialisierter Such-Algorithmus identifiziert neue Modell-Outputs automatisch anhand eines definierten Namensschemas (`Modell_Signal`). Dadurch können neue Modell-Architekturen integriert werden, ohne den Code für das Backtesting, die Evaluation oder das Reporting manuell anpassen zu müssen. Siehe [How to add a ML Model](docs/how-to-add-ml-model.md).
 
+### Hyperparameter-Optimierung (Optuna)
+Alle Modellparameter werden systematisch mittels Bayesscher Optimierung (Optuna, TPE-Sampler) gesucht. Die Optimierung nutzt die Walk-Forward-Splits als innere Cross-Validation. Optuna sieht ausschließlich OOS-Metriken (medianer Sharpe Ratio), sodass kein Look-Ahead-Bias durch die Parametersuche entsteht. Die aktuellen Config-Defaults werden als Baseline-Trial (#0) eingespeist. Ergebnisse werden in einer SQLite-Datenbank unter `models/optuna_studies.db` persistiert, sodass Optimierungsläufe fortgesetzt werden können. Sensitivitäts-Heatmaps und Parameter-Importance-Plots werden automatisch unter `assets/` abgelegt.
+
 ### Realitätsnahe Kostensimulation
 Die Simulation berücksichtigt reale Marktreibungen:
 *   **Transaktionskosten:** Jede Umschichtung zwischen Portfolio und Cash wird mit einer Gebühr (0,1%) belegt.
@@ -142,6 +146,7 @@ docker-compose up --build -d
 
 # Pipeline ausführen:
 curl -X POST http://localhost:8001/data/ingest
+curl -X POST http://localhost:8002/models/optimize-all    # Optional: Hyperparameter-Optimierung
 curl -X POST http://localhost:8002/models/train-all
 curl -X POST http://localhost:8003/backtest/run
 curl -X POST http://localhost:8003/backtest/evaluate
@@ -158,10 +163,11 @@ Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf
 1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
 2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
 3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
-4.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
-5.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
-6.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
-7.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
+4.  **`03a_hyperparameter_optimization`** *(manuell)*: Bayessche Hyperparameter-Optimierung via Optuna. Nutzt Walk-Forward als innere CV. Nicht Teil der automatischen Pipeline. Wird einmalig vor dem finalen Durchlauf ausgeführt.
+5.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
+6.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
+7.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
+8.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
 
 ---
 
@@ -216,7 +222,7 @@ regime-switching-daa/
 ├── docs/            Projektdokumentation
 ├── jupyter/         Jupyter Notebooks (Pipeline 00–99)
 ├── logs/            Log-Dateien (Notebook-Pipeline + Services)
-├── models/          Persistierte Modelldateien (.pkl, .keras, .pt)
+├── models/          Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna DB
 ├── services/        FastAPI Microservices
 │   ├── data_service/
 │   ├── model_service/
@@ -224,7 +230,7 @@ regime-switching-daa/
 ├── src/             Shared Business Logic
 │   ├── data/        Ingestion, Preprocessing, Feature Engineering, EDA, Plots
 │   ├── models/      MSM, HMM, LSTM, Transformer, Plots
-│   └── backtest/    Engine, Walk-Forward, SORR, Evaluation, Reporting, Plots
+│   └── backtest/    Engine, Walk-Forward, Optimize, SORR, Evaluation, Reporting, Plots
 ├── docker-compose.yml
 ├── pyproject.toml
 └── README.md

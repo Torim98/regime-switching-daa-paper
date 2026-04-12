@@ -26,6 +26,8 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei contain
 | POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (`msm`, `hmm`, `lstm`, `transformer`) |
 | POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (nur bei `walk_forward.enabled: false`) |
 | POST | `/models/train-all` | Alle 4 Modelle trainieren; Single-Split oder Walk-Forward je nach Config |
+| POST | `/models/optimize/{model_name}` | Optuna-Optimierung für ein Modell (Walk-Forward als innere CV) |
+| POST | `/models/optimize-all` | Alle 4 Modelle sequenziell optimieren |
 | GET | `/models/status` | Persistierungsstatus aller Modelle |
 
 ### Backtest Service (`:8003`)
@@ -62,7 +64,7 @@ Alle Services kommunizieren über gemountete Host-Verzeichnisse:
 | Volume | Data Service | Model Service | Backtest Service | Inhalt |
 |--------|:---:|:---:|:---:|--------|
 | `./data` | R/W | R/W | R | Parquet-Dateien (Medallion: Bronze/Silver/Gold) |
-| `./models` | — | R/W | — | Persistierte Modelldateien (.pkl, .keras, .pt) |
+| `./models` | — | R/W | — | Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna SQLite DB |
 | `./assets` | R/W | R/W | R/W | Plots (PNG) und Tabellen (Markdown) |
 | `./config` | R | R | R | `config.yaml` |
 | `./logs` | R/W | R/W | R/W | Service-Logdateien |
@@ -100,6 +102,7 @@ regime-switching-daa/
 │   │   └── plots.py                  # Regime-Plots (MSM, HMM, DL, Vergleich)
 │   └── backtest/
 │       ├── engine.py                 # Backtesting-Logik
+│       ├── optimize.py               # Optuna Hyperparameter-Optimierung
 │       ├── sorr.py                   # SORR-Simulation
 │       ├── evaluation.py             # Strategie-Evaluation, Monte Carlo
 │       ├── reporting.py              # statistics.md Generierung

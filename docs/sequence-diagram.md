@@ -81,6 +81,13 @@ sequenceDiagram
     participant BS as Backtest Service<br/>:8003
 
     Note over Client,FS: Phase 2: Walk-Forward Training
+	opt Hyperparameter-Optimierung (optional, einmalig)
+        Client->>MS: POST /models/optimize-all
+        MS->>FS: read feature_engineered_data
+        MS->>MS: Optuna TPE (Walk-Forward CV als innere Validierung)
+        MS->>FS: save optuna_studies.db
+        MS-->>Client: 200 OK (best_params pro Modell)
+    end
     Client->>MS: POST /models/train-all
     MS->>FS: read feature_engineered_data
     MS->>MS: walk_forward_splits() → 60 Folds
