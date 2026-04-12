@@ -162,11 +162,11 @@ Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-
 ![HMM Regimes](../assets/{cfg.paths.assets.hmm_regimes})
 
 ### C. LSTM-Netzwerk (Deep Learning)
-Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Markov-Labels).
+Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf HMM-Labels).
 ![LSTM Model](../assets/{cfg.paths.assets.lstm_model})
 
 ### D. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
-"Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Markov-Labels.
+"Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf HMM-Labels.
 ![Transformer Model](../assets/{cfg.paths.assets.transformer_model})
 
 ### E. Globaler Regime-Vergleich

@@ -7,29 +7,18 @@ from pathlib import Path
 
 
 def train_msm(
-    returns: pd.Series,
+    returns_train: pd.Series,
     k_regimes: int,
     switching_variance: bool,
     model_file: str,
 ) -> object:
-    """
-    Markov-Switching-Regression trainieren.
-    Typ: Ökonometrie (Regression).
-    Zustandsabhängiges Regressionsmodell mit switching variance.
-    MS Univariate: Nur Returns.
-
-    Modell wird nach dem Training unter model_file persistiert.
-    Gibt das gefittete Results-Objekt zurück.
-    """
-    # Nur Returns zur Bestimmung von Mittelwert und Varianz
     ms_model = sm.tsa.MarkovRegression(
-        returns,
+        returns_train,
         k_regimes=k_regimes,
         switching_variance=switching_variance,
     )
     ms_results = ms_model.fit()
 
-    # Modell persistieren
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     ms_results.save(model_file)
     print(f"MSM: Modell gespeichert unter {model_file}")
@@ -156,26 +145,46 @@ def load_msm(
 
 def predict_msm(
     ms_results: object,
+    returns_train: pd.Series,
+    returns_test: pd.Series,
+    k_regimes: int,
+    switching_variance: bool,
     threshold: float,
-) -> tuple[pd.Series, pd.Series]:
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Regime-Wahrscheinlichkeiten und binäres Signal ableiten.
+    Regime-Wahrscheinlichkeiten und binäres Signal bias-frei ableiten.
 
-    Label-Alignment: Bear (1) = Regime mit höherer Varianz.
-    Identifikation des Bärenmarktes über den Vergleich der geschätzten Varianzen.
-    Signal aus Prob via Threshold ableiten.
+    1. Bear-Regime aus TRAIN-Parametern identifizieren (sigma2-Vergleich).
+    2. Train-Signal via filtered probs auf Train-Daten.
+    3. smooth(train_params) auf kombinierter Serie (kein Re-Fit).
+    4. Filtered marginal probabilities für Test extrahieren.
 
-    Gibt (probabilities, signal) zurück.
+    Gibt (probs_train, signal_train, probs_test, signal_test) zurück.
     """
-    prob_regime_1 = ms_results.smoothed_marginal_probabilities[1]
-
-    # Bear (1) = Regime mit höherer Varianz
+    # --- Bear-Regime aus Train-Parametern ---
     if ms_results.params["sigma2[1]"] > ms_results.params["sigma2[0]"]:
-        probs = prob_regime_1.clip(0, 1)
+        bear_state = 1
     else:
-        probs = (1 - prob_regime_1).clip(0, 1)
+        bear_state = 0
 
-    # Signal aus Prob via Threshold ableiten
-    signal = (probs >= threshold).astype(int)
+    # --- Train-Probs (filtered, nur Train-Information) ---
+    filtered_bear_train = ms_results.filtered_marginal_probabilities[bear_state]
+    probs_train = filtered_bear_train.clip(0, 1)
+    probs_train.index = returns_train.index
+    signal_train = (probs_train >= threshold).astype(int)
 
-    return probs, signal
+    # --- Train-Parameter auf kombinierten Bereich anwenden (ohne Re-Fit) ---
+    returns_combined = pd.concat([returns_train, returns_test])
+    ms_combined = sm.tsa.MarkovRegression(
+        returns_combined,
+        k_regimes=k_regimes,
+        switching_variance=switching_variance,
+    )
+    combined_results = ms_combined.smooth(ms_results.params)
+
+    # --- Filtered Probabilities für Test (kein Look-Ahead) ---
+    filtered_bear = combined_results.filtered_marginal_probabilities[bear_state]
+    probs_test = filtered_bear.loc[returns_test.index].clip(0, 1)
+    signal_test = (probs_test >= threshold).astype(int)
+
+    return probs_train, signal_train, probs_test, signal_test

@@ -45,6 +45,7 @@ models:
     k_regimes: 2
     switching_variance: true
     threshold: &threshold 0.5   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold
+    train_test_split: &msm_train_test_split 0.8  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   hmm:
     features:
       - "Returns"
@@ -55,10 +56,11 @@ models:
     n_iter: 1000
     random_state: 42
     threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   lstm:
     window_size: &lstm_window 60
-    train_test_split: &lstm_train_test_split 0.8        # Wird nur bei walk_forward.enabled: false genutzt
-    labels: "MSM_Signal"
+    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
+    labels: "HMM_Signal"
     units_l1: 32
     units_l2: 64
     return_sequences: true
@@ -76,8 +78,8 @@ models:
   transformer:
     # --- Data ---
     window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM
-    train_test_split: *lstm_train_test_split       # 80/20 wie LSTM, Wird nur bei walk_forward.enabled: false genutzt
-    labels: "MSM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
+    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
+    labels: "HMM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
     d_model: 64                  # Embedding-Dimension (Transformer interne Dimension)
     n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!)
@@ -97,7 +99,7 @@ models:
 
 # --- Walk-Forward-Validierung (03_regime_switching_models) ---
 walk_forward:
-  enabled: true                    # false = Fallback auf alten 80/20-Split
+  enabled: true                   # false = Fallback auf alten 80/20-Split
   mode: "rolling"                  # "rolling" oder "expanding"
   train_window_years: 5            # Länge des Train-Fensters (nur bei rolling)
   test_window_months: 6            # Länge je OOS-Fold

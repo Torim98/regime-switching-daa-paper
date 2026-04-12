@@ -9,45 +9,33 @@ from pathlib import Path
 
 
 def train_hmm(
-    features_df: pd.DataFrame,
+    features_df_train: pd.DataFrame,
     n_components: int,
     covariance_type: str,
     n_iter: int,
     random_state: int,
     model_file: str,
     scaler_file: str,
-) -> tuple[GaussianHMM, RobustScaler, np.ndarray]:
-    """
-    Hidden Markov Model trainieren.
-    Typ: Unsupervised (Clustering).
-    Identifiziert Regime-Cluster über Gaussian-Emissions in
-    Returns, VIX und Yield_Spread ohne gelabelte Daten.
+) -> tuple[GaussianHMM, RobustScaler]:
+    X_train = features_df_train.values
 
-    Skalierung (Standardisierung auf Mittelwert 0 und Varianz 1) via RobustScaler.
-    Modell + Scaler werden unter model_file / scaler_file persistiert.
-
-    Gibt (model, scaler, skalierte_daten) zurück.
-    """
-    X = features_df.values
-
-    # Skalierung (Standardisierung auf Mittelwert 0 und Varianz 1)
     scaler = RobustScaler()
-    X_scaled = scaler.fit_transform(X)
+    X_train_scaled = scaler.fit_transform(X_train)
 
-    # HMM Modellierung
     model = GaussianHMM(
         n_components=n_components,
         covariance_type=covariance_type,
         n_iter=n_iter,
         random_state=random_state,
     )
-    model.fit(X_scaled)
+    model.fit(X_train_scaled)
 
-    # Modell + Scaler persistieren
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, model_file)
     joblib.dump(scaler, scaler_file)
     print(f"HMM: Modell gespeichert unter {model_file}")
+
+    return model, scaler
 
     return model, scaler, X_scaled
 
@@ -153,62 +141,46 @@ def train_hmm_fold(
     return probs, signal
 
 def load_hmm(
-    features_df: pd.DataFrame,
     model_file: str,
     scaler_file: str,
-) -> tuple[GaussianHMM, RobustScaler, np.ndarray]:
-    """
-    Persistiertes HMM + Scaler laden (Training überspringen).
-    Skalierung mit geladenem Scaler (transform, NICHT fit_transform!).
-
-    Gibt (model, scaler, skalierte_daten) zurück.
-    """
+) -> tuple[GaussianHMM, RobustScaler]:
     model = joblib.load(model_file)
     scaler = joblib.load(scaler_file)
-
-    # Skalierung mit geladenem Scaler (transform, NICHT fit_transform!)
-    X_scaled = scaler.transform(features_df.values)
-
-    return model, scaler, X_scaled
-
+    return model, scaler
 
 def predict_hmm(
     model: GaussianHMM,
-    X_scaled: np.ndarray,
-    returns: pd.Series,
+    scaler: RobustScaler,
+    features_df_train: pd.DataFrame,
+    features_df_test: pd.DataFrame,
+    returns_train: pd.Series,
     threshold: float,
-) -> tuple[pd.Series, pd.Series]:
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Regimes und Wahrscheinlichkeiten vorhersagen.
+    Regimes und Wahrscheinlichkeiten bias-frei vorhersagen.
 
-    predict() liefert 0 oder 1.
-    predict_proba() liefert die Wahrscheinlichkeit für beide Zustände [Prob_0, Prob_1].
+    1. Bear-State aus TRAIN-Predictions bestimmen (Volatilitätsvergleich).
+    2. predict_proba auf Train und Test separat.
 
-    Label-Alignment: Bear (1) = Regime mit höherer Volatilität.
-    Wir definieren Bear (1) als das Regime mit der höheren Volatilität der Renditen.
-    Signal aus Prob via Threshold ableiten.
-
-    Gibt (probabilities, signal) zurück.
+    Gibt (probs_train, signal_train, probs_test, signal_test) zurück.
     """
-    # predict() liefert 0 oder 1
-    # predict_proba() liefert die Wahrscheinlichkeit für beide Zustände [Prob_0, Prob_1]
-    hmm_regimes_raw = model.predict(X_scaled)
-    hmm_probs_raw = model.predict_proba(X_scaled)
+    X_train_scaled = scaler.transform(features_df_train.values)
+    X_test_scaled = scaler.transform(features_df_test.values)
 
-    # Label-Alignment: Bear (1) = Regime mit höherer Volatilität
-    # Wir definieren Bear (1) als das Regime mit der höheren Volatilität der Renditen
-    state_0_vol = returns[hmm_regimes_raw == 0].std()
-    state_1_vol = returns[hmm_regimes_raw == 1].std()
+    # --- Bear-State aus Train-Predictions ---
+    train_states = model.predict(X_train_scaled)
+    state_0_vol = returns_train[train_states == 0].std()
+    state_1_vol = returns_train[train_states == 1].std()
+    bear_state = 1 if state_1_vol > state_0_vol else 0
 
-    # Wir wollen, dass Regime 1 immer "Bear" ist (höhere Vola)
-    if state_1_vol > state_0_vol:
-        # Fall: Modell-Zustand 1 ist bereits der Bear-Markt
-        probs = pd.Series(hmm_probs_raw[:, 1], index=returns.index)
-    else:
-        # Fall: Modell-Zustand 0 war eigentlich der Bear-Markt → wir flippen alles
-        probs = pd.Series(hmm_probs_raw[:, 0], index=returns.index)
+    # --- Train-Probs ---
+    train_probs_raw = model.predict_proba(X_train_scaled)
+    probs_train = pd.Series(train_probs_raw[:, bear_state], index=features_df_train.index)
+    signal_train = (probs_train >= threshold).astype(int)
 
-    # Signal aus Prob via Threshold ableiten
-    signal = (probs >= threshold).astype(int)
+    # --- Test-Probs ---
+    test_probs_raw = model.predict_proba(X_test_scaled)
+    probs_test = pd.Series(test_probs_raw[:, bear_state], index=features_df_test.index)
+    signal_test = (probs_test >= threshold).astype(int)
 
-    return probs, signal
+    return probs_train, signal_train, probs_test, signal_test

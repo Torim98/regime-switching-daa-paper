@@ -49,9 +49,9 @@ Data Service → Model Service → Backtest Service
 - `backtest-service` depends_on `model-service`
 
 Innerhalb des Model Service gilt eine feste Trainingsreihenfolge:
-1. **MSM** (Markov-Switching) — erzeugt Labels für LSTM/Transformer
-2. **HMM** (Hidden Markov) — unabhängig, aber konventionell nach MSM
-3. **LSTM** — benötigt MSM-Labels, erstellt `test_df`
+1. **MSM** (Markov-Switching) — unabhängig
+2. **HMM** (Hidden Markov) — konventionell nach MSM, erzeugt Labels für LSTM/Transformer
+3. **LSTM** — benötigt HMM-Labels, erstellt `test_df`
 4. **Transformer** — benötigt `test_df` aus dem LSTM-Schritt
 Bei `walk_forward.enabled: true` wird `/models/train-all` direkt aufgerufen und steuert alle Modelle über `run_walk_forward()`. Die Einzelrouten `/models/train/{model_name}` sind in diesem Modus blockiert (HTTP 400). Ein fingerprint-basierter Parquet-Cache beschleunigt wiederholte Durchläufe bei unveränderter Konfiguration.
 

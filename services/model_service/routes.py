@@ -46,44 +46,82 @@ def train_model(model_name: str):
         test_df = None
     
     if model_name == "msm":
+        msm_cfg = cfg.models.msm
+        split_point = int(len(df) * msm_cfg.train_test_split)
+
         returns = df["Returns"].copy()
         returns.index = pd.DatetimeIndex(returns.index).to_period('B')
+        returns_train = returns.iloc[:split_point]
+        returns_test = returns.iloc[split_point:]
+
         ms_results = train_msm(
-            returns=returns,
-            k_regimes=cfg.models.msm.k_regimes,
-            switching_variance=cfg.models.msm.switching_variance,
+            returns_train=returns_train,
+            k_regimes=msm_cfg.k_regimes,
+            switching_variance=msm_cfg.switching_variance,
             model_file=cfg.model_path("msm"),
         )
-        probs, signal = predict_msm(ms_results, cfg.models.msm.threshold)
-        probs.index = probs.index.to_timestamp()
-        signal.index = signal.index.to_timestamp()
-        df["MSM_Prob"] = probs
-        df["MSM_Signal"] = signal
+
+        probs_train, signal_train, probs_test, signal_test = predict_msm(
+            ms_results=ms_results,
+            returns_train=returns_train,
+            returns_test=returns_test,
+            k_regimes=msm_cfg.k_regimes,
+            switching_variance=msm_cfg.switching_variance,
+            threshold=msm_cfg.threshold,
+        )
+
+        # Zurück zu Timestamp-Index
+        probs_train.index = probs_train.index.to_timestamp()
+        signal_train.index = signal_train.index.to_timestamp()
+        probs_test.index = probs_test.index.to_timestamp()
+        signal_test.index = signal_test.index.to_timestamp()
+
+        df.loc[probs_train.index, "MSM_Prob"] = probs_train.values
+        df.loc[signal_train.index, "MSM_Signal"] = signal_train.values
+        df.loc[probs_test.index, "MSM_Prob"] = probs_test.values
+        df.loc[signal_test.index, "MSM_Signal"] = signal_test.values
+
         validate_regime_signal(df, "MSM")
-        # MSM und HMM operieren auf dem vollen df, test_df wird erst bei LSTM erstellt
-        # Aber wir persistieren MSM-Signale im feature_engineered df
         df.to_parquet(cfg.data_path("feature_engineered"))
-        
+
         plot_msm_regimes(df, "MSM", cfg.color_map.get("MSM", "tab:blue"),
                          cfg.asset_path("markov_model"))
         
     elif model_name == "hmm":
-        hmm_features = df[cfg.models.hmm.features]
-        model, scaler, X_scaled = train_hmm(
-            features_df=hmm_features,
-            n_components=cfg.models.hmm.n_components,
-            covariance_type=cfg.models.hmm.covariance_type,
-            n_iter=cfg.models.hmm.n_iter,
-            random_state=cfg.models.hmm.random_state,
+        hmm_cfg = cfg.models.hmm
+        split_point = int(len(df) * hmm_cfg.train_test_split)
+
+        features_train = df[hmm_cfg.features].iloc[:split_point]
+        features_test = df[hmm_cfg.features].iloc[split_point:]
+        returns_train = df['Returns'].iloc[:split_point]
+
+        model, scaler = train_hmm(
+            features_df_train=features_train,
+            n_components=hmm_cfg.n_components,
+            covariance_type=hmm_cfg.covariance_type,
+            n_iter=hmm_cfg.n_iter,
+            random_state=hmm_cfg.random_state,
             model_file=cfg.model_path("hmm"),
             scaler_file=cfg.model_path("scaler_hmm"),
         )
-        probs, signal = predict_hmm(model, X_scaled, df["Returns"], cfg.models.hmm.threshold)
-        df["HMM_Prob"] = probs
-        df["HMM_Signal"] = signal
+
+        probs_train, signal_train, probs_test, signal_test = predict_hmm(
+            model=model,
+            scaler=scaler,
+            features_df_train=features_train,
+            features_df_test=features_test,
+            returns_train=returns_train,
+            threshold=hmm_cfg.threshold,
+        )
+
+        df.loc[features_train.index, "HMM_Prob"] = probs_train.values
+        df.loc[features_train.index, "HMM_Signal"] = signal_train.values
+        df.loc[features_test.index, "HMM_Prob"] = probs_test.values
+        df.loc[features_test.index, "HMM_Signal"] = signal_test.values
+
         validate_regime_signal(df, "HMM")
         df.to_parquet(cfg.data_path("feature_engineered"))
-        
+
         plot_hmm_regimes(df, "HMM", cfg.color_map.get("HMM", "tab:purple"),
                          cfg.asset_path("hmm_regimes"))
         

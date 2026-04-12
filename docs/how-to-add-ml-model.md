@@ -625,7 +625,6 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Ansatz:** Univariates Regressionsmodell mit zustandsabhängigen Parametern (switching variance)
 - **Output:** `MSM_Prob`, `MSM_Signal`
 - **Config-Key:** `models.msm` (k_regimes, switching_variance)
-- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
 
 ### B. HMM (Hidden Markov Model) — Unsupervised, Ökonometrie
 - **Bibliothek:** `hmmlearn`
@@ -633,17 +632,18 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Output:** `HMM_Prob`, `HMM_Signal`
 - **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
 - **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
+- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
 
 ### C. LSTM (Supervised) — Machine Learning
 - **Bibliothek:** `TensorFlow` / `Keras`
-- **Ansatz:** Supervised Learning auf Markov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
+- **Ansatz:** Supervised Learning auf HMM-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
 - **Config-Key:** `models.lstm` (window_size, units, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose, labels)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem MSM_Univariate-Modell (konfigurierbar via `models.lstm.labels`)
+- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem HMM-Modell (konfigurierbar via `models.lstm.labels`)
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
-- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf Markov-Labels
+- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf HMM-Labels
 - **Output:** `Transformer_Prob`, `Transformer_Signal`
 - **Config-Key:** `models.transformer` (window_size, d_model, n_heads, n_layers, dim_feedforward, dropout, epochs, batch_size, learning_rate, threshold, pos_weight_auto)
 - **Besonderheit:** Nutzt BCEWithLogitsLoss mit automatischer Class-Balance-Gewichtung (sqrt pos_weight). Testet Hypothese H2 (Attention-Mechanismus vs. ökonometrische MSM). Dient als **Referenz-Implementierung** für die guide-konforme Signal-Schnittstelle (vollständiger Sanity Check, Assertions, Config-only Hyperparameter).
@@ -814,7 +814,7 @@ def train_all():
     return results
 ```
 
-> **Beachte die Reihenfolge:** Falls dein Modell auf MSM-Labels angewiesen ist (wie LSTM und Transformer), muss es **nach** MSM trainiert werden.
+> **Beachte die Reihenfolge:** Falls dein Modell auf HMM-Labels angewiesen ist (wie LSTM und Transformer), muss es **nach** HMM trainiert werden.
 
 ### Schritt 5: Docker-Image neu bauen
 
