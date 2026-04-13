@@ -218,9 +218,6 @@ def run_walk_forward(
         df_train = df.loc[train_idx].copy()
         df_test = df.loc[test_idx].copy()
 
-        # Tracking, ob MSM-Labels für DL-Modelle dieses Folds verfügbar sind
-        msm_labels_available = False
-
         # ---------- MSM ----------
         if "MSM" in models_to_run:
             try:
@@ -239,7 +236,6 @@ def run_walk_forward(
                 # (LSTM/Transformer lesen diese Spalte als labels_col)
                 df_train["MSM_Signal"] = signal_train
                 df_test["MSM_Signal"] = signal
-                msm_labels_available = True
             except Exception as e:
                 warnings.warn(f"  [MSM] Fold {fold_id} failed: {e}")
                 failed_folds["MSM"] += 1
@@ -248,7 +244,7 @@ def run_walk_forward(
         if "HMM" in models_to_run:
             try:
                 hmm_cfg = cfg.models.hmm
-                probs, signal = train_hmm_fold(
+                probs, signal, signal_train = train_hmm_fold(
                     features_df_train=df_train[hmm_cfg.features],
                     features_df_test=df_test[hmm_cfg.features],
                     returns_train=df_train["Returns"],
@@ -260,15 +256,20 @@ def run_walk_forward(
                 )
                 result_df.loc[test_idx, "HMM_Prob"] = probs
                 result_df.loc[test_idx, "HMM_Signal"] = signal
+
+                # HMM-Labels als Spalte in df_train/df_test injizieren
+                # (LSTM/Transformer lesen "HMM_Signal" als labels_col)
+                df_train["HMM_Signal"] = signal_train.values
+                df_test["HMM_Signal"] = signal.values
             except Exception as e:
                 warnings.warn(f"  [HMM] Fold {fold_id} failed: {e}")
                 failed_folds["HMM"] += 1
 
         # ---------- LSTM ----------
         if "LSTM" in models_to_run:
-            if not msm_labels_available:
+            if "HMM_Signal" not in df_train.columns:
                 warnings.warn(
-                    f"  [LSTM] Fold {fold_id} skipped: MSM-Labels nicht verfügbar."
+                    f"  [LSTM] Fold {fold_id} skipped: HMM-Labels nicht verfügbar."
                 )
                 failed_folds["LSTM"] += 1
             else:
@@ -302,39 +303,45 @@ def run_walk_forward(
 
         # ---------- Transformer ----------
         if "Transformer" in models_to_run:
-            try:
-                t_cfg = cfg.models.transformer
-                probs_raw, pred_idx = train_transformer_fold(
-                    df_train=df_train,
-                    df_test=df_test,
-                    features=features,
-                    labels_col=t_cfg.labels,
-                    window_size=t_cfg.window_size,
-                    d_model=t_cfg.d_model,
-                    n_heads=t_cfg.n_heads,
-                    n_layers=t_cfg.n_layers,
-                    dim_feedforward=t_cfg.dim_feedforward,
-                    dropout=t_cfg.dropout,
-                    learning_rate=t_cfg.learning_rate,
-                    epochs=t_cfg.epochs,
-                    batch_size=t_cfg.batch_size,
-                    validation_split=t_cfg.validation_split,
-                    verbose=0,
+            if "HMM_Signal" not in df_train.columns:
+                warnings.warn(
+                    f"  [Transformer] Fold {fold_id} skipped: HMM-Labels nicht verfügbar."
                 )
-                signal = (probs_raw >= t_cfg.threshold).astype(int)
-                result_df.loc[pred_idx, "Transformer_Prob"] = probs_raw
-                result_df.loc[pred_idx, "Transformer_Signal"] = signal
-
-                # GPU-Speicher freigeben
-                try:
-                    import torch
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                except ImportError:
-                    pass
-            except Exception as e:
-                warnings.warn(f"  [Transformer] Fold {fold_id} failed: {e}")
                 failed_folds["Transformer"] += 1
+            else:
+                try:
+                    t_cfg = cfg.models.transformer
+                    probs_raw, pred_idx = train_transformer_fold(
+                        df_train=df_train,
+                        df_test=df_test,
+                        features=features,
+                        labels_col=t_cfg.labels,
+                        window_size=t_cfg.window_size,
+                        d_model=t_cfg.d_model,
+                        n_heads=t_cfg.n_heads,
+                        n_layers=t_cfg.n_layers,
+                        dim_feedforward=t_cfg.dim_feedforward,
+                        dropout=t_cfg.dropout,
+                        learning_rate=t_cfg.learning_rate,
+                        epochs=t_cfg.epochs,
+                        batch_size=t_cfg.batch_size,
+                        validation_split=t_cfg.validation_split,
+                        verbose=0,
+                    )
+                    signal = (probs_raw >= t_cfg.threshold).astype(int)
+                    result_df.loc[pred_idx, "Transformer_Prob"] = probs_raw
+                    result_df.loc[pred_idx, "Transformer_Signal"] = signal
+
+                    # GPU-Speicher freigeben
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except ImportError:
+                        pass
+                except Exception as e:
+                    warnings.warn(f"  [Transformer] Fold {fold_id} failed: {e}")
+                    failed_folds["Transformer"] += 1
 
     # --- Abschluss-Report ---
     print(f"\n=== Walk-Forward abgeschlossen ===")

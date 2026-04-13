@@ -81,6 +81,7 @@ class PipelineConfig:
         self.features = ns.features
         self.portfolio = ns.portfolio
         self.models = ns.models
+        self.optimization = ns.optimization
         self.backtesting = ns.backtesting
         self.walk_forward = ns.walk_forward
         self.evaluation = ns.evaluation

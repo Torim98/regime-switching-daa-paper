@@ -352,3 +352,68 @@ def model_status():
         path = cfg.model_path(key)
         status[key] = Path(path).exists()
     return status
+    
+@router.post("/optimize/{model_name}")
+async def optimize_model(model_name: str, n_trials: int = 50, every_nth_fold: int = 2):
+    """
+    Optuna-Hyperparameter-Optimierung für ein einzelnes Modell.
+    Nutzt Walk-Forward-Splits als innere CV.
+    """
+    cfg = get_cfg()
+
+    if not cfg.walk_forward.enabled:
+        raise HTTPException(400, "Optimierung erfordert walk_forward.enabled = true")
+
+    valid_models = ["MSM", "HMM", "LSTM", "Transformer"]
+    if model_name not in valid_models:
+        raise HTTPException(400, f"Unbekanntes Modell. Verfügbar: {valid_models}")
+
+    df = pd.read_parquet(cfg.data_path("feature_engineered"))
+
+    from src.backtest.optimize import run_optimization
+    study = run_optimization(
+        model_name=model_name,
+        df=df,
+        cfg=cfg,
+        n_trials=n_trials,
+        every_nth_fold=every_nth_fold,
+        storage=f"sqlite:///{cfg.model_path('optuna_db')}",
+    )
+
+    return {
+        "status": "ok",
+        "model": model_name,
+        "best_sharpe": round(study.best_value, 4),
+        "best_params": study.best_params,
+        "n_trials": len(study.trials),
+    }
+
+@router.post("/optimize-all")
+async def optimize_all_models(n_trials: int = 50, every_nth_fold: int = 2):
+    """Alle 4 Modelle sequenziell optimieren."""
+    cfg = get_cfg()
+
+    if not cfg.walk_forward.enabled:
+        raise HTTPException(400, "Optimierung erfordert walk_forward.enabled = true")
+
+    df = pd.read_parquet(cfg.data_path("feature_engineered"))
+
+    from src.backtest.optimize import optimize_all
+    studies = optimize_all(
+        df=df,
+        cfg=cfg,
+        n_trials=n_trials,
+        every_nth_fold=every_nth_fold,
+        storage=f"sqlite:///{cfg.model_path('optuna_db')}",
+    )
+
+    return {
+        "status": "ok",
+        "results": {
+            name: {
+                "best_sharpe": round(s.best_value, 4),
+                "best_params": s.best_params,
+            }
+            for name, s in studies.items()
+        },
+    }
