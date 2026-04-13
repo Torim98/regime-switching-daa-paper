@@ -72,7 +72,8 @@ Die Services kommunizieren über gemeinsame Dateisystem-Volumes und werden über
 
 **Weiterführende Dokumentationen:**
 * [Microservice-Architektur & Setup](docs/microservice-architecture.md)
-* [Sequenzdiagramm der Pipeline](docs/sequence-diagram.md)
+* [Sequenzdiagramm: Microservice-Pipeline](docs/microservice-sequence-diagram.md)
+* [Sequenzdiagramm: Jupyter-Pipeline](docs/jupyter-sequence-diagram.md)
 * [API Endpoints & Routen](docs/api-endpoints.md)
 
 > Da die Services auf FastAPI basieren, steht für jeden Service nach dem Start (via `docker-compose up`) auch eine interaktive **Swagger UI** zur Verfügung, über die die Endpoints direkt im Browser getestet werden können:
@@ -244,7 +245,8 @@ regime-switching-daa/
 |----------|-------------|
 | [Data Architecture](docs/data-architecture.md) | Medallion-Modell (Bronze/Silver/Gold) |
 | [Microservice Architecture](docs/microservice-architecture.md) | Services, Endpunkte, Volumes, Logging |
-| [Sequence Diagram](docs/sequence-diagram.md) | Mermaid-Diagramme des Pipeline-Ablaufs |
+| [Sequence Diagram: Microservices](docs/microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
+| [Sequence Diagram: Jupyter](docs/jupyter-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Notebook-Pipeline |
 | [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
 | [Transformer Architecture](docs/transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
 | [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
