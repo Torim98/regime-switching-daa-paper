@@ -260,6 +260,11 @@ def run_walk_forward(
                 )
                 result_df.loc[test_idx, "HMM_Prob"] = probs
                 result_df.loc[test_idx, "HMM_Signal"] = signal
+
+                # HMM-Labels als Spalte in df_train/df_test injizieren
+                # (LSTM/Transformer lesen "HMM_Signal" als labels_col)
+                df_train["HMM_Signal"] = signal_train.values
+                df_test["HMM_Signal"] = signal.values
             except Exception as e:
                 warnings.warn(f"  [HMM] Fold {fold_id} failed: {e}")
                 failed_folds["HMM"] += 1

@@ -44,7 +44,7 @@ models:
   msm:
     k_regimes: 2
     switching_variance: true
-    threshold: &threshold 0.5   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.35   # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: &msm_train_test_split 0.8  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   hmm:
     features:
@@ -55,29 +55,29 @@ models:
     covariance_type: "full"     # Intitialwert der Thesis "full"
     n_iter: 1000
     random_state: 42
-    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.5              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   lstm:
-    window_size: &lstm_window 60    # Initialwert der Thesis 60
+    window_size: 120            # Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
     labels: "HMM_Signal"
-    units_l1: 32                # Initialwert der Thesis 32
-    units_l2: 64                # Initialwert der Thesis 64
+    units_l1: 16                # Initialwert der Thesis 32
+    units_l2: 128               # Initialwert der Thesis 64
     return_sequences: true
-    epochs: 30                  # Initialwert der Thesis 30
+    epochs: 40                  # Initialwert der Thesis 30
     batch_size: 32
-    learning_rate: 0.001        # Initialwert der Thesis 0.001
-    dropout: 0.2                # Initialwert der Thesis 0.2
+    learning_rate: 0.00012536386810872734        # Initialwert der Thesis 0.001
+    dropout: 0.1                # Initialwert der Thesis 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: 0.3              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
-    window_size: *lstm_window                      # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
+    window_size: 60             # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
     labels: "HMM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
@@ -93,7 +93,7 @@ models:
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: 0.5       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
      # --- Class Balancing ---
     pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
 
