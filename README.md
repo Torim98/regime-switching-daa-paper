@@ -260,6 +260,12 @@ Beide Pipelines (Notebook und Docker) erzeugen identische Ergebnisse für determ
 
 ---
 
+## Limitations
+
+Bestimmte Einflussfaktoren wurden bewusst aus dem Scope der Thesis ausgegrenzt. Da alle Modelle und die Benchmark identischen Rahmenbedingungen unterliegen, bleibt der relative Vergleich davon unberührt. Details und Begründungen: **[Limitations & Scope Boundaries](docs/limitations.md)**
+
+---
+
 ## Lizenz
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
