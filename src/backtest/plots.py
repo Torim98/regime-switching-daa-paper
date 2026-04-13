@@ -74,22 +74,53 @@ def plot_sorr_scenario(sim_results, scenario_name: str, params: dict,
 
 def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
                       sim_years: int, save_path_template: str):
-    """MCS Boxplots pro Szenario. save_path_template: z.B. 'assets/mcs_boxplot_{}.png'"""
+    """MCS Violin + Boxplots pro Szenario (optimiert für 10.000+ Pfade)."""
     for sc_name, params in scenarios.items():
         mc_results_scenario = {}
         for strategy in daily_rets_columns:
             prefix = f"{sc_name}_{strategy}_path_"
-            strat_paths = {k: v for k, v in mcs_paths_collector.items() if k.startswith(prefix)}
-            if strat_paths:
-                mc_results_scenario[strategy] = [path[-1] for path in strat_paths.values()]
+            # Direkt nur Endkapitalwerte sammeln (letzter Wert je Pfad)
+            finals = [
+                path[-1] for k, path in mcs_paths_collector.items()
+                if k.startswith(prefix)
+            ]
+            if finals:
+                mc_results_scenario[strategy] = finals
 
         if mc_results_scenario:
+            labels = [s.replace('_', ' ') for s in mc_results_scenario.keys()]
+            data = list(mc_results_scenario.values())
+
             fig, ax = plt.subplots(figsize=(12, 6))
-            ax.boxplot(mc_results_scenario.values(),
-                       tick_labels=[s.replace('_', ' ') for s in mc_results_scenario.keys()])
-            ax.set_title(f"MCS {sc_name}: Verteilung des Endkapitals (Start: {params['start']:,.0f}€)")
+
+            # Violin-Plot für Verteilungsform
+            vp = ax.violinplot(data, showmedians=False, showextrema=False)
+            for i, body in enumerate(vp['bodies']):
+                body.set_alpha(0.3)
+
+            # Boxplot darüber für Quartile + Ausreißer
+            bp = ax.boxplot(
+                data, tick_labels=labels, widths=0.15,
+                showfliers=False,  # Keine Outlier-Punkte bei 10k Werten
+                medianprops=dict(color='red', linewidth=2),
+            )
+
+            # Median-Werte annotieren
+            for i, vals in enumerate(data, start=1):
+                import numpy as _np
+                med = _np.median(vals)
+                ax.annotate(
+                    f"{med:,.0f}€", xy=(i, med),
+                    xytext=(18, 5), textcoords="offset points",
+                    fontsize=8, color="red",
+                )
+
+            ax.set_title(
+                f"MCS {sc_name}: Verteilung des Endkapitals "
+                f"(n={len(data[0]):,}, Start: {params['start']:,.0f}€)"
+            )
             ax.set_ylabel(f"Endkapital nach {sim_years} Jahren in €")
-            ax.axhline(y=0, color='red', linestyle='--')
+            ax.axhline(y=0, color='red', linestyle='--', alpha=0.7)
             ax.grid(axis='y', alpha=0.3)
 
             save_path = save_path_template.format(sc_name.lower())
@@ -99,7 +130,18 @@ def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
 
 def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
                    color_map: dict, save_path: str):
-    """MCS Pfad-Verläufe für alle Szenarien."""
+    """
+    MCS Pfad-Verläufe für alle Szenarien (optimiert für 10.000+ Pfade).
+
+    Statt 10.000 individuelle Linien zu zeichnen (extrem langsam), wird
+    ein Quantil-Band (5%-25%-50%-75%-95%) pro Strategie geplottet. Zusätzlich
+    werden max. 50 zufällige Pfade als Spaghetti-Overlay gezeichnet, um die
+    Streuung der Einzelpfade visuell zu erhalten.
+    """
+    import numpy as np
+
+    MAX_SAMPLE_PATHS = 50
+
     fig, axes = plt.subplots(len(scenarios_list), 1,
                              figsize=(15, 6 * len(scenarios_list)), sharex=True)
     if len(scenarios_list) == 1:
@@ -109,11 +151,39 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
         for strat in strategies:
             prefix = f"{sc_name}_{strat}_path_"
             strat_paths = mcs_results_df.filter(like=prefix)
-            color = color_map.get(strat, 'black')
-            ax.plot(strat_paths, color=color, alpha=0.05, linewidth=1)
-            ax.plot([], [], color=color, label=strat.replace('_', ' '))
 
-        ax.set_title(f"MCS Pfad-Verläufe: Szenario {sc_name}")
+            if strat_paths.empty:
+                continue
+
+            color = color_map.get(strat, 'black')
+            values = strat_paths.values  # (total_days, n_paths)
+
+            # Quantile berechnen (schnell über NumPy)
+            q05 = np.quantile(values, 0.05, axis=1)
+            q25 = np.quantile(values, 0.25, axis=1)
+            q50 = np.quantile(values, 0.50, axis=1)
+            q75 = np.quantile(values, 0.75, axis=1)
+            q95 = np.quantile(values, 0.95, axis=1)
+
+            x = np.arange(values.shape[0])
+
+            # Bänder: 5-95% und 25-75%
+            ax.fill_between(x, q05, q95, color=color, alpha=0.08)
+            ax.fill_between(x, q25, q75, color=color, alpha=0.15)
+
+            # Spaghetti-Sample: max. 50 zufällige Pfade
+            n_paths = values.shape[1]
+            sample_idx = np.random.choice(
+                n_paths, size=min(MAX_SAMPLE_PATHS, n_paths), replace=False
+            )
+            ax.plot(values[:, sample_idx], color=color, alpha=0.06, linewidth=0.5)
+
+            # Median-Linie
+            ax.plot(x, q50, color=color, linewidth=2,
+                    label=strat.replace('_', ' '))
+
+        ax.set_title(f"MCS Pfad-Verläufe: Szenario {sc_name} "
+                     f"(Bänder: 25-75% / 5-95%, n={n_paths:,})")
         ax.set_ylabel("Kapital in €")
         ax.axhline(y=0, color='black', linewidth=1.5)
         ax.grid(alpha=0.2)
@@ -127,7 +197,9 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
 
 def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
                        total_days: int, color_map: dict, save_path: str):
-    """MCS Konfidenz-Intervalle (5%-95%) für alle Szenarien."""
+    """MCS Konfidenz-Intervalle (5%-95%) für alle Szenarien (optimiert via NumPy)."""
+    import numpy as np
+
     fig, axes = plt.subplots(len(scenarios_list), 1,
                              figsize=(15, 6 * len(scenarios_list)), sharex=True)
     if len(scenarios_list) == 1:
@@ -138,18 +210,28 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
             prefix = f"{sc_name}_{strat}_path_"
             strat_paths = mcs_results_df.filter(like=prefix)
 
-            upper_95 = strat_paths.quantile(0.95, axis=1)
-            lower_05 = strat_paths.quantile(0.05, axis=1)
-            median_50 = strat_paths.median(axis=1)
+            if strat_paths.empty:
+                continue
 
+            values = strat_paths.values  # (total_days, n_paths)
             color = color_map.get(strat, 'black')
-            ax.fill_between(range(total_days), lower_05, upper_95, color=color, alpha=0.15)
-            ax.plot(median_50, color=color, linewidth=1.5,
+
+            # NumPy-Quantile statt pandas (deutlich schneller bei breiten DFs)
+            q05 = np.quantile(values, 0.05, axis=1)
+            q50 = np.quantile(values, 0.50, axis=1)
+            q95 = np.quantile(values, 0.95, axis=1)
+
+            x = np.arange(total_days)
+            ax.fill_between(x, q05, q95, color=color, alpha=0.15)
+            ax.plot(x, q50, color=color, linewidth=1.5,
                     label=f"{strat.replace('_', ' ')} (Median)")
 
-        ax.set_title(f"MCS Konfidenz-Intervalle (5% - 95%): Szenario {sc_name}")
+        n_paths = values.shape[1] if not strat_paths.empty else "?"
+        ax.set_title(f"MCS Konfidenz-Intervalle (5% - 95%): "
+                     f"Szenario {sc_name} (n={n_paths:,})")
         ax.set_ylabel("Kapital in €")
-        ax.axhline(y=0, color='red', linestyle='--', linewidth=1, label="Erschöpfungsgrenze")
+        ax.axhline(y=0, color='red', linestyle='--', linewidth=1,
+                   label="Erschöpfungsgrenze")
         ax.grid(alpha=0.2)
         ax.legend(loc='upper left', ncol=2)
 

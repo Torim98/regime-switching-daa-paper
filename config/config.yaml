@@ -144,7 +144,7 @@ backtesting:
 # --- Evaluation / MCS (05_evaluation) ---
 evaluation:
   mcs:
-    n_paths: 1000
+    n_paths: 10000
     block_length: 20
     random_seed: 42
     sim_years: 10

@@ -105,6 +105,77 @@ def find_matching_signal_col(
     return None
 
 
+def _simulate_strategy(
+    rets_arr: np.ndarray,
+    sig_arr: np.ndarray,
+    n_simulations: int,
+    total_days: int,
+    block_size: int,
+    start_capital: float,
+    withdrawal: float,
+    fee: float,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Vektorisierte MCS für eine einzelne Strategie + Szenario-Kombination.
+
+    1. Paired Block Bootstrap: Alle Pfade gleichzeitig via vorberechneter
+       Block-Indizes (Renditen + Signale bleiben korreliert).
+    2. Capital Evolution: Tagesweise über alle Pfade parallel (NumPy-Vektoren),
+       mit monatlicher Entnahme (alle 21 Handelstage) und Ruin-Erkennung.
+
+    Returns:
+        final_capitals: (n_simulations,) — Endkapital je Pfad
+        all_capital_histories: (n_simulations, total_days) — vollständige Pfade
+    """
+    n_source = len(rets_arr)
+    n_blocks = int(np.ceil(total_days / block_size))
+
+    # --- Vectorized Paired Block Bootstrap ---
+    # Alle Startindizes auf einmal ziehen: (n_simulations, n_blocks)
+    start_indices = rng.integers(0, n_source - block_size, size=(n_simulations, n_blocks))
+
+    # Block-Indizes zu vollständigen Zeitreihen-Indizes expandieren
+    # offsets: (1, 1, block_size) broadcast mit start_indices: (n_sim, n_blocks, 1)
+    offsets = np.arange(block_size)
+    # (n_simulations, n_blocks, block_size)
+    full_indices = start_indices[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :]
+    # Flatten zu (n_simulations, n_blocks * block_size) und auf total_days trimmen
+    full_indices = full_indices.reshape(n_simulations, -1)[:, :total_days]
+
+    sim_rets = rets_arr[full_indices]   # (n_simulations, total_days)
+    sim_sigs = sig_arr[full_indices]    # (n_simulations, total_days)
+
+    # --- Vectorized Capital Evolution ---
+    capitals = np.full(n_simulations, start_capital, dtype=np.float64)
+    all_capital_histories = np.empty((n_simulations, total_days), dtype=np.float64)
+    ruined = np.zeros(n_simulations, dtype=bool)
+
+    for i in range(total_days):
+        # Rendite anwenden (alle Pfade gleichzeitig)
+        capitals *= (1 + sim_rets[:, i])
+
+        # Monatliche Entnahme (alle 21 Handelstage)
+        if i % 21 == 0:
+            withdrawal_amt = np.full(n_simulations, withdrawal)
+            # Liquiditäts-Fee wenn Signal == 0 (Bull-Phase investiert)
+            fee_mask = sim_sigs[:, i] == 0
+            withdrawal_amt[fee_mask] += withdrawal * fee
+            capitals -= withdrawal_amt
+
+        # Ruin-Check: neu ruinierte Pfade auf 0 setzen
+        newly_ruined = (capitals <= 0) & ~ruined
+        capitals[newly_ruined] = 0.0
+        ruined |= newly_ruined
+
+        # Bereits ruinierte Pfade bleiben bei 0
+        capitals[ruined] = 0.0
+
+        all_capital_histories[:, i] = capitals
+
+    return capitals.copy(), all_capital_histories
+
+
 def run_monte_carlo_simulation(
     daily_rets: pd.DataFrame,
     test_df: pd.DataFrame,
@@ -126,89 +197,112 @@ def run_monte_carlo_simulation(
 
     Reproduzierbarkeit über random_seed sichergestellt.
 
+    Optimiert für hohe Pfadanzahlen (10.000+):
+    - Vektorisierter Block-Bootstrap (NumPy Fancy Indexing)
+    - Vektorisierte Capital Evolution (alle Pfade parallel)
+    - Parallelisierung über Strategien via concurrent.futures
+
     Gibt (all_mc_summaries, mcs_paths_collector) zurück:
     - all_mc_summaries: Liste von Dicts mit Ruin-Wahrscheinlichkeit und Median Endkapital
     - mcs_paths_collector: Dict mit allen simulierten Kapitalpfaden
     """
-    total_days = sim_years * trading_days_per_year
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    import os
 
-    # Reproduzierbarkeit sicherstellen
-    np.random.seed(random_seed)
+    total_days = sim_years * trading_days_per_year
 
     # Prüfen, ob Renditen vorhanden sind
     if daily_rets.empty:
         raise ValueError("daily_rets ist leer. Prüfe die Datenquelle backtesting_results.")
 
+    # Reproduzierbare, unabhängige Seeds pro Job via SeedSequence
+    seed_seq = np.random.SeedSequence(random_seed)
+
     all_mc_summaries = []
     mcs_paths_collector = {}
 
+    # --- Jobs vorbereiten: (Szenario, Strategie) Paare ---
+    jobs = []
+    job_keys = []
+    child_seeds = seed_seq.spawn(len(scenarios) * len(daily_rets.columns))
+    seed_idx = 0
+
     for sc_name, params in scenarios.items():
-        print(f"Starte Monte Carlo Simulation für Szenario: {sc_name}")
-        mc_results_scenario = {}
-
         for strategy in daily_rets.columns:
-            final_capitals = []
             sig_col = find_matching_signal_col(strategy, test_df.columns)
+            rets_arr = daily_rets[strategy].values
+            sig_arr = (
+                test_df[sig_col].values if sig_col
+                else np.zeros(len(test_df))
+            )
 
-            for s in range(n_simulations):
-                # --- Paired Block Bootstrap ---
-                sim_rets = []
-                sim_sigs = []
+            jobs.append((
+                rets_arr,
+                sig_arr,
+                n_simulations,
+                total_days,
+                block_size,
+                params["start"],
+                params["withdrawal"],
+                params["fee"],
+                child_seeds[seed_idx],
+            ))
+            job_keys.append((sc_name, strategy))
+            seed_idx += 1
 
-                while len(sim_rets) < total_days:
-                    start_idx = np.random.randint(0, len(daily_rets) - block_size)
-                    sim_rets.extend(
-                        daily_rets[strategy].iloc[start_idx : start_idx + block_size].values
-                    )
-                    if sig_col:
-                        sim_sigs.extend(
-                            test_df[sig_col].iloc[start_idx : start_idx + block_size].values
-                        )
-                    else:
-                        sim_sigs.extend([0] * block_size)
+    # --- Parallel oder sequentiell ausführen ---
+    n_workers = min(len(jobs), max(1, os.cpu_count() - 1))
+    results = {}
 
-                sim_rets = np.array(sim_rets[:total_days])
-                sim_sigs = np.array(sim_sigs[:total_days])
+    if n_workers > 1 and n_simulations >= 1000:
+        print(f"MCS: Starte {len(jobs)} Jobs auf {n_workers} Workern "
+              f"({n_simulations:,} Pfade je Kombination)...")
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            future_to_key = {}
+            for key, job_args in zip(job_keys, jobs):
+                # SeedSequence → Generator im Worker erstellen
+                future = executor.submit(_run_strategy_job, *job_args)
+                future_to_key[future] = key
 
-                # --- Entnahme-Simulation ---
-                cap = params["start"]
-                capital_history = []
+            for future in as_completed(future_to_key):
+                key = future_to_key[future]
+                results[key] = future.result()
+    else:
+        print(f"MCS: Starte {len(jobs)} Jobs sequentiell "
+              f"({n_simulations:,} Pfade je Kombination)...")
+        for key, job_args in zip(job_keys, jobs):
+            results[key] = _run_strategy_job(*job_args)
 
-                for i in range(total_days):
-                    cap *= (1 + sim_rets[i])
+    # --- Ergebnisse aggregieren ---
+    for (sc_name, strategy), (final_capitals, all_histories) in results.items():
+        print(f"  ✓ {sc_name} / {strategy}")
 
-                    # Monatliche Entnahme (alle 21 Handelstage)
-                    if i % 21 == 0:
-                        withdrawal_amt = params["withdrawal"]
-                        if sim_sigs[i] == 0:
-                            withdrawal_amt += (params["withdrawal"] * params["fee"])
-                        cap -= withdrawal_amt
+        # Pfade in Collector schreiben
+        for s in range(n_simulations):
+            path_id = f"{sc_name}_{strategy}_path_{s:03d}"
+            mcs_paths_collector[path_id] = all_histories[s].tolist()
 
-                    if cap <= 0:
-                        cap = 0.0
-                        capital_history.append(0.0)
-                        remaining_days = total_days - len(capital_history)
-                        capital_history.extend([0.0] * remaining_days)
-                        break
-                    else:
-                        capital_history.append(cap)
+        # Summary-Statistiken
+        ruin_prob = np.mean(final_capitals <= 0)
+        median_wealth = np.median(final_capitals)
 
-                final_capitals.append(cap)
-
-                path_id = f"{sc_name}_{strategy}_path_{s:03d}"
-                mcs_paths_collector[path_id] = capital_history
-
-            mc_results_scenario[strategy] = final_capitals
-
-            if len(final_capitals) > 0:
-                ruin_prob = np.mean(np.array(final_capitals) <= 0)
-                median_wealth = np.median(final_capitals)
-
-                all_mc_summaries.append({
-                    "Szenario": sc_name,
-                    "Strategie": strategy.replace("_", " "),
-                    "Ruin-Wahrscheinlichkeit": f"{ruin_prob:.2%}",
-                    "Median Endkapital": f"{median_wealth:,.2f} €",
-                })
+        all_mc_summaries.append({
+            "Szenario": sc_name,
+            "Strategie": strategy.replace("_", " "),
+            "Ruin-Wahrscheinlichkeit": f"{ruin_prob:.2%}",
+            "Median Endkapital": f"{median_wealth:,.2f} €",
+        })
 
     return all_mc_summaries, mcs_paths_collector
+
+
+def _run_strategy_job(
+    rets_arr, sig_arr, n_simulations, total_days, block_size,
+    start_capital, withdrawal, fee, child_seed,
+):
+    """Wrapper für ProcessPoolExecutor — erstellt Generator aus SeedSequence."""
+    rng = np.random.default_rng(child_seed)
+    return _simulate_strategy(
+        rets_arr, sig_arr, n_simulations, total_days, block_size,
+        start_capital, withdrawal, fee, rng,
+    )
