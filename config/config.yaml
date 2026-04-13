@@ -77,23 +77,23 @@ models:
     threshold: 0.3              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
-    window_size: 60             # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
+    window_size: 120             # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
     labels: "HMM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
     d_model: 64                  # Embedding-Dimension (Transformer interne Dimension); Initialwert der Thesis 64
-    n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!); Initialwert der Thesis 4
-    n_layers: 2                  # Anzahl Transformer-Encoder-Layer; Initialwert der Thesis 2
-    dim_feedforward: 128         # Dimension des Feed-Forward-Netzwerks im Encoder; Initialwert der Thesis 128
-    dropout: 0.1                 # Dropout-Rate (Regularisierung); Initialwert der Thesis 0.1
+    n_heads: 8                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!); Initialwert der Thesis 4
+    n_layers: 3                  # Anzahl Transformer-Encoder-Layer; Initialwert der Thesis 2
+    dim_feedforward: 64          # Dimension des Feed-Forward-Netzwerks im Encoder; Initialwert der Thesis 128
+    dropout: 0.25                # Dropout-Rate (Regularisierung); Initialwert der Thesis 0.1
     # --- Training ---
-    epochs: 50                  # Initialwert der Thesis 50
+    epochs: 20                   # Initialwert der Thesis 50
     batch_size: 32
-    learning_rate: 0.0001       # Initialwert der Thesis 0.0001
+    learning_rate: 0.000031476320331974455       # Initialwert der Thesis 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.5       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: 0.45              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
      # --- Class Balancing ---
     pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
 
