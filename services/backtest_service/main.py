@@ -1,3 +1,8 @@
+# Warning-Suppression MUSS vor allen anderen Imports passieren,
+# damit TF_CPP_MIN_LOG_LEVEL greift.
+from services.warnings_config import configure_warnings
+configure_warnings()
+
 from fastapi import FastAPI
 from services.logging_config import setup_service_logger
 from services.backtest_service.routes import router
