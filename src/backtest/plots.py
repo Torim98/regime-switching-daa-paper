@@ -127,9 +127,9 @@ def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             plt.close(fig)
 
-
 def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
-                   color_map: dict, save_path: str):
+                   color_map: dict, save_path: str,
+                   trading_days_per_year: int = 252):
     """
     MCS Pfad-Verläufe für alle Szenarien (optimiert für 10.000+ Pfade).
 
@@ -158,7 +158,6 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
             color = color_map.get(strat, 'black')
             values = strat_paths.values  # (total_days, n_paths)
 
-            # Quantile berechnen (schnell über NumPy)
             q05 = np.quantile(values, 0.05, axis=1)
             q25 = np.quantile(values, 0.25, axis=1)
             q50 = np.quantile(values, 0.50, axis=1)
@@ -167,20 +166,26 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
 
             x = np.arange(values.shape[0])
 
-            # Bänder: 5-95% und 25-75%
             ax.fill_between(x, q05, q95, color=color, alpha=0.08)
             ax.fill_between(x, q25, q75, color=color, alpha=0.15)
 
-            # Spaghetti-Sample: max. 50 zufällige Pfade
             n_paths = values.shape[1]
             sample_idx = np.random.choice(
                 n_paths, size=min(MAX_SAMPLE_PATHS, n_paths), replace=False
             )
             ax.plot(values[:, sample_idx], color=color, alpha=0.06, linewidth=0.5)
 
-            # Median-Linie
             ax.plot(x, q50, color=color, linewidth=2,
                     label=strat.replace('_', ' '))
+
+        # Jahres-Ticks: Kalenderjahre ab heute
+        from datetime import datetime
+        start_year = datetime.now().year
+        n_years = values.shape[0] // trading_days_per_year
+        year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
+        year_labels = [str(start_year + y) for y in range(n_years + 1)]
+        ax.set_xticks(year_ticks)
+        ax.set_xticklabels(year_labels)
 
         ax.set_title(f"MCS Pfad-Verläufe: Szenario {sc_name} "
                      f"(Bänder: 25-75% / 5-95%, n={n_paths:,})")
@@ -189,14 +194,14 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
         ax.grid(alpha=0.2)
         ax.legend(loc='upper left', ncol=2)
 
-    plt.xlabel("Handelstage (T+N)")
+    plt.xlabel("Simulationszeit")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
-
 def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
-                       total_days: int, color_map: dict, save_path: str):
+                       total_days: int, color_map: dict, save_path: str,
+                       trading_days_per_year: int = 252):
     """MCS Konfidenz-Intervalle (5%-95%) für alle Szenarien (optimiert via NumPy)."""
     import numpy as np
 
@@ -206,6 +211,7 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
         axes = [axes]
 
     for ax, sc_name in zip(axes, scenarios_list):
+        n_paths_display = "?"
         for strat in strategies:
             prefix = f"{sc_name}_{strat}_path_"
             strat_paths = mcs_results_df.filter(like=prefix)
@@ -213,10 +219,9 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
             if strat_paths.empty:
                 continue
 
-            values = strat_paths.values  # (total_days, n_paths)
+            values = strat_paths.values
             color = color_map.get(strat, 'black')
 
-            # NumPy-Quantile statt pandas (deutlich schneller bei breiten DFs)
             q05 = np.quantile(values, 0.05, axis=1)
             q50 = np.quantile(values, 0.50, axis=1)
             q95 = np.quantile(values, 0.95, axis=1)
@@ -226,16 +231,26 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
             ax.plot(x, q50, color=color, linewidth=1.5,
                     label=f"{strat.replace('_', ' ')} (Median)")
 
-        n_paths = values.shape[1] if not strat_paths.empty else "?"
+            n_paths_display = values.shape[1]
+
+        # Jahres-Ticks: Kalenderjahre ab heute
+        from datetime import datetime
+        start_year = datetime.now().year
+        n_years = total_days // trading_days_per_year
+        year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
+        year_labels = [str(start_year + y) for y in range(n_years + 1)]
+        ax.set_xticks(year_ticks)
+        ax.set_xticklabels(year_labels)
+
         ax.set_title(f"MCS Konfidenz-Intervalle (5% - 95%): "
-                     f"Szenario {sc_name} (n={n_paths:,})")
+                     f"Szenario {sc_name} (n={n_paths_display:,})")
         ax.set_ylabel("Kapital in €")
         ax.axhline(y=0, color='red', linestyle='--', linewidth=1,
                    label="Erschöpfungsgrenze")
         ax.grid(alpha=0.2)
         ax.legend(loc='upper left', ncol=2)
 
-    plt.xlabel("Handelstage (T+N)")
+    plt.xlabel("Simulationszeit")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)

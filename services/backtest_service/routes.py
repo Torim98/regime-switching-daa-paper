@@ -168,10 +168,16 @@ def evaluate():
     boxplot_template = os.path.join(str(cfg._base_dir / "assets"), "mcs_boxplot_{}.png")
     plot_mcs_boxplots(mcs_paths, daily_rets.columns, scenarios, mcs_cfg.sim_years,
                       boxplot_template)
-    plot_mcs_paths(mcs_results, scenarios_list, strategies,
-                   cfg.color_map, cfg.asset_path("mcs_paths"))
-    plot_mcs_quantiles(mcs_results, scenarios_list, strategies, total_days,
-                       cfg.color_map, cfg.asset_path("mcs_quantiles"))
+    plot_mcs_paths(
+        mcs_results, scenarios_list, strategies, cfg.color_map,
+        cfg.asset_path("mcs_paths"),
+        trading_days_per_year=TRADING_DAYS,
+    )
+    plot_mcs_quantiles(
+        mcs_results, scenarios_list, strategies, TOTAL_DAYS, cfg.color_map,
+        cfg.asset_path("mcs_quantiles"),
+        trading_days_per_year=TRADING_DAYS,
+    )
 
     # Statistics Report generieren (wie Notebook 99)
     generate_report()
