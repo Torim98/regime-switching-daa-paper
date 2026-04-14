@@ -225,9 +225,19 @@ def calculate_rolling_sharpe(
     backtesting_results: pd.DataFrame,
     window_days: int = 252,
     trading_days_per_year: int = 252,
+    min_vol_annualized: float = 0.005,  # 0.5% jährliche Volatilität Mindestschwelle
+    cap: float = 10.0,                   # Ökonomisch plausibles Maximum
 ) -> pd.DataFrame:
     """
     Rollierender Sharpe Ratio (1-Jahres-Fenster) für alle Strategien.
+
+    Stabilisierung:
+    - Fenster mit annualisierter Volatilität unter `min_vol_annualized` werden
+      als NaN markiert (vermeidet Division durch ~0 in Cash-Only-Phasen, in
+      denen die Strategie durchgängig im Safe-Haven sitzt).
+    - Werte werden auf ±`cap` begrenzt (Sharpe > 10 ist ökonomisch unplausibel
+      und meist Artefakt numerischer Instabilität).
+
     Gibt DataFrame mit gleicher Struktur wie backtesting_results zurück.
     """
     rolling_sharpe = pd.DataFrame(index=backtesting_results.index)
@@ -238,6 +248,15 @@ def calculate_rolling_sharpe(
 
         roll_mean = daily_rets.rolling(window_days).mean() * trading_days_per_year
         roll_std = daily_rets.rolling(window_days).std() * np.sqrt(trading_days_per_year)
-        rolling_sharpe[col] = roll_mean / roll_std
+
+        # Fenster mit zu niedriger Vol ausmaskieren
+        mask = roll_std < min_vol_annualized
+        sharpe = roll_mean / roll_std
+        sharpe[mask] = np.nan
+
+        # Auf plausiblen Bereich clippen
+        sharpe = sharpe.clip(lower=-cap, upper=cap)
+
+        rolling_sharpe[col] = sharpe
 
     return rolling_sharpe

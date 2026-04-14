@@ -270,8 +270,14 @@ def plot_rolling_sharpe(rolling_sharpe: pd.DataFrame, color_map: dict, save_path
         ax.plot(rolling_sharpe[col],
                 label=f"Strategie: {col}", color=color, linewidth=1.5, alpha=0.8)
 
+    # Referenzlinien für Interpretation
+    ax.axhline(y=1.0, color="green", linewidth=0.5, linestyle=":", alpha=0.5)
+    ax.axhline(y=2.0, color="darkgreen", linewidth=0.5, linestyle=":", alpha=0.5)
+    # Y-Achse auf plausiblen Bereich fixieren
+    ax.set_ylim(-3, 5)
+
     ax.axhline(y=0, color="black", linewidth=0.5, linestyle="-")
-    ax.set_title("Rollierender Sharpe Ratio (252-Tage-Fenster)")
+    ax.set_title("Rollierender Sharpe Ratio (252-Tage-Fenster, Cap ±10, Low-Vol NaN)")
     ax.set_xlabel("Datum")
     ax.set_ylabel("Sharpe Ratio (annualisiert)")
     ax.legend(loc="upper left", ncol=2, fontsize="small")
