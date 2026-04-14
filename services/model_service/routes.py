@@ -84,7 +84,8 @@ def train_model(model_name: str):
         validate_regime_signal(df, "MSM")
         df.to_parquet(cfg.data_path("feature_engineered"))
 
-        plot_msm_regimes(df, "MSM", cfg.color_map.get("MSM", "tab:blue"),
+        df_oos = df.iloc[split_point:].copy()
+        plot_msm_regimes(df_oos, "MSM", cfg.color_map.get("MSM", "tab:blue"),
                          cfg.asset_path("markov_model"))
         
     elif model_name == "hmm":
@@ -170,8 +171,9 @@ def train_model(model_name: str):
         P(test_df_path).parent.mkdir(parents=True, exist_ok=True)
         test_df.to_parquet(test_df_path)
         
-        plot_dl_model(test_df, "LSTM", cfg.color_map.get("LSTM", "tab:green"),
-                      cfg.asset_path("lstm_model"))
+        df_oos = df.iloc[split_point:].copy()
+        plot_hmm_regimes(df_oos, "HMM", cfg.color_map.get("HMM", "tab:purple"),
+                         cfg.asset_path("hmm_regimes"))
         
     elif model_name == "transformer":
         if test_df is None:
@@ -301,17 +303,45 @@ def train_all():
             if use_cache:
                 save_walk_forward_cache(test_df, fingerprint, cache_path)
 
-        # 4. Validierung
+        # 4. Validierung + Einzelplots pro Modell
+        asset_key_map = {
+            "MSM": "markov_model",
+            "HMM": "hmm_regimes",
+            "LSTM": "lstm_model",
+            "Transformer": "transformer_model",
+        }
+        color_defaults = {
+            "MSM": "tab:blue",
+            "HMM": "tab:purple",
+            "LSTM": "tab:green",
+            "Transformer": "darkorange",
+        }
+
         for model_name in ["MSM", "HMM", "LSTM", "Transformer"]:
             sig_col = f"{model_name}_Signal"
-            if sig_col in test_df.columns and test_df[sig_col].notna().any():
-                sub = test_df.dropna(subset=[sig_col]).copy()
-                validate_regime_signal(sub, model_name)
-                logger.info(f"{model_name}: {len(sub)} OOS-Tage validiert.")
-            else:
+            if sig_col not in test_df.columns or not test_df[sig_col].notna().any():
                 logger.warning(f"{model_name}: Keine OOS-Vorhersagen!")
+                continue
 
-        # 5. Plots generieren
+            sub = test_df.dropna(subset=[sig_col]).copy()
+            validate_regime_signal(sub, model_name)
+            logger.info(f"{model_name}: {len(sub)} OOS-Tage validiert.")
+
+            # Einzelplot auf OOS-Bereich
+            color = cfg.color_map.get(model_name, color_defaults[model_name])
+            plot_path = cfg.asset_path(asset_key_map[model_name])
+
+            if model_name == "MSM":
+                plot_msm_regimes(sub, model_name, color, plot_path)
+            elif model_name == "HMM":
+                plot_hmm_regimes(sub, model_name, color, plot_path)
+            else:  # LSTM / Transformer — Ground-Truth (MSM_Signal) gemeinsam filtern
+                dl_sub = test_df.dropna(subset=[sig_col, "MSM_Signal"]).copy()
+                plot_dl_model(dl_sub, model_name, color, plot_path)
+
+            logger.info(f"{model_name}: Plot gespeichert → {plot_path}")
+
+        # 5. Regime-Vergleichsplot
         plot_regime_comparison(test_df, cfg.color_map,
                                cfg.asset_path("regime_comparison"))
 

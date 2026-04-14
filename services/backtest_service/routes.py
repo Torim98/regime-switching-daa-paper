@@ -171,12 +171,12 @@ def evaluate():
     plot_mcs_paths(
         mcs_results, scenarios_list, strategies, cfg.color_map,
         cfg.asset_path("mcs_paths"),
-        trading_days_per_year=TRADING_DAYS,
+        trading_days_per_year=mcs_cfg.trading_days_per_year,
     )
     plot_mcs_quantiles(
-        mcs_results, scenarios_list, strategies, TOTAL_DAYS, cfg.color_map,
+        mcs_results, scenarios_list, strategies, total_days, cfg.color_map,
         cfg.asset_path("mcs_quantiles"),
-        trading_days_per_year=TRADING_DAYS,
+        trading_days_per_year=mcs_cfg.trading_days_per_year,
     )
 
     # Statistics Report generieren (wie Notebook 99)
