@@ -249,13 +249,20 @@ def calculate_rolling_sharpe(
         roll_mean = daily_rets.rolling(window_days).mean() * trading_days_per_year
         roll_std = daily_rets.rolling(window_days).std() * np.sqrt(trading_days_per_year)
 
-        # Fenster mit zu niedriger Vol ausmaskieren
-        mask = roll_std < min_vol_annualized
-        sharpe = roll_mean / roll_std
-        sharpe[mask] = np.nan
+        # Rohwert berechnen (mit Division-Schutz)
+        sharpe = roll_mean / roll_std.replace(0, np.nan)
 
-        # Auf plausiblen Bereich clippen
+        # Low-Vol-Fenster (Cash-Only-Phasen) auf 0 setzen statt NaN.
+        # Begründung: Flache Phase = keine Überrendite, kein Risiko = Sharpe 0.
+        # Das erhält die Linie durchgängig und vermeidet die Division-durch-~0-Peaks.
+        low_vol_mask = roll_std < min_vol_annualized
+        sharpe[low_vol_mask] = 0.0
+
+        # Auf plausiblen Bereich clippen (fängt verbleibende numerische Ausreißer)
         sharpe = sharpe.clip(lower=-cap, upper=cap)
+
+        # Verbleibende NaN sind strukturell bedingt (Fold-Ränder, window_size-Offset
+        # bei DL-Modellen) — diese bleiben als NaN erhalten.
 
         rolling_sharpe[col] = sharpe
 

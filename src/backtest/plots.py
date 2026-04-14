@@ -259,15 +259,19 @@ def plot_rolling_sharpe(rolling_sharpe: pd.DataFrame, color_map: dict, save_path
     """Rollierender 1-Jahres Sharpe Ratio aller Strategien."""
     fig, ax = plt.subplots(figsize=(14, 6))
 
-    ax.plot(rolling_sharpe["Buy_Hold"],
+    # .dropna() + Original-Index bewahren: matplotlib zeichnet durchgehende
+    # Linie über vorhandene Punkte, überspringt NaN-Indizes visuell.
+    bh = rolling_sharpe["Buy_Hold"].dropna()
+    ax.plot(bh.index, bh.values,
             label="Buy & Hold (Benchmark)",
             color=color_map.get("Buy_Hold", "gray"), alpha=0.5, linestyle="--")
 
     for col in rolling_sharpe.columns:
         if col == "Buy_Hold":
             continue
+        series = rolling_sharpe[col].dropna()
         color = color_map.get(col, None)
-        ax.plot(rolling_sharpe[col],
+        ax.plot(series.index, series.values,
                 label=f"Strategie: {col}", color=color, linewidth=1.5, alpha=0.8)
 
     # Referenzlinien für Interpretation
