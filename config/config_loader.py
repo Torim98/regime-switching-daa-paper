@@ -90,6 +90,7 @@ class PipelineConfig:
         self.pipeline = ns.pipeline
         self.fast_mode = ns.fast_mode
         self.model_persistence = ns.model_persistence
+        self.labels = ns.labels
 
         # Dynamic end_date
         if self.data.end_date is None:

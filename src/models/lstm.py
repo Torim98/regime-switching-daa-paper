@@ -230,9 +230,9 @@ def train_lstm_fold(
         raise ValueError(
             f"df_train hat nur {len(df_train)} Zeilen, benötigt > window_size={window_size}."
         )
-    if len(df_test) <= window_size:
+    if len(df_test) < window_size:
         raise ValueError(
-            f"df_test hat nur {len(df_test)} Zeilen, benötigt > window_size={window_size}."
+            f"df_test hat nur {len(df_test)} Zeilen, benötigt >= window_size={window_size}."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(
@@ -281,10 +281,18 @@ def train_lstm_fold(
     n_neg = int((y_train == 0).sum())
     n_pos = int((y_train == 1).sum())
     if n_pos == 0 or n_neg == 0:
-        raise ValueError(
-            f"Train-Fold enthält nur eine Klasse (n_neg={n_neg}, n_pos={n_pos}). "
-            f"Walk-Forward-Fenster zu kurz oder Regime-frei?"
+        import warnings
+        majority_prob = 1.0 if n_pos > n_neg else 0.0
+        warnings.warn(
+            f"  [LSTM] Train-Fold einklassig (n_neg={n_neg}, n_pos={n_pos}). "
+            f"Fallback: konstante Vorhersage P(Bear)={majority_prob}."
         )
+        # Mit Warm-up-Buffer prädizieren wir den GESAMTEN Test-Bereich,
+        # also muss der Fallback denselben pred_idx zurückgeben.
+        pred_idx = df_test.index
+        probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
+        return probs, pred_idx
+
     raw_weight = n_neg / n_pos
     pos_weight = math.sqrt(raw_weight)
     if verbose:

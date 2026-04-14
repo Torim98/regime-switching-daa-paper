@@ -5,6 +5,7 @@ import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import hashlib
 import json
+from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
 
 
 def walk_forward_splits(
@@ -200,6 +201,14 @@ def run_walk_forward(
 
     # Ergebnis-Container
     result_df = df.copy()
+    
+    # Supervised-Labels einmalig fuer den gesamten DF erzeugen
+    supervised_label_source = cfg.labels.supervised_label_source
+    if supervised_label_source != "hmm":
+        df = df.copy()
+        df["Supervised_Label"] = compute_supervised_labels(df, cfg)
+        result_df["Supervised_Label"] = df["Supervised_Label"]
+    
     for model_name in models_to_run:
         result_df[f"{model_name}_Prob"] = pd.Series(dtype=float, index=df.index)
         result_df[f"{model_name}_Signal"] = pd.Series(dtype=float, index=df.index)
@@ -267,45 +276,57 @@ def run_walk_forward(
 
         # ---------- LSTM ----------
         if "LSTM" in models_to_run:
-            if "HMM_Signal" not in df_train.columns:
+            label_col = ("Supervised_Label"
+                         if supervised_label_source != "hmm"
+                         else "HMM_Signal")
+            if label_col not in df_train.columns:
                 warnings.warn(
-                    f"  [LSTM] Fold {fold_id} skipped: HMM-Labels nicht verfügbar."
+                    f"  [LSTM] Fold {fold_id} skipped: {label_col} nicht verfuegbar."
                 )
                 failed_folds["LSTM"] += 1
             else:
                 try:
                     lstm_cfg = cfg.models.lstm
                     probs_raw, pred_idx = train_lstm_fold(
-                    df_train=df_train,
-                    df_test=df_test,
-                    features=features,
-                    labels_col=lstm_cfg.labels,
-                    window_size=lstm_cfg.window_size,
-                    units_l1=lstm_cfg.units_l1,
-                    units_l2=lstm_cfg.units_l2,
-                    return_sequences=lstm_cfg.return_sequences,
-                    dropout=lstm_cfg.dropout,
-                    dense=lstm_cfg.dense,
-                    activation=lstm_cfg.activation,
-                    optimizer=lstm_cfg.optimizer,
-                    metrics=lstm_cfg.metrics,
-                    epochs=lstm_cfg.epochs,
-                    batch_size=lstm_cfg.batch_size,
-                    validation_split=lstm_cfg.validation_split,
-                    verbose=0,
+                        df_train=df_train,
+                        df_test=df_test,
+                        features=features,
+                        labels_col = resolve_label_col(cfg),
+                        window_size=lstm_cfg.window_size,
+                        units_l1=lstm_cfg.units_l1,
+                        units_l2=lstm_cfg.units_l2,
+                        return_sequences=lstm_cfg.return_sequences,
+                        dropout=lstm_cfg.dropout,
+                        dense=lstm_cfg.dense,
+                        activation=lstm_cfg.activation,
+                        optimizer=lstm_cfg.optimizer,
+                        metrics=lstm_cfg.metrics,
+                        epochs=lstm_cfg.epochs,
+                        batch_size=lstm_cfg.batch_size,
+                        validation_split=lstm_cfg.validation_split,
+                        verbose=0,
                     )
                     signal = (probs_raw >= lstm_cfg.threshold).astype(int)
                     result_df.loc[pred_idx, "LSTM_Prob"] = probs_raw
                     result_df.loc[pred_idx, "LSTM_Signal"] = signal
                 except Exception as e:
-                    warnings.warn(f"  [LSTM] Fold {fold_id} failed: {e}")
+                    import traceback
+                    warnings.warn(
+                        f"  [LSTM] Fold {fold_id} failed: "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    if failed_folds["LSTM"] < 2:
+                        traceback.print_exc()
                     failed_folds["LSTM"] += 1
 
         # ---------- Transformer ----------
         if "Transformer" in models_to_run:
-            if "HMM_Signal" not in df_train.columns:
+            label_col = ("Supervised_Label"
+                         if supervised_label_source != "hmm"
+                         else "HMM_Signal")
+            if label_col not in df_train.columns:
                 warnings.warn(
-                    f"  [Transformer] Fold {fold_id} skipped: HMM-Labels nicht verfügbar."
+                    f"  [Transformer] Fold {fold_id} skipped: {label_col} nicht verfügbar."
                 )
                 failed_folds["Transformer"] += 1
             else:
@@ -315,7 +336,7 @@ def run_walk_forward(
                         df_train=df_train,
                         df_test=df_test,
                         features=features,
-                        labels_col=t_cfg.labels,
+                        labels_col = resolve_label_col(cfg),
                         window_size=t_cfg.window_size,
                         d_model=t_cfg.d_model,
                         n_heads=t_cfg.n_heads,
@@ -340,7 +361,13 @@ def run_walk_forward(
                     except ImportError:
                         pass
                 except Exception as e:
-                    warnings.warn(f"  [Transformer] Fold {fold_id} failed: {e}")
+                    import traceback
+                    warnings.warn(
+                        f"  [Transformer] Fold {fold_id} failed: "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    if failed_folds["Transformer"] < 2:
+                        traceback.print_exc()
                     failed_folds["Transformer"] += 1
 
     # --- Abschluss-Report ---
@@ -376,6 +403,9 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "transformer_window": cfg.models.transformer.window_size,
         "transformer_epochs": cfg.models.transformer.epochs,
         "transformer_d_model": cfg.models.transformer.d_model,
+        "supervised_label_source": cfg.labels.supervised_label_source,
+        "pag_soss_params": vars(cfg.labels.pagan_sossounov),
+        "p2t_params": vars(cfg.labels.peak_to_trough),
     }
     raw = json.dumps(params, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]

@@ -19,8 +19,8 @@ import pandas as pd
 import optuna
 import os
 
+from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
 from src.backtest.walk_forward import walk_forward_splits
-
 
 # ============================================================================
 # Helper-Funktionen
@@ -218,7 +218,7 @@ def objective_lstm(
 
     lstm_cfg = cfg.models.lstm
     features = cfg.features.model_features
-    labels_col = lstm_cfg.labels  # "HMM_Signal"
+    labels_col = resolve_label_col(cfg)
 
     fold_sharpes = []
     for fold_id, (train_idx, test_idx) in enumerate(splits):
@@ -298,7 +298,11 @@ def objective_transformer(
 
     t_cfg = cfg.models.transformer
     features = cfg.features.model_features
-    labels_col = t_cfg.labels  # "HMM_Signal"
+    labels_col = resolve_label_col(cfg)
+    
+    if cfg.labels.supervised_label_source != "hmm":
+        df = df.copy()
+        df["Supervised_Label"] = compute_supervised_labels(df, cfg)
 
     fold_sharpes = []
     for fold_id, (train_idx, test_idx) in enumerate(splits):

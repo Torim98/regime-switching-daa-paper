@@ -277,7 +277,7 @@ def train_transformer_fold(
     tuple[np.ndarray, pd.DatetimeIndex]
         (probs_raw, prediction_index)
         probs_raw : 1D-Array der Bear-Probabilities auf dem OOS-Test-Bereich.
-        prediction_index : df_test.index[window_size:].
+        prediction_index : df_test.index (dank Warm-up-Buffer voller Test-Bereich).
 
     Hinweise
     --------
@@ -287,6 +287,8 @@ def train_transformer_fold(
     - pos_weight wird ausschließlich aus den Train-Labels berechnet.
     - validation_split: die letzten X% von X_train werden als interne
       Validation verwendet (zeitlich geordnet, leakage-frei).
+    - Einklassen-Fallback wird auf dem VOLLEN y_train (vor Val-Split) geprüft,
+      damit der Val-Split die Klassenbalance nicht künstlich zerstören kann.
     """
     n_features = len(features)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -296,9 +298,9 @@ def train_transformer_fold(
         raise ValueError(
             f"df_train hat nur {len(df_train)} Zeilen, benötigt > window_size={window_size}."
         )
-    if len(df_test) <= window_size:
+    if len(df_test) < window_size:
         raise ValueError(
-            f"df_test hat nur {len(df_test)} Zeilen, benötigt > window_size={window_size}."
+            f"df_test hat nur {len(df_test)} Zeilen, benötigt >= window_size={window_size}."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(
@@ -343,15 +345,32 @@ def train_transformer_fold(
         f"X_test={len(X_test)}"
     )
 
+    # --- 4. Einklassen-Check auf dem VOLLEN Train-Set (VOR Val-Split) ---
+    # Muss hier passieren, nicht nach dem Val-Split — sonst triggert der
+    # Fallback auch in Folds, in denen nur zufällig alle Positives im
+    # Val-Fenster landen würden.
+    n_pos = int(y_train.sum())
+    n_neg = int(len(y_train) - n_pos)
+    if n_pos == 0 or n_neg == 0:
+        import warnings
+        majority_prob = 1.0 if n_pos > n_neg else 0.0
+        warnings.warn(
+            f"  [Transformer] Train-Fold einklassig (n_neg={n_neg}, n_pos={n_pos}). "
+            f"Fallback: konstante Vorhersage P(Bear)={majority_prob}."
+        )
+        # Voller Test-Bereich (konsistent mit Warm-up-Buffer-Logik)
+        pred_idx = df_test.index
+        probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
+        return probs, pred_idx
 
-    # --- 4. Validation-Split innerhalb der Train-Sequenzen (zeitlich am Ende) ---
+    # --- 5. Validation-Split innerhalb der Train-Sequenzen (zeitlich am Ende) ---
     val_split = int(len(X_train) * (1 - validation_split))
     X_val = X_train[val_split:]
     y_val = y_train[val_split:]
     X_train = X_train[:val_split]
     y_train = y_train[:val_split]
 
-    # --- 5. Modell instanziieren ---
+    # --- 6. Modell instanziieren ---
     model = _build_model(
         n_features=n_features,
         d_model=d_model,
@@ -362,29 +381,28 @@ def train_transformer_fold(
         device=device,
     )
 
-    # --- 6. Klassengewichtung (nur auf Train-Labels!) ---
-    n_pos = int(y_train.sum())
-    n_neg = int(len(y_train) - n_pos)
-    if n_pos == 0 or n_neg == 0:
-        raise ValueError(
-            f"Train-Fold enthält nur eine Klasse (n_neg={n_neg}, n_pos={n_pos}). "
-            f"Walk-Forward-Fenster zu kurz oder Regime-frei?"
-        )
-    raw_weight = n_neg / n_pos
+    # --- 7. Klassengewichtung (nur auf Train-Labels!) ---
+    # Nach dem Val-Split auf dem reduzierten y_train neu berechnen,
+    # damit pos_weight zum tatsächlich trainierten Subset passt.
+    n_pos_tr = int(y_train.sum())
+    n_neg_tr = int(len(y_train) - n_pos_tr)
+    # Edge-Case: Val-Split hat alle einer Klasse entzogen — dann mit 1.0 fallback-gewichten,
+    # Training läuft trotzdem durch (Klassen existieren im vollen y_train).
+    raw_weight = (n_neg_tr / n_pos_tr) if (n_pos_tr > 0 and n_neg_tr > 0) else 1.0
     pos_weight = torch.tensor([math.sqrt(raw_weight)], dtype=torch.float32).to(device)
     if verbose:
         print(
             f"  [Transformer Fold] Train: {len(df_train)} rows, Test: {len(df_test)} rows | "
-            f"Bull: {n_neg}, Bear: {n_pos}, pos_weight (sqrt): {pos_weight.item():.2f}"
+            f"Bull: {n_neg_tr}, Bear: {n_pos_tr}, pos_weight (sqrt): {pos_weight.item():.2f}"
         )
 
-    # --- 7. Loss + Classifier-Override (Raw Logits) ---
+    # --- 8. Loss + Classifier-Override (Raw Logits) ---
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.classifier = nn.Linear(d_model, 1).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # --- 8. Tensoren + DataLoader ---
+    # --- 9. Tensoren + DataLoader ---
     X_train_tensor = torch.FloatTensor(X_train).to(device)
     y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(device)
     X_val_tensor = torch.FloatTensor(X_val).to(device)
@@ -394,7 +412,7 @@ def train_transformer_fold(
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    # --- 9. Training ---
+    # --- 10. Training ---
     model.train()
     for epoch in range(epochs):
         for batch_X, batch_y in train_loader:
@@ -413,7 +431,7 @@ def train_transformer_fold(
             model.train()
             print(f"    Epoch {epoch+1}/{epochs} — Val-Loss: {val_loss:.4f}")
 
-    # --- 10. OOS-Vorhersagen ---
+    # --- 11. OOS-Vorhersagen ---
     model.eval()
     with torch.no_grad():
         logits_test = model(X_test_tensor)

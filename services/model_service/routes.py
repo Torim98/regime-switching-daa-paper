@@ -8,6 +8,7 @@ from src.models.common import validate_regime_signal
 from src.models.plots import (
     plot_msm_regimes, plot_hmm_regimes, plot_dl_model, plot_regime_comparison,
 )
+from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
 from pathlib import Path
 import pandas as pd
 import time
@@ -127,8 +128,8 @@ def train_model(model_name: str):
                          cfg.asset_path("hmm_regimes"))
         
     elif model_name == "lstm":
-        if "MSM_Signal" not in df.columns:
-            raise HTTPException(400, "MSM must be trained first (provides labels for LSTM).")
+        if cfg.labels.supervised_label_source == "hmm" and "HMM_Signal" not in df.columns:
+            raise HTTPException(400, "HMM must be trained first (provides labels for LSTM).")
         
         lstm_cfg = cfg.models.lstm
         features = cfg.features.model_features
@@ -137,9 +138,14 @@ def train_model(model_name: str):
         model_file = cfg.model_path("lstm")
         scaler_file = cfg.model_path("scaler_lstm")
         
+        # Supervised-Labels erzeugen (ersetzt alte HMM-Kette)
+        if cfg.labels.supervised_label_source != "hmm":
+            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
+        label_col = resolve_label_col(cfg)
+        
         _, _, lstm_probs_raw, split = train_lstm(
             df=df, features=features,
-            labels_col=lstm_cfg.labels,
+            labels_col=label_col,
             window_size=window_size,
             train_test_split=lstm_cfg.train_test_split,
             units_l1=lstm_cfg.units_l1,
@@ -176,8 +182,8 @@ def train_model(model_name: str):
                          cfg.asset_path("hmm_regimes"))
         
     elif model_name == "transformer":
-        if test_df is None:
-            raise HTTPException(400, "LSTM must be trained first (creates test_df).")
+        if cfg.labels.supervised_label_source == "hmm" and "HMM_Signal" not in df.columns:
+            raise HTTPException(400, "HMM must be trained first (provides labels for LSTM).")
         
         t_cfg = cfg.models.transformer
         features = cfg.features.model_features
@@ -186,9 +192,14 @@ def train_model(model_name: str):
         model_file = cfg.model_path("transformer")
         scaler_file = cfg.model_path("scaler_transformer")
         
+        if cfg.labels.supervised_label_source != "hmm":
+            if "Supervised_Label" not in df.columns:
+                df["Supervised_Label"] = compute_supervised_labels(df, cfg)
+        label_col = resolve_label_col(cfg)
+        
         _, _, transformer_probs_raw, split_t = train_transformer(
             df=df, features=features,
-            labels_col=t_cfg.labels,
+            labels_col=label_col,
             window_size=window_size,
             train_test_split=t_cfg.train_test_split,
             d_model=t_cfg.d_model,
@@ -214,9 +225,8 @@ def train_model(model_name: str):
         
         test_df.to_parquet(test_df_path)
         
-        plot_dl_model(test_df, "Transformer",
-                      cfg.color_map.get("Transformer", "darkorange"),
-                      cfg.asset_path("transformer_model"))
+        plot_dl_model(test_df, "Transformer", cfg.plotting.colors.transformer,
+                      cfg.asset_path("transformer_model"), cfg=cfg)
 
         # Regime Comparison (alle 4 Modelle fertig)
         plot_regime_comparison(test_df, cfg.color_map,
@@ -335,9 +345,8 @@ def train_all():
                 plot_msm_regimes(sub, model_name, color, plot_path)
             elif model_name == "HMM":
                 plot_hmm_regimes(sub, model_name, color, plot_path)
-            else:  # LSTM / Transformer — Ground-Truth (MSM_Signal) gemeinsam filtern
-                dl_sub = test_df.dropna(subset=[sig_col, "MSM_Signal"]).copy()
-                plot_dl_model(dl_sub, model_name, color, plot_path)
+            else:  # LSTM / Transformer
+                plot_dl_model(sub, model_name, color, plot_path, cfg=cfg)
 
             logger.info(f"{model_name}: Plot gespeichert → {plot_path}")
 

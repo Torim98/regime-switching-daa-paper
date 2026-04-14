@@ -60,7 +60,6 @@ models:
   lstm:
     window_size: 120            # Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
-    labels: "HMM_Signal"
     units_l1: 16                # Initialwert der Thesis 32
     units_l2: 128               # Initialwert der Thesis 64
     return_sequences: true
@@ -79,7 +78,6 @@ models:
     # --- Data ---
     window_size: 120             # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
-    labels: "HMM_Signal"                 # Supervised auf Markov-Labels (wie LSTM)
     # --- Architektur ---
     d_model: 64                  # Embedding-Dimension (Transformer interne Dimension); Initialwert der Thesis 64
     n_heads: 8                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!); Initialwert der Thesis 4
@@ -101,10 +99,10 @@ models:
 walk_forward:
   enabled: true                   # false = Fallback auf alten 80/20-Split
   mode: "rolling"                  # "rolling" oder "expanding"
-  train_window_years: 5            # Länge des Train-Fensters (nur bei rolling)
-  test_window_months: 6            # Länge je OOS-Fold
-  step_months: 6                   # Schrittweite (= test_window für nicht-überlappende Folds)
-  min_train_years: 5               # Mindest-Trainingsdatenmenge im ersten Fold (expanding)
+  train_window_years: 10           # Länge des Train-Fensters (nur bei rolling)
+  test_window_months: 12           # Länge je OOS-Fold
+  step_months: 12                  # Schrittweite (= test_window für nicht-überlappende Folds)
+  min_train_years: 10              # Mindest-Trainingsdatenmenge im ersten Fold (expanding)
   retrain_dl: true                 # LSTM/Transformer in jedem Fold neu trainieren
   retrain_msm_hmm: true            # MSM/HMM in jedem Fold neu trainieren
   cache_enabled: true
@@ -213,6 +211,19 @@ paths:
     optuna_importance: "optuna_{model}_importance.png"
     optuna_contour: "optuna_{model}_contour.png"
     optuna_slice: "optuna_{model}_slice.png"
+    # Label-Analyse (Issue #21)
+    label_concordance_matrix: "label_concordance_matrix.png"
+    label_timeline_comparison: "label_timeline_comparison.png"
+
+labels:
+  supervised_label_source: "pagan_sossounov"   # "hmm" | "pagan_sossounov" | "peak_to_trough"
+  pagan_sossounov:
+    window_months: 8
+    min_phase_months: 4
+    min_cycle_months: 16
+    amplitude_threshold: 0.20
+  peak_to_trough:
+    threshold: 0.20
 
 ## --- Pipeline Execution ---
 pipeline:

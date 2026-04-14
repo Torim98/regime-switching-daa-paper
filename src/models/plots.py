@@ -32,28 +32,73 @@ def plot_hmm_regimes(df, model_name: str, color: str, save_path: str):
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
+# Mapping: label_source -> Anzeigename (Modul-Ebene, einmal definieren)
+_LABEL_DISPLAY_NAMES = {
+    "pagan_sossounov":  "Pagan-Sossounov",
+    "peak_to_trough":   "Peak-to-Trough (20%)",
+    "lunde_timmermann": "Lunde-Timmermann",
+    "nber":             "NBER",
+    "hmm":              "HMM",
+}
 
-def plot_dl_model(test_df, model_name: str, color: str, save_path: str):
-    """LSTM / Transformer: Wahrscheinlichkeit + Signal vs. Ground Truth."""
+def plot_dl_model(
+    test_df,
+    model_name: str,
+    color: str,
+    save_path: str,
+    cfg=None,
+    ground_truth_col: str = "Supervised_Label",
+):
+    """LSTM / Transformer: Wahrscheinlichkeit + Signal vs. Ground Truth.
+
+    Args:
+        test_df: DataFrame mit {model_name}_Prob, {model_name}_Signal und
+                 der Ground-Truth-Spalte (default: 'Supervised_Label').
+        model_name: 'LSTM' oder 'Transformer'.
+        color: Farbe für Prob/Signal-Kurven.
+        save_path: Ziel-PNG-Pfad.
+        cfg: PipelineConfig — für dynamischen Legendentext. Optional.
+        ground_truth_col: Spaltenname der Ground-Truth-Reihe.
+    """
+    # Legendentext für Ground Truth dynamisch
+    if cfg is not None:
+        source = getattr(cfg.labels, "supervised_label_source", "pagan_sossounov")
+        gt_name = _LABEL_DISPLAY_NAMES.get(source, source)
+    else:
+        gt_name = "Supervised"
+    gt_legend = f"{gt_name} Ground Truth"
+
+    # Fallback: falls ground_truth_col fehlt, alte Spalte versuchen
+    if ground_truth_col not in test_df.columns:
+        for alt in ("Supervised_Label", "MSM_Signal", "HMM_Signal"):
+            if alt in test_df.columns:
+                ground_truth_col = alt
+                break
+
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 8), sharex=True)
 
-    ax1.plot(test_df.index, test_df[f'{model_name}_Prob'], color=color,
-             label=f'{model_name} Bear Probability')
-    ax1.axhline(y=0.5, color='red', linestyle='--', label='Threshold 0.5')
+    ax1.plot(
+        test_df.index, test_df[f"{model_name}_Prob"],
+        color=color, label=f"{model_name} Bear Probability",
+    )
+    ax1.axhline(y=0.5, color="red", linestyle="--", label="Threshold 0.5")
     ax1.set_title(f"{model_name}: Wahrscheinlichkeit für Bärenmarkt (Out-of-Sample)")
     ax1.legend()
 
-    ax2.plot(test_df.index, test_df['MSM_Signal'], label='MSM Target (Ground Truth)',
-             alpha=0.3, color='gray')
-    ax2.step(test_df.index, test_df[f'{model_name}_Signal'], where='post',
-             label=f'{model_name} Signal', color=color)
+    ax2.plot(
+        test_df.index, test_df[ground_truth_col],
+        label=gt_legend, alpha=0.3, color="gray",
+    )
+    ax2.step(
+        test_df.index, test_df[f"{model_name}_Signal"], where="post",
+        label=f"{model_name} Signal", color=color,
+    )
     ax2.set_title(f"{model_name} Handelssignale (Out-of-Sample, 0=Bull, 1=Bear)")
     ax2.legend()
 
     plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
-
 
 def plot_regime_comparison(test_df, color_map: dict, save_path: str):
     """Dynamischer Vergleich aller Modelle (Probs + Signale)."""
