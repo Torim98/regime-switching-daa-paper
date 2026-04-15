@@ -8,8 +8,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 ENV CHROME_PATH=/usr/bin/chromium
 
+# pip gegen langsame/flaky Downloads härten
+ENV PIP_DEFAULT_TIMEOUT=300 \
+    PIP_RETRIES=10
+
 COPY pyproject.toml .
-RUN pip install --no-cache-dir ".[services]"
+
+# CPU-only Torch zuerst separat installieren — spart ~3,5 GB CUDA-Wheels.
+# Anschließend zieht ".[services,ml]" nur noch tensorflow/keras/fastapi nach,
+# torch ist bereits befriedigt.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.6.0
+RUN pip install --no-cache-dir ".[services,ml]"
 
 COPY config/ config/
 COPY src/ src/

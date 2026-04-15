@@ -5,33 +5,40 @@ description = "Regime-Switching Dynamic Asset Allocation – Master Thesis"
 requires-python = ">=3.11"
 
 dependencies = [
-    # --- Pinned Versions ---
+    # --- Core (leichtgewichtig, in allen Services vorhanden) ---
     "yfinance==1.2.2",
     "pandas==2.3.3",
     "numpy==2.3.5",
-	"matplotlib==3.9.2",
+    "matplotlib==3.9.2",
     "seaborn==0.13.2",
     "statsmodels==0.14.6",
-	"scikit-learn==1.8.0",
+    "scikit-learn==1.8.0",
     "hmmlearn==0.3.3",
-    "tensorflow==2.20.0",
-	"keras==3.14.0",
-    "torch==2.6.0",
-	"joblib==1.4.2",
+    "joblib==1.4.2",
     "pyyaml==6.0.1",
-	"papermill==2.7.0",
     "pyarrow>=23.0.1",
-	"tabulate==0.10.0",
-	"optuna==4.8.0",
-	"kaleido==1.2.0",
-	"plotly==6.7.0",
+    "tabulate==0.10.0",
+    "plotly==6.7.0",
+    "kaleido==1.2.0",
 ]
 
 [project.optional-dependencies]
+# Schwere ML-Frameworks + HPO — nur wo wirklich gebraucht (model_service + lokale Notebooks)
+ml = [
+    "tensorflow==2.20.0",
+    "keras==3.14.0",
+    "torch==2.6.0",
+    "optuna==4.8.0",
+]
+# FastAPI-Runtime (alle drei Services)
 services = [
     "fastapi==0.135.3",
     "uvicorn[standard]==0.43.0",
-    "httpx==0.28.1",       # Inter-Service-Kommunikation
+    "httpx==0.28.1",
+]
+# Notebook-Orchestrierung (nur lokal)
+notebooks = [
+    "papermill==2.7.0",
 ]
 dev = [
     "nbstripout>=0.8.0",
