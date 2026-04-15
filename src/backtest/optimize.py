@@ -227,7 +227,8 @@ def objective_lstm(
             df_test = df.loc[test_idx]
 
             # HMM-Labels für diesen Fold generieren
-            df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
+            if cfg.labels.supervised_label_source == "hmm":
+                df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
             probs_raw, pred_idx = train_lstm_fold(
                 df_train=df_train,
@@ -302,7 +303,8 @@ def objective_transformer(
     
     if cfg.labels.supervised_label_source != "hmm":
         df = df.copy()
-        df["Supervised_Label"] = compute_supervised_labels(df, cfg)
+        if "Supervised_Label" not in df.columns:
+            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
 
     fold_sharpes = []
     for fold_id, (train_idx, test_idx) in enumerate(splits):

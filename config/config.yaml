@@ -106,6 +106,7 @@ walk_forward:
   retrain_dl: true                 # LSTM/Transformer in jedem Fold neu trainieren
   retrain_msm_hmm: true            # MSM/HMM in jedem Fold neu trainieren
   cache_enabled: true
+  n_jobs: -1                        # -1 = alle CPUs, 1 = sequentiell (Debug), int = feste Anzahl
 
 # --- Backtesting (04_backtesting) ---
 ## --- Hyperparameter-Optimierung (Optuna) ---

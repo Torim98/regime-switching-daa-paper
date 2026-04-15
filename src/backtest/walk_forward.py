@@ -169,208 +169,122 @@ def run_walk_forward(
     models_to_run: list[str],
 ) -> pd.DataFrame:
     """
-    Iteriert über alle Walk-Forward-Folds und aggregiert OOS-Vorhersagen
-    der angegebenen Modelle zu durchgehenden Serien.
+    Walk-Forward mit parallelisierten CPU-Modellen (MSM, HMM) und
+    sequentiellem DL-Training (LSTM, Transformer) auf der GPU.
 
-    Parameter
-    ---------
-    df : pd.DataFrame
-        Vollständiger Feature-DataFrame (DatetimeIndex), enthält alle Spalten
-        die irgendein Modell braucht (Features, Returns, Labels-Spalte etc.).
-    splits : Liste von (train_idx, test_idx)-Paaren aus walk_forward_splits().
-    cfg : zentrale PipelineConfig (für Modell-Hyperparameter).
-    models_to_run : Liste der Modellnamen, z.B. ["MSM", "HMM", "LSTM", "Transformer"].
-
-    Rückgabe
-    --------
-    pd.DataFrame
-        Kopie von df, ergänzt um {Model}_Prob und {Model}_Signal Spalten
-        über den vollständigen OOS-Bereich. Train-Only-Bereiche bleiben NaN.
-
-    Verhalten bei Fold-Fehlern
-    --------------------------
-    - Fängt Konvergenz-/Numerik-Fehler einzelner Modelle pro Fold ab.
-    - Schreibt NaN für den fehlgeschlagenen Bereich, gibt eine Warnung aus.
-    - Andere Modelle und andere Folds laufen weiter.
+    Parallelisierung gilt ausschliesslich innerhalb der CPU-Fold-Schleife;
+    Ergebnisse sind bit-identisch zur sequentiellen Variante, da jeder Fold
+    einen eigenen RandomState und keinen Shared State hat.
     """
-    # Lokale Imports (zirkuläre Imports vermeiden)
-    from src.models.msm import train_msm_fold
-    from src.models.hmm import train_hmm_fold
+    import warnings
+    import logging
+    from src.backtest.parallel import run_folds_parallel
     from src.models.lstm import train_lstm_fold
     from src.models.transformer import train_transformer_fold
 
-    # Ergebnis-Container
-    result_df = df.copy()
-    
-    # Supervised-Labels einmalig fuer den gesamten DF erzeugen
+    logger = logging.getLogger("model_service")
+    n_jobs = getattr(cfg.walk_forward, "n_jobs", -1)
+
+    # 1. Supervised-Labels einmalig fuer den gesamten DF erzeugen
     supervised_label_source = cfg.labels.supervised_label_source
+    result_df = df.copy()
     if supervised_label_source != "hmm":
         df = df.copy()
         df["Supervised_Label"] = compute_supervised_labels(df, cfg)
         result_df["Supervised_Label"] = df["Supervised_Label"]
-    
-    for model_name in models_to_run:
-        result_df[f"{model_name}_Prob"] = pd.Series(dtype=float, index=df.index)
-        result_df[f"{model_name}_Signal"] = pd.Series(dtype=float, index=df.index)
 
-    # Hyperparameter-Shortcuts
-    features = cfg.features.model_features
+    for m in models_to_run:
+        result_df[f"{m}_Prob"]   = pd.Series(dtype=float, index=df.index)
+        result_df[f"{m}_Signal"] = pd.Series(dtype=float, index=df.index)
+
     failed_folds = {m: 0 for m in models_to_run}
 
+    # 2. CPU-Modelle parallel ueber alle Folds
+    logger.info(
+        f"Walk-Forward CPU-Phase start: n_jobs={n_jobs}, folds={len(splits)}, "
+        f"models={[m for m in models_to_run if m in ('MSM', 'HMM')]}"
+    )
+    parallel_results = run_folds_parallel(
+        df, splits,
+        msm_cfg=cfg.models.msm if "MSM" in models_to_run else None,
+        hmm_cfg=cfg.models.hmm if "HMM" in models_to_run else None,
+        n_jobs=n_jobs,
+    )
+    for model_name, fold_results in parallel_results.items():
+        for r in fold_results:
+            if not r["ok"]:
+                warnings.warn(f"[{model_name}] Fold failed: {r['error']}")
+                failed_folds[model_name] += 1
+                continue
+            result_df.loc[r["test_idx"], f"{model_name}_Prob"]   = r["probs"].values
+            result_df.loc[r["test_idx"], f"{model_name}_Signal"] = r["signal"].values
+    logger.info("Walk-Forward CPU-Phase done")
+
+    # 3. DL-Modelle sequentiell (GPU-gebunden)
+    features = cfg.features.model_features
+    label_col = resolve_label_col(cfg)
+
+    logger.info(
+        f"Walk-Forward DL-Phase start: folds={len(splits)}, "
+        f"models={[m for m in models_to_run if m in ('LSTM', 'Transformer')]}"
+    )
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
-        print(f"\n=== Fold {fold_id}/{len(splits)} | "
-              f"Train {train_idx.min().date()}–{train_idx.max().date()} "
-              f"({len(train_idx)} d) | "
-              f"Test {test_idx.min().date()}–{test_idx.max().date()} "
-              f"({len(test_idx)} d) ===")
+        df_train = df.loc[train_idx]
+        df_test  = df.loc[test_idx]
 
-        df_train = df.loc[train_idx].copy()
-        df_test = df.loc[test_idx].copy()
-
-        # ---------- MSM ----------
-        if "MSM" in models_to_run:
-            try:
-                msm_cfg = cfg.models.msm
-                probs, signal, signal_train = train_msm_fold(
-                    returns_train=df_train["Returns"],
-                    returns_test=df_test["Returns"],
-                    k_regimes=msm_cfg.k_regimes,
-                    switching_variance=msm_cfg.switching_variance,
-                    threshold=msm_cfg.threshold,
-                )
-                result_df.loc[test_idx, "MSM_Prob"] = probs
-                result_df.loc[test_idx, "MSM_Signal"] = signal
-
-                # MSM-Train-Signal als Label-Spalte in df_train injizieren
-                # (LSTM/Transformer lesen diese Spalte als labels_col)
-                df_train["MSM_Signal"] = signal_train
-                df_test["MSM_Signal"] = signal
-            except Exception as e:
-                warnings.warn(f"  [MSM] Fold {fold_id} failed: {e}")
-                failed_folds["MSM"] += 1
-
-        # ---------- HMM ----------
-        if "HMM" in models_to_run:
-            try:
-                hmm_cfg = cfg.models.hmm
-                probs, signal, signal_train = train_hmm_fold(
-                    features_df_train=df_train[hmm_cfg.features],
-                    features_df_test=df_test[hmm_cfg.features],
-                    returns_train=df_train["Returns"],
-                    n_components=hmm_cfg.n_components,
-                    covariance_type=hmm_cfg.covariance_type,
-                    n_iter=hmm_cfg.n_iter,
-                    random_state=hmm_cfg.random_state,
-                    threshold=hmm_cfg.threshold,
-                )
-                result_df.loc[test_idx, "HMM_Prob"] = probs
-                result_df.loc[test_idx, "HMM_Signal"] = signal
-
-                # HMM-Labels als Spalte in df_train/df_test injizieren
-                # (LSTM/Transformer lesen "HMM_Signal" als labels_col)
-                df_train["HMM_Signal"] = signal_train.values
-                df_test["HMM_Signal"] = signal.values
-            except Exception as e:
-                warnings.warn(f"  [HMM] Fold {fold_id} failed: {e}")
-                failed_folds["HMM"] += 1
-
-        # ---------- LSTM ----------
         if "LSTM" in models_to_run:
-            label_col = ("Supervised_Label"
-                         if supervised_label_source != "hmm"
-                         else "HMM_Signal")
-            if label_col not in df_train.columns:
-                warnings.warn(
-                    f"  [LSTM] Fold {fold_id} skipped: {label_col} nicht verfuegbar."
+            try:
+                c = cfg.models.lstm
+                probs_raw, pred_idx = train_lstm_fold(
+                    df_train=df_train, df_test=df_test,
+                    features=features, labels_col=label_col,
+                    window_size=c.window_size, units_l1=c.units_l1, units_l2=c.units_l2,
+                    return_sequences=c.return_sequences, dropout=c.dropout,
+                    dense=c.dense, activation=c.activation, optimizer=c.optimizer,
+                    metrics=c.metrics, epochs=c.epochs, batch_size=c.batch_size,
+                    validation_split=c.validation_split, verbose=0,
                 )
+                signal = (probs_raw >= c.threshold).astype(int)
+                result_df.loc[pred_idx, "LSTM_Prob"]   = probs_raw
+                result_df.loc[pred_idx, "LSTM_Signal"] = signal
+            except Exception as e:
+                import traceback
+                warnings.warn(f"[LSTM] Fold {fold_id} failed: {type(e).__name__}: {e}")
+                if failed_folds["LSTM"] < 2:
+                    traceback.print_exc()
                 failed_folds["LSTM"] += 1
-            else:
-                try:
-                    lstm_cfg = cfg.models.lstm
-                    probs_raw, pred_idx = train_lstm_fold(
-                        df_train=df_train,
-                        df_test=df_test,
-                        features=features,
-                        labels_col = resolve_label_col(cfg),
-                        window_size=lstm_cfg.window_size,
-                        units_l1=lstm_cfg.units_l1,
-                        units_l2=lstm_cfg.units_l2,
-                        return_sequences=lstm_cfg.return_sequences,
-                        dropout=lstm_cfg.dropout,
-                        dense=lstm_cfg.dense,
-                        activation=lstm_cfg.activation,
-                        optimizer=lstm_cfg.optimizer,
-                        metrics=lstm_cfg.metrics,
-                        epochs=lstm_cfg.epochs,
-                        batch_size=lstm_cfg.batch_size,
-                        validation_split=lstm_cfg.validation_split,
-                        verbose=0,
-                    )
-                    signal = (probs_raw >= lstm_cfg.threshold).astype(int)
-                    result_df.loc[pred_idx, "LSTM_Prob"] = probs_raw
-                    result_df.loc[pred_idx, "LSTM_Signal"] = signal
-                except Exception as e:
-                    import traceback
-                    warnings.warn(
-                        f"  [LSTM] Fold {fold_id} failed: "
-                        f"{type(e).__name__}: {e}"
-                    )
-                    if failed_folds["LSTM"] < 2:
-                        traceback.print_exc()
-                    failed_folds["LSTM"] += 1
 
-        # ---------- Transformer ----------
         if "Transformer" in models_to_run:
-            label_col = ("Supervised_Label"
-                         if supervised_label_source != "hmm"
-                         else "HMM_Signal")
-            if label_col not in df_train.columns:
-                warnings.warn(
-                    f"  [Transformer] Fold {fold_id} skipped: {label_col} nicht verfügbar."
+            try:
+                c = cfg.models.transformer
+                probs_raw, pred_idx = train_transformer_fold(
+                    df_train=df_train, df_test=df_test,
+                    features=features, labels_col=label_col,
+                    window_size=c.window_size, d_model=c.d_model, n_heads=c.n_heads,
+                    n_layers=c.n_layers, dim_feedforward=c.dim_feedforward,
+                    dropout=c.dropout, learning_rate=c.learning_rate,
+                    epochs=c.epochs, batch_size=c.batch_size,
+                    validation_split=c.validation_split, verbose=0,
                 )
-                failed_folds["Transformer"] += 1
-            else:
+                signal = (probs_raw >= c.threshold).astype(int)
+                result_df.loc[pred_idx, "Transformer_Prob"]   = probs_raw
+                result_df.loc[pred_idx, "Transformer_Signal"] = signal
                 try:
-                    t_cfg = cfg.models.transformer
-                    probs_raw, pred_idx = train_transformer_fold(
-                        df_train=df_train,
-                        df_test=df_test,
-                        features=features,
-                        labels_col = resolve_label_col(cfg),
-                        window_size=t_cfg.window_size,
-                        d_model=t_cfg.d_model,
-                        n_heads=t_cfg.n_heads,
-                        n_layers=t_cfg.n_layers,
-                        dim_feedforward=t_cfg.dim_feedforward,
-                        dropout=t_cfg.dropout,
-                        learning_rate=t_cfg.learning_rate,
-                        epochs=t_cfg.epochs,
-                        batch_size=t_cfg.batch_size,
-                        validation_split=t_cfg.validation_split,
-                        verbose=0,
-                    )
-                    signal = (probs_raw >= t_cfg.threshold).astype(int)
-                    result_df.loc[pred_idx, "Transformer_Prob"] = probs_raw
-                    result_df.loc[pred_idx, "Transformer_Signal"] = signal
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except ImportError:
+                    pass
+            except Exception as e:
+                import traceback
+                warnings.warn(f"[Transformer] Fold {fold_id} failed: {type(e).__name__}: {e}")
+                if failed_folds["Transformer"] < 2:
+                    traceback.print_exc()
+                failed_folds["Transformer"] += 1
 
-                    # GPU-Speicher freigeben
-                    try:
-                        import torch
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                    except ImportError:
-                        pass
-                except Exception as e:
-                    import traceback
-                    warnings.warn(
-                        f"  [Transformer] Fold {fold_id} failed: "
-                        f"{type(e).__name__}: {e}"
-                    )
-                    if failed_folds["Transformer"] < 2:
-                        traceback.print_exc()
-                    failed_folds["Transformer"] += 1
+    logger.info("Walk-Forward DL-Phase done")
 
-    # --- Abschluss-Report ---
+    # 4. Abschluss-Report
     print(f"\n=== Walk-Forward abgeschlossen ===")
     for model_name, n_failed in failed_folds.items():
         n_oos = result_df[f"{model_name}_Signal"].notna().sum()
