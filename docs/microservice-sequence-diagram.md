@@ -21,6 +21,14 @@ sequenceDiagram
     DS->>DS: EDA (descriptive stats, ADF tests)
     DS->>FS: EDA plots + markdown (Assets)
     DS-->>Client: 200 OK {rows, columns}
+	
+    opt Label-Analyse (optional, einmalig)
+        Client->>DS: POST /data/label-analysis
+        DS->>FS: read test_df_data + raw_data
+        DS->>DS: compute_concordance_matrix (MSM, HMM, PagSoss, P2T, LundeT, NBER)
+        DS->>FS: label_concordance_matrix.png + label_timeline_comparison.png
+        DS-->>Client: 200 OK {concordance, switch_stats}
+    end
 
     Note over Client,FS: Phase 2: Model Training (sequentiell)
     Client->>MS: POST /models/train/msm

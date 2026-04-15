@@ -10,6 +10,9 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur, die in d
 ### `POST /data/ingest`
 - **Beschreibung**: Startet die gesamte Daten-Pipeline. Lädt historische Marktdaten via `yfinance` herunter, führt Portfolio-Konstruktionen durch (Preprocessing) und generiert Indikatoren/Features (Volatility, SMA, Momentum). Führt zudem eine EDA (Deskriptive Statistik, ADF-Tests) durch, erstellt diverse Plots und speichert die Zwischenergebnisse (Parquet-Format) nach der Medallion-Architektur ab.
 
+### `POST /data/label-analysis`
+- **Beschreibung**: Berechnet die Konkordanz-Matrix und Switch-Statistiken für alle Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) auf dem `test_df`. Schreibt die Plots `label_concordance_matrix.png` und `label_timeline_comparison.png` nach `assets/` und liefert die numerischen Ergebnisse als JSON (`{status, elapsed_s, concordance, switch_stats}`). Dient der Begründung der Label-Wahl (Pagan-Sossounov) für LSTM/Transformer. Setzt voraus, dass `/data/ingest` und ein anschließender Modell-Trainingslauf bereits ausgeführt wurden (benötigt `test_df`).
+
 ### `GET /data/features`
 - **Beschreibung**: Gibt den vollständig aufbereiteten Datensatz inklusive aller berechneten Features (den "Feature-Engineered" DataFrame) als JSON-Struktur (`orient="split"`) zurück. Setzt voraus, dass `/data/ingest` zuvor ausgeführt wurde.
 

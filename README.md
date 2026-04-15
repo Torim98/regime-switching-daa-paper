@@ -31,7 +31,7 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 *   **Hidden-Markov-Modelle (HMM):** Ein Unsupervised-Learning-Ansatz aus der Statistik. Das HMM identifiziert Cluster in den Datenverteilungen, um Phasen hoher und niedriger Volatilität voneinander zu trennen, ohne dass vorab gelabelte Daten nötig sind.
 2. **Moderne Machine-Learning-Verfahren:** Dieser Ansatz nutzt die Fähigkeit von künstlichen neuronalen Netzen, hochkomplexe, nicht-lineare Zusammenhänge in großen Datenmengen zu identifizieren, ohne explizite statistische Verteilungsannahmen vorauszusetzen.
 *   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt: Es lernt, die durch die ökonometrischen Modelle identifizierten Regime-Wechsel unter Berücksichtigung von Zeitreihen-Fenstern (Sequenzen) vorherzusagen.
-*   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf HMM-Labels) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
+*   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf Pagan-Sossounov-Labels, siehe Label-Analyse in `01a_label_analysis`) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
 
 ---
 
@@ -163,12 +163,13 @@ Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf
 
 1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
 2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
-3.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
-4.  **`03a_hyperparameter_optimization`** *(manuell)*: Bayessche Hyperparameter-Optimierung via Optuna. Nutzt Walk-Forward als innere CV. Nicht Teil der automatischen Pipeline. Wird einmalig vor dem finalen Durchlauf ausgeführt.
-5.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
-6.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
-7.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
-8.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
+3.  **`01a_label_analysis`** *(manuell, optional)*: Vergleich alternativer Regime-Labeler (Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) gegen MSM/HMM. Erzeugt Konkordanz-Matrix und Switch-Statistiken. Dient als Begründung der Label-Wahl (Pagan-Sossounov) für LSTM und Transformer. Nicht Teil der automatischen Pipeline.
+4.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
+5.  **`03a_hyperparameter_optimization`** *(manuell)*: Bayessche Hyperparameter-Optimierung via Optuna. Nutzt Walk-Forward als innere CV. Nicht Teil der automatischen Pipeline. Wird einmalig vor dem finalen Durchlauf ausgeführt.
+6.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
+7.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
+8.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
+9.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
 
 ---
 

@@ -17,6 +17,7 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei contain
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
 | POST | `/data/ingest` | Download, Preprocessing, Feature Engineering, EDA-Plots + Stats |
+| POST | `/data/label-analysis` | Label-Analyse von Labelalternativen (für supervised Modelle) |
 | GET | `/data/features` | Feature-DataFrame als JSON |
 
 ### Model Service (`:8002`)
@@ -52,9 +53,9 @@ Data Service → Model Service → Backtest Service
 
 Innerhalb des Model Service gilt eine feste Trainingsreihenfolge:
 1. **MSM** (Markov-Switching) — unabhängig
-2. **HMM** (Hidden Markov) — konventionell nach MSM, erzeugt Labels für LSTM/Transformer
-3. **LSTM** — benötigt HMM-Labels, erstellt `test_df`
-4. **Transformer** — benötigt `test_df` aus dem LSTM-Schritt
+2. **HMM** (Hidden Markov) — unabhängig, unsupervised Baseline
+3. **LSTM** — Supervised auf Pagan-Sossounov-Labels (aus `feature_engineered_data`), erstellt `test_df`
+4. **Transformer** — Supervised auf Pagan-Sossounov-Labels; benötigt `test_df` aus dem LSTM-Schritt
 Bei `walk_forward.enabled: true` wird `/models/train-all` direkt aufgerufen und steuert alle Modelle über `run_walk_forward()`. Die Einzelrouten `/models/train/{model_name}` sind in diesem Modus blockiert (HTTP 400). Ein fingerprint-basierter Parquet-Cache beschleunigt wiederholte Durchläufe bei unveränderter Konfiguration.
 
 ## Shared Volumes

@@ -638,14 +638,13 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Output:** `HMM_Prob`, `HMM_Signal`
 - **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
 - **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
-- **Besonderheit:** Baseline-Modell; liefert die Labels für die Supervised-ML-Modelle (LSTM, Transformer)
 
 ### C. LSTM (Supervised) — Machine Learning
 - **Bibliothek:** `TensorFlow` / `Keras`
-- **Ansatz:** Supervised Learning auf HMM-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
+- **Ansatz:** Supervised Learning auf Pagan-Sossounov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
 - **Config-Key:** `models.lstm` (window_size, units, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose, labels)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem HMM-Modell (konfigurierbar via `models.lstm.labels`)
+- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `models.lstm.labels`; Vergleich der Label-Quellen in Notebook `01a_label_analysis`)
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
@@ -820,7 +819,7 @@ def train_all():
     return results
 ```
 
-> **Beachte die Reihenfolge:** Falls dein Modell auf HMM-Labels angewiesen ist (wie LSTM und Transformer), muss es **nach** HMM trainiert werden.
+> **Beachte die Reihenfolge:** Falls dein Modell auf vordefinierten Labels angewiesen ist (wie LSTM und Transformer auf Pagan-Sossounov), müssen diese Labels bereits im `feature_engineered_data` verfügbar sein (wird im Data Service bzw. Notebook `02_feature_engineering` erzeugt).
 
 ### Schritt 5: Docker-Image neu bauen
 

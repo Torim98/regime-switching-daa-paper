@@ -32,6 +32,12 @@ sequenceDiagram
     SRC->>FS: feature_engineered_data.parquet (Silver)
     NB02-->>Master: exit 0
 
+    opt Label-Analyse (manuell, optional — NB01a)
+        User->>SRC: run_label_analysis (concordance.py)
+        SRC->>FS: read test_df + raw_data
+        SRC->>FS: label_concordance_matrix + label_timeline_comparison (Assets)
+    end
+
     Note over User,FS: Phase 2: Model Training (sequentiell)
     Master->>NB03: papermill execute
     NB03->>FS: read feature_engineered_data

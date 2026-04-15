@@ -162,16 +162,22 @@ Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-
 ![HMM Regimes](../assets/{cfg.paths.assets.hmm_regimes})
 
 ### C. LSTM-Netzwerk (Deep Learning)
-Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf HMM-Labels).
+Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Pagan-Sossounov-Labels).
 ![LSTM Model](../assets/{cfg.paths.assets.lstm_model})
 
 ### D. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
-"Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf HMM-Labels.
+Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Pagan-Sossounov-Labels.
 ![Transformer Model](../assets/{cfg.paths.assets.transformer_model})
 
 ### E. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](../assets/{cfg.paths.assets.regime_comparison})
+
+### F. Label-Konkordanz (Auswahl der Trainings-Labels)
+Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
+
+![Label Concordance](../assets/{cfg.paths.assets.label_concordance_matrix})
+![Label Timeline](../assets/{cfg.paths.assets.label_timeline_comparison})
 
 ---
 

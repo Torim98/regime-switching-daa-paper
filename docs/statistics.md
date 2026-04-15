@@ -71,16 +71,22 @@ Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-
 ![HMM Regimes](../assets/hmm_regimes.png)
 
 ### C. LSTM-Netzwerk (Deep Learning)
-Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf HMM-Labels).
+Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Pagan-Sossounov-Labels).
 ![LSTM Model](../assets/lstm_model.png)
 
 ### D. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
-"Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf HMM-Labels.
+Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Pagan-Sossounov-Labels.
 ![Transformer Model](../assets/transformer_model.png)
 
 ### E. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](../assets/regime_comparison.png)
+
+### F. Label-Konkordanz (Auswahl der Trainings-Labels)
+Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
+
+![Label Concordance](../assets/label_concordance_matrix.png)
+![Label Timeline](../assets/label_timeline_comparison.png)
 
 ---
 
@@ -245,7 +251,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 14.04.2026 20:25<br>
+**Zuletzt aktualisiert:** 15.04.2026 09:42<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 10J, Test: 12M, Step: 12M)<br>
 **Modell-Persistierung:** AKTIV<br>
