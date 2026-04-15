@@ -137,10 +137,22 @@ def generate_statistics_report(cfg) -> str:
 
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
+    if cfg.data.end_date_is_frozen:
+        data_window_note = (
+            f"Alle Auswertungen basieren auf dem **eingefrorenen Datensatz** "
+            f"vom **{cfg.data.start_date}** bis **{cfg.data.end_date}** "
+            f"(Thesis-Freeze)."
+        )
+    else:
+        data_window_note = (
+            f"Alle Auswertungen basieren auf dem Datensatz bis zum gestrigen "
+            f"Tag ({cfg.data.end_date}) und werden automatisiert aktualisiert."
+        )
+
     stats_md_content = f"""
 # Detaillierte statistische Auswertung & Forschungsergebnisse
 
-Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. Alle Auswertungen basieren auf dem Datensatz bis zum gestrigen Tag und werden automatisiert aktualisiert.
+Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. {data_window_note}
 
 ---
 
@@ -368,6 +380,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 ---
 
 **Zuletzt aktualisiert:** {timestamp}<br>
+**End date:** `{cfg.data.end_date}`<br>
 **Fast Mode Status zur Laufzeit:** {fast_mode_status}<br>
 **Walk-Forward-Validierung:** {wf_status}<br>
 **Modell-Persistierung:** {persist_status_text}<br>

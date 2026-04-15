@@ -4,6 +4,7 @@ import time
 import yfinance as yf
 import pandas as pd
 from pathlib import Path
+from datetime import datetime, timedelta
 
 
 def _extract_close_frame(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
@@ -33,17 +34,32 @@ def _extract_close_frame(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
     return raw[[col]].rename(columns={col: tickers[0]})
 
 
+def _resolve_end_exclusive(end_date):
+    """
+    yfinance behandelt `end` exklusiv. Wir addieren +1 Tag, damit
+    `end_date` aus Nutzersicht inklusiv ist (wichtig im Thesis-Freeze-Mode).
+    None/empty/whitespace -> None (yfinance-Standard: bis heute).
+    """
+    if end_date is None:
+        return None
+    if isinstance(end_date, str) and not end_date.strip():
+        return None
+    return (
+        datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+
 def _download_once(
     tickers: list[str],
     start_date: str,
-    end_date,
+    end_exclusive,
     threads: bool = True,
 ) -> pd.DataFrame:
     """Einzel-Download mit erzwungenem klassischem Schema."""
     raw = yf.download(
         tickers,
         start=start_date,
-        end=end_date,
+        end=end_exclusive,
         auto_adjust=False,       # erzwingt klassisches Schema mit "Adj Close"
         progress=False,
         group_by="column",       # (Field, Ticker) Reihenfolge
@@ -73,14 +89,20 @@ def download_market_data(
     3. Der gesamte Prozess wird bis zu `max_retries` wiederholt, wenn am
        Ende noch Ticker fehlen.
 
+    Hinweis: yfinance behandelt `end` exklusiv. Wir addieren +1 Tag, damit
+    `end_date` aus Nutzersicht inklusiv ist (wichtig im Thesis-Freeze-Mode).
+
     ^GSPC = S&P 500 | VUSTX = Long Bonds | ^VIX = Volatilitaet
     ^IRX  = 3-Monats-Zins | ^TNX = 10-Jahres-Zins
     """
+    end_exclusive = _resolve_end_exclusive(end_date)
     last_err: Exception | None = None
 
     for attempt in range(max_retries):
         try:
-            data = _download_once(tickers, start_date, end_date, threads=True)
+            data = _download_once(
+                tickers, start_date, end_exclusive, threads=True,
+            )
 
             # Fehlende oder komplett leere Ticker identifizieren
             missing = [
@@ -92,7 +114,7 @@ def download_market_data(
             for t in missing:
                 try:
                     single = _download_once(
-                        [t], start_date, end_date, threads=False,
+                        [t], start_date, end_exclusive, threads=False,
                     )
                     if t in single.columns and not single[t].dropna().empty:
                         data[t] = single[t]

@@ -129,7 +129,8 @@ def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
 
 def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
                    color_map: dict, save_path: str,
-                   trading_days_per_year: int = 252):
+                   trading_days_per_year: int = 252,
+                   start_year: int | None = None):
     """
     MCS Pfad-Verläufe für alle Szenarien (optimiert für 10.000+ Pfade).
 
@@ -178,9 +179,10 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
             ax.plot(x, q50, color=color, linewidth=2,
                     label=strat.replace('_', ' '))
 
-        # Jahres-Ticks: Kalenderjahre ab heute
-        from datetime import datetime
-        start_year = datetime.now().year
+        # Jahres-Ticks: Kalenderjahre ab start_year (Default: aktuelles Jahr)
+        if start_year is None:
+            from datetime import datetime
+            start_year = datetime.now().year
         n_years = values.shape[0] // trading_days_per_year
         year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
         year_labels = [str(start_year + y) for y in range(n_years + 1)]
@@ -201,7 +203,8 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
 
 def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
                        total_days: int, color_map: dict, save_path: str,
-                       trading_days_per_year: int = 252):
+                       trading_days_per_year: int = 252,
+                       start_year: int | None = None):
     """MCS Konfidenz-Intervalle (5%-95%) für alle Szenarien (optimiert via NumPy)."""
     import numpy as np
 
@@ -233,9 +236,10 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
 
             n_paths_display = values.shape[1]
 
-        # Jahres-Ticks: Kalenderjahre ab heute
-        from datetime import datetime
-        start_year = datetime.now().year
+        # Jahres-Ticks: Kalenderjahre ab start_year (Default: aktuelles Jahr)
+        if start_year is None:
+            from datetime import datetime
+            start_year = datetime.now().year
         n_years = total_days // trading_days_per_year
         year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
         year_labels = [str(start_year + y) for y in range(n_years + 1)]
