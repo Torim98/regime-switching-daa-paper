@@ -91,3 +91,59 @@ def plot_label_timeline(
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
+    
+def run_label_analysis(
+    test_df: pd.DataFrame,
+    raw_df: pd.DataFrame,
+    concordance_path: str,
+    timeline_path: str,
+) -> dict:
+    """
+    Vergleicht MSM/HMM-Labels mit preisbasierten + makro Alternativen.
+
+    Schreibt Heatmap und Timeline-PNG und liefert eine kompakte
+    Statistik pro Methode (bear_share, n_switches, avg_phase_days)
+    sowie die Konkordanz-Matrix zurueck.
+    """
+    from src.data.labels import (
+        label_pagan_sossounov,
+        label_peak_to_trough,
+        label_lunde_timmermann,
+        load_nber_recession,
+    )
+
+    prices = test_df["Cumulative_Returns"]
+
+    labels = {
+        "MSM":     test_df["MSM_Signal"].astype("int8"),
+        "HMM":     test_df["HMM_Signal"].astype("int8"),
+        "PagSoss": label_pagan_sossounov(prices),
+        "P2T":     label_peak_to_trough(prices, threshold=0.20),
+        "LundeT":  label_lunde_timmermann(prices),
+        "NBER":    load_nber_recession(test_df.index),
+    }
+
+    # Heatmap
+    concordance = compute_concordance_matrix(labels)
+    plot_concordance_heatmap(concordance, concordance_path)
+
+    # Timeline (S&P-500-Kurslinie aus raw)
+    plot_prices = raw_df["^GSPC"].reindex(test_df.index).ffill()
+    plot_label_timeline(labels, plot_prices, timeline_path)
+
+    # Switch-Statistik
+    switch_stats = pd.DataFrame({
+        name: {
+            "bear_share_pct": float(s.mean() * 100),
+            "n_switches": int((s.diff().abs() == 1).sum()),
+            "avg_phase_days": float(
+                len(s) / max((s.diff().abs() == 1).sum(), 1)
+            ),
+        }
+        for name, s in labels.items()
+    }).T
+
+    return {
+        "concordance": concordance.round(4).to_dict(),
+        "switch_stats": switch_stats.round(2).to_dict(orient="index"),
+    }

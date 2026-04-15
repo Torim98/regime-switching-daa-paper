@@ -6,6 +6,11 @@ from src.data.labels.lunde_timmermann import label_lunde_timmermann
 from src.data.labels.nber import load_nber_recession
 from src.data.labels.concordance import compute_concordance_matrix, plot_label_timeline
 from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
+from src.data.labels.concordance import (
+    compute_concordance_matrix,
+    plot_label_timeline,
+    run_label_analysis,
+)
 
 __all__ = [
     "label_pagan_sossounov",

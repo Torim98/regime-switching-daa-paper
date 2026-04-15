@@ -8,6 +8,7 @@ from src.data.plots import (
     plot_volatility_clusters, plot_historical_drawdowns,
     plot_capital_curve, plot_feature_correlation,
 )
+from src.data.labels import run_label_analysis
 import pandas as pd
 import time
 import logging
@@ -88,3 +89,53 @@ def get_features():
     except FileNotFoundError:
         raise HTTPException(404, "Feature data not found. Run /data/ingest first.")
     return df.to_dict(orient="split")
+
+@router.post("/label-analysis")
+def label_analysis():
+    """
+    Alternative Regime-Labels (PagSoss, P2T, LundeT, NBER) vs. MSM/HMM
+    auf der OOS-Periode. Setzt voraus, dass der Backtest-Service
+    bereits gelaufen ist und MSM_Signal/HMM_Signal in test_data
+    geschrieben hat.
+    """
+    start = time.time()
+    cfg = get_cfg()
+    logger.info("Starting label analysis...")
+
+    try:
+        test_df = pd.read_parquet(cfg.data_path("test_data"))
+    except FileNotFoundError:
+        raise HTTPException(
+            404,
+            "test_data not found. Run /backtest first "
+            "(MSM_Signal/HMM_Signal required).",
+        )
+    try:
+        raw_df = pd.read_parquet(cfg.data_path("raw"))
+    except FileNotFoundError:
+        raise HTTPException(404, "raw data not found. Run /data/ingest first.")
+
+    missing = [c for c in ("MSM_Signal", "HMM_Signal", "Cumulative_Returns")
+               if c not in test_df.columns]
+    if missing:
+        raise HTTPException(
+            400,
+            f"test_data missing required columns: {missing}. "
+            "Run /backtest first.",
+        )
+
+    result = run_label_analysis(
+        test_df=test_df,
+        raw_df=raw_df,
+        concordance_path=cfg.asset_path("label_concordance_matrix"),
+        timeline_path=cfg.asset_path("label_timeline_comparison"),
+    )
+
+    elapsed = time.time() - start
+    logger.info(f"Label analysis complete in {elapsed:.1f}s")
+
+    return {
+        "status": "ok",
+        "elapsed_s": round(elapsed, 2),
+        **result,
+    }
