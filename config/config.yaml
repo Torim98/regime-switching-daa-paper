@@ -150,6 +150,25 @@ evaluation:
     random_seed: 42
     sim_years: 10
     trading_days_per_year: 252
+  # --- Issue #13: Extended Evaluation (Kap. 4.1–4.4) ---
+  extended:
+    nber_source: "fred_csv"         # "fred_csv" | "local"
+    f1_models: ["MSM", "HMM", "LSTM", "Transformer"]
+    whipsaw_min_phase_days: 5
+    threshold_grid:
+      MSM:         [0.25, 0.30, 0.35, 0.40, 0.50]
+      HMM:         [0.40, 0.45, 0.50, 0.55, 0.60]
+      LSTM:        [0.20, 0.30, 0.40, 0.50]
+      Transformer: [0.30, 0.40, 0.45, 0.50, 0.60]
+    fee_grid_bps: [0, 5, 10, 20, 30, 50, 75, 100, 150, 200]
+    withdrawal_rates: [0.035, 0.04, 0.05]
+    ttr_min_dd: -0.05               # nur Drawdowns < −5 %
+    alpha: 0.05                     # Signifikanzniveau (Kap. 1.5)
+    hypothesis_scenario: "Aggressive"   # MCS-Szenario fuer H1/H2-Tests
+    crisis_windows:
+      GFC:   ["2007-10-01", "2009-03-31"]
+      COVID: ["2020-02-01", "2020-04-30"]
+      "2022": ["2022-01-01", "2022-10-31"]
 
 ## --- Plotting ---
 plotting:
@@ -217,6 +236,24 @@ paths:
     # Label-Analyse (Issue #21)
     label_concordance_matrix: "label_concordance_matrix.png"
     label_timeline_comparison: "label_timeline_comparison.png"
+    # Issue #13: Extended Evaluation
+    label_kappa_matrix:          "label_kappa_matrix.png"
+    confusion_matrices:          "confusion_matrices.png"
+    classification_metrics:      "classification_metrics.md"
+    roc_curves:                  "roc_curves.png"
+    pr_curves:                   "pr_curves.png"
+    churning_stats:              "churning_stats.md"
+    threshold_sensitivity:       "threshold_sensitivity_{model}.md"
+    regime_probability_heatmap:  "regime_probability_heatmap.png"
+    ttr_table:                   "time_to_recovery_{model}.md"
+    switch_timing:               "switch_timing.md"
+    mcs_violin:                  "mcs_violin_{scenario}.png"
+    depletion_ci:                "depletion_rate_ci.md"
+    h1_drawdown:                 "h1_drawdown_test.md"
+    h2_transformer:              "h2_transformer_test.md"
+    break_even_table:            "break_even_costs.md"
+    break_even_plot:             "break_even_costs.png"
+    withdrawal_sensitivity:      "withdrawal_sensitivity.md"
 
 labels:
   supervised_label_source: "pagan_sossounov"   # "hmm" | "pagan_sossounov" | "peak_to_trough"
