@@ -3,6 +3,17 @@
 from services.warnings_config import configure_warnings
 configure_warnings()
 
+# --- GPU Mixed-Precision + cuDNN-Autotuner (Issue #35) ---
+# Muss VOR den Modell-Imports (via routes -> walk_forward -> lstm/transformer)
+# passieren, damit Keras/PyTorch die globalen Policies kennen, bevor der erste
+# Layer gebaut wird. Auf CPU-only Systemen wird mixed_float16 uebersprungen.
+import tensorflow as tf
+if tf.config.list_physical_devices("GPU"):
+    tf.keras.mixed_precision.set_global_policy("mixed_float16")
+
+import torch
+torch.backends.cudnn.benchmark = True
+
 from fastapi import FastAPI
 from services.logging_config import setup_service_logger
 from services.model_service.routes import router

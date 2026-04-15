@@ -228,6 +228,15 @@ def run_walk_forward(
         f"Walk-Forward DL-Phase start: folds={len(splits)}, "
         f"models={[m for m in models_to_run if m in ('LSTM', 'Transformer')]}"
     )
+    # Warm-Start zwischen Folds: Gewichte aus Fold N-1 als Initialisierung fuer
+    # Fold N verwenden (Rolling-Window -> ~90% Train-Overlap -> legitim, weil
+    # Fold N-1 die Fold-N-Testdaten nie gesehen hat).
+    # Beim ersten Fold bzw. nach Fehlschlaegen: Kaltstart (state = None).
+    lstm_state = None
+    transformer_state = None
+    dl_warm_start = getattr(cfg.walk_forward, "dl_warm_start", False)
+    epochs_warm = getattr(cfg.walk_forward, "dl_warm_start_epochs", None)
+
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
         df_train = df.loc[train_idx]
         df_test  = df.loc[test_idx]
@@ -235,7 +244,7 @@ def run_walk_forward(
         if "LSTM" in models_to_run:
             try:
                 c = cfg.models.lstm
-                probs_raw, pred_idx = train_lstm_fold(
+                probs_raw, pred_idx, lstm_state = train_lstm_fold(
                     df_train=df_train, df_test=df_test,
                     features=features, labels_col=label_col,
                     window_size=c.window_size, units_l1=c.units_l1, units_l2=c.units_l2,
@@ -243,6 +252,8 @@ def run_walk_forward(
                     dense=c.dense, activation=c.activation, optimizer=c.optimizer,
                     metrics=c.metrics, epochs=c.epochs, batch_size=c.batch_size,
                     validation_split=c.validation_split, verbose=0,
+                    init_weights=lstm_state if dl_warm_start else None,
+                    epochs_warm=epochs_warm if (dl_warm_start and lstm_state is not None) else None,
                 )
                 signal = (probs_raw >= c.threshold).astype(int)
                 result_df.loc[pred_idx, "LSTM_Prob"]   = probs_raw
@@ -253,11 +264,13 @@ def run_walk_forward(
                 if failed_folds["LSTM"] < 2:
                     traceback.print_exc()
                 failed_folds["LSTM"] += 1
+                # Warm-Start verwerfen, damit der naechste Fold wieder kalt startet.
+                lstm_state = None
 
         if "Transformer" in models_to_run:
             try:
                 c = cfg.models.transformer
-                probs_raw, pred_idx = train_transformer_fold(
+                probs_raw, pred_idx, transformer_state = train_transformer_fold(
                     df_train=df_train, df_test=df_test,
                     features=features, labels_col=label_col,
                     window_size=c.window_size, d_model=c.d_model, n_heads=c.n_heads,
@@ -265,6 +278,8 @@ def run_walk_forward(
                     dropout=c.dropout, learning_rate=c.learning_rate,
                     epochs=c.epochs, batch_size=c.batch_size,
                     validation_split=c.validation_split, verbose=0,
+                    init_state_dict=transformer_state if dl_warm_start else None,
+                    epochs_warm=epochs_warm if (dl_warm_start and transformer_state is not None) else None,
                 )
                 signal = (probs_raw >= c.threshold).astype(int)
                 result_df.loc[pred_idx, "Transformer_Prob"]   = probs_raw
@@ -281,6 +296,8 @@ def run_walk_forward(
                 if failed_folds["Transformer"] < 2:
                     traceback.print_exc()
                 failed_folds["Transformer"] += 1
+                # Warm-Start verwerfen, damit der naechste Fold wieder kalt startet.
+                transformer_state = None
 
     logger.info("Walk-Forward DL-Phase done")
 
@@ -314,9 +331,12 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "lstm_window": cfg.models.lstm.window_size,
         "lstm_epochs": cfg.models.lstm.epochs,
         "lstm_units_l1": cfg.models.lstm.units_l1,
+        "lstm_batch_size": cfg.models.lstm.batch_size,
         "transformer_window": cfg.models.transformer.window_size,
         "transformer_epochs": cfg.models.transformer.epochs,
         "transformer_d_model": cfg.models.transformer.d_model,
+        "transformer_batch_size": cfg.models.transformer.batch_size,
+        "dl_warm_start": getattr(cfg.walk_forward, "dl_warm_start", False),
         "supervised_label_source": cfg.labels.supervised_label_source,
         "pag_soss_params": vars(cfg.labels.pagan_sossounov),
         "p2t_params": vars(cfg.labels.peak_to_trough),

@@ -9,6 +9,7 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.preprocessing import RobustScaler
 import tensorflow as tf
 import joblib
+from tensorflow.keras.callbacks import EarlyStopping
 
 from .common import create_sequences
 
@@ -57,7 +58,9 @@ def build_lstm(
         Dropout(dropout),
         LSTM(units_l2),
         Dropout(dropout),
-        Dense(dense, activation=activation),
+        # dtype="float32" zwingt die Output-Schicht in FP32, auch wenn
+        # Keras-global auf mixed_float16 steht — numerisch stabil fuer BCE.
+        Dense(dense, activation=activation, dtype="float32"),
     ])
     model.compile(optimizer=optimizer, loss=loss, metrics=[metrics])
     return model
@@ -176,7 +179,9 @@ def train_lstm_fold(
     batch_size: int,
     validation_split: float,
     verbose: int,
-) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    init_weights: list | None = None,
+    epochs_warm: int | None = None,
+) -> tuple[np.ndarray, pd.DatetimeIndex, list | None]:
     """
     LSTM-Netzwerk auf einem Walk-Forward-Fold trainieren.
 
@@ -204,12 +209,15 @@ def train_lstm_fold(
 
     Rückgabe
     --------
-    tuple[np.ndarray, pd.DatetimeIndex]
-        (probs_raw, prediction_index)
+    tuple[np.ndarray, pd.DatetimeIndex, list | None]
+        (probs_raw, prediction_index, final_weights)
         probs_raw : 1D-Array der Roh-Probabilities (Sigmoid-Output) auf dem
                     OOS-Test-Bereich.
         prediction_index : DatetimeIndex, exakt len(probs_raw) Einträge,
                            ausgerichtet auf df_test.index[window_size:].
+        final_weights : Liste der Keras-Gewichte (model.get_weights()) am
+                        Ende des Trainings — dient als Warm-Start-Basis für
+                        den Folge-Fold. None im Single-Class-Fallback.
 
     Hinweise
     --------
@@ -291,7 +299,8 @@ def train_lstm_fold(
         # also muss der Fallback denselben pred_idx zurückgeben.
         pred_idx = df_test.index
         probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
-        return probs, pred_idx
+        # Warm-Start: None — im Einklassen-Fall wurde kein echtes Modell trainiert.
+        return probs, pred_idx, None
 
     raw_weight = n_neg / n_pos
     pos_weight = math.sqrt(raw_weight)
@@ -316,19 +325,47 @@ def train_lstm_fold(
         metrics=metrics,
     )
 
+    # --- 5a. Warm-Start aus Vorgaenger-Fold (falls vorhanden) ---
+    # 90% Train-Overlap zwischen rolling Folds -> Initialgewichte sind bereits
+    # "vorkonditioniert". Wir trainieren anschliessend nur wenige Epochen nach.
+    # Architektur-Mismatch (z.B. bei geaenderter Feature-Anzahl) fuehrt zu
+    # ValueError -> Fallback auf Kaltstart (init_weights verwerfen).
+    effective_epochs = epochs
+    if init_weights is not None:
+        try:
+            model.set_weights(init_weights)
+            if epochs_warm is not None and epochs_warm > 0:
+                effective_epochs = epochs_warm
+            if verbose:
+                print(f"  [LSTM Fold] Warm-Start aktiv, epochs={effective_epochs}")
+        except ValueError as e:
+            if verbose:
+                print(f"  [LSTM Fold] Warm-Start verworfen (Architektur-Mismatch): {e}")
+
+    early_stop = EarlyStopping(
+        monitor="val_loss",
+        patience=5,
+        restore_best_weights=True,
+        verbose=0,
+    )
+
     # --- 6. Training ---
     model.fit(
         X_train, y_train,
-        epochs=epochs,
+        epochs=effective_epochs,
         batch_size=batch_size,
         validation_split=validation_split,
+        callbacks=[early_stop],
         verbose=verbose,
     )
 
     # --- 7. OOS-Vorhersagen auf Test-Sequenzen ---
     probs_raw = model.predict(X_test, verbose=0).flatten()
 
-    return probs_raw, prediction_index
+    # --- 8. Gewichte fuer Warm-Start des naechsten Folds ---
+    final_weights = model.get_weights()
+
+    return probs_raw, prediction_index, final_weights
 
 def load_lstm_model(
     df: pd.DataFrame,

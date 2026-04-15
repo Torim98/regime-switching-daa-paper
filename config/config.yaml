@@ -55,7 +55,7 @@ models:
     covariance_type: "full"     # Intitialwert der Thesis "full"
     n_iter: 1000
     random_state: 42
-    threshold: 0.5              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.5              # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
   lstm:
     window_size: 120            # Initialwert der Thesis 60
@@ -73,7 +73,7 @@ models:
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.3              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: 0.3              # Bear-Signal wenn Prob >= threshold
   transformer:
     # --- Data ---
     window_size: 120             # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
@@ -91,7 +91,7 @@ models:
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.45              # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: 0.45              # Bear-Signal wenn Prob >= threshold
      # --- Class Balancing ---
     pos_weight_auto: true           # Automatische Gewichtung für Bear-Klasse
 
@@ -107,6 +107,8 @@ walk_forward:
   retrain_msm_hmm: true            # MSM/HMM in jedem Fold neu trainieren
   cache_enabled: true
   n_jobs: -1                        # -1 = alle CPUs, 1 = sequentiell (Debug), int = feste Anzahl
+  dl_warm_start: true
+  dl_warm_start_epochs: 10
 
 # --- Backtesting (04_backtesting) ---
 ## --- Hyperparameter-Optimierung (Optuna) ---

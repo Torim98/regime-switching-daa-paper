@@ -255,7 +255,9 @@ def train_transformer_fold(
     batch_size: int,
     validation_split: float,
     verbose: int,
-) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    init_state_dict: dict | None = None,
+    epochs_warm: int | None = None,
+) -> tuple[np.ndarray, pd.DatetimeIndex, dict | None]:
     """
     Transformer-Netzwerk auf einem Walk-Forward-Fold trainieren.
 
@@ -269,15 +271,20 @@ def train_transformer_fold(
     ---------
     df_train, df_test : pd.DataFrame
         Train- bzw. Test-Slice (DatetimeIndex), zeitlich disjunkt.
+    init_state_dict : dict | None
+    State-Dict vom vorigen Fold fuer Warm-Start (rolling WF hat 90%
+    Train-Ueberlappung zwischen Folds → Warm-Start ist look-ahead-frei).
+    None = from scratch.
+    epochs_warm : int | None
+    Reduzierte Epochen-Zahl beim Warm-Start. None → max(5, epochs // 4).
     Übrige Parameter :
         Identische Bedeutung wie in train_transformer.
 
     Rückgabe
     --------
-    tuple[np.ndarray, pd.DatetimeIndex]
-        (probs_raw, prediction_index)
-        probs_raw : 1D-Array der Bear-Probabilities auf dem OOS-Test-Bereich.
-        prediction_index : df_test.index (dank Warm-up-Buffer voller Test-Bereich).
+    tuple[np.ndarray, pd.DatetimeIndex, dict | None]
+        (probs_raw, prediction_index, final_state_dict)
+        final_state_dict ist None im Einklassen-Fallback.
 
     Hinweise
     --------
@@ -361,7 +368,7 @@ def train_transformer_fold(
         # Voller Test-Bereich (konsistent mit Warm-up-Buffer-Logik)
         pred_idx = df_test.index
         probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
-        return probs, pred_idx
+        return probs, pred_idx, None
 
     # --- 5. Validation-Split innerhalb der Train-Sequenzen (zeitlich am Ende) ---
     val_split = int(len(X_train) * (1 - validation_split))
@@ -400,7 +407,31 @@ def train_transformer_fold(
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.classifier = nn.Linear(d_model, 1).to(device)
 
+    # --- 8b. Warm-Start vom vorherigen Fold (optional) ---
+    if init_state_dict is not None:
+        try:
+            # State-Dict ist auf CPU gespeichert → auf device verschieben
+            moved = {k: v.to(device) for k, v in init_state_dict.items()}
+            model.load_state_dict(moved)
+            epochs_used = epochs_warm if epochs_warm is not None else max(5, epochs // 4)
+            if verbose:
+                print(f"    [Transformer] Warm-Start aktiv, epochs_used={epochs_used}")
+        except RuntimeError as e:
+            # Shape-Mismatch (z.B. d_model / window_size geaendert) → from scratch
+            if verbose:
+                print(f"    [Transformer] Warm-Start verworfen ({e.__class__.__name__}), from-scratch")
+            epochs_used = epochs
+    else:
+        epochs_used = epochs
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # --- 8c. AMP-Setup ---
+    # torch.amp.* ersetzt torch.cuda.amp.* (deprecated ab PyTorch 2.3).
+    # device_type wird an GradScaler + autocast weitergereicht.
+    use_amp = torch.cuda.is_available()
+    device_type = "cuda" if use_amp else "cpu"
+    scaler = torch.amp.GradScaler(device_type, enabled=use_amp)
 
     # --- 9. Tensoren + DataLoader ---
     X_train_tensor = torch.FloatTensor(X_train).to(device)
@@ -412,32 +443,56 @@ def train_transformer_fold(
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    # --- 10. Training ---
-    model.train()
-    for epoch in range(epochs):
+    # --- 10. Training: AMP + Early Stopping ---
+    best_val_loss = float("inf")
+    best_state = None
+    patience, patience_counter = 5, 0
+
+    for epoch in range(epochs_used):
+        model.train()
         for batch_X, batch_y in train_loader:
             optimizer.zero_grad()
-            logits = model(batch_X)
-            loss = criterion(logits, batch_y)
-            loss.backward()
-            optimizer.step()
+            with torch.amp.autocast(device_type, enabled=use_amp):
+                logits = model(batch_X)
+                loss = criterion(logits, batch_y)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-        # Optional: Val-Loss am Ende jeder Epoche bei verbose
+        # Val-Loss pro Epoche (fuer Early Stopping)
+        model.eval()
+        with torch.no_grad(), torch.amp.autocast(device_type, enabled=use_amp):
+            val_logits = model(X_val_tensor)
+            val_loss = criterion(val_logits.float(), y_val_tensor).item()
+
+        if val_loss < best_val_loss - 1e-5:
+            best_val_loss = val_loss
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                if verbose:
+                    print(f"    [Transformer] Early stop at epoch {epoch+1}/{epochs_used}")
+                break
+
         if verbose and (epoch + 1) % 10 == 0:
-            model.eval()
-            with torch.no_grad():
-                val_logits = model(X_val_tensor)
-                val_loss = criterion(val_logits, y_val_tensor).item()
-            model.train()
-            print(f"    Epoch {epoch+1}/{epochs} — Val-Loss: {val_loss:.4f}")
+            print(f"    Epoch {epoch+1}/{epochs_used} — Val-Loss: {val_loss:.4f}")
+
+    # Beste Gewichte wiederherstellen
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
     # --- 11. OOS-Vorhersagen ---
     model.eval()
-    with torch.no_grad():
+    with torch.no_grad(), torch.amp.autocast(device_type, enabled=use_amp):
         logits_test = model(X_test_tensor)
-        probs_raw = torch.sigmoid(logits_test).cpu().numpy().flatten()
+        probs_raw = torch.sigmoid(logits_test.float()).cpu().numpy().flatten()
 
-    return probs_raw, prediction_index
+    # --- 12. State-Dict fuer Warm-Start des naechsten Folds ---
+    final_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+
+    return probs_raw, prediction_index, final_state
 
 def load_transformer_model(
     df: pd.DataFrame,
