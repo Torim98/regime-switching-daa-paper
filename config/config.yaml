@@ -19,7 +19,10 @@ data:
     - "^IRX"        # 3-Month Treasury Bill Rate (Cash proxy)
     - "^TNX"        # 10-Year Treasury Note Yield
   start_date: "1990-01-02"
-  end_date: null    # null = dynamic (today)
+  # end_date:
+  #   - null (oder Feld leer lassen)  -> dynamisch = heute (rolling mode)
+  #   - "YYYY-MM-DD"                  -> fester Cutoff (thesis-freeze mode, inklusiv)
+  end_date: "2026-04-17"
 
 # --- Feature Engineering (02_feature_engineering) ---
 features:

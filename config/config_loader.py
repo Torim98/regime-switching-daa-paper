@@ -92,9 +92,16 @@ class PipelineConfig:
         self.model_persistence = ns.model_persistence
         self.labels = ns.labels
 
-        # Dynamic end_date
-        if self.data.end_date is None:
+        # --- End-Date-Auflösung ---------------------------------------------
+        # Normalisierung: None / "" / whitespace  -> dynamisch (heute)
+        # Expliziter "YYYY-MM-DD"-String          -> thesis-freeze (inklusiv)
+        raw_end = self.data.end_date
+        if raw_end is None or (isinstance(raw_end, str) and not raw_end.strip()):
             self.data.end_date = datetime.now().strftime("%Y-%m-%d")
+            self.data.end_date_is_frozen = False
+        else:
+            self.data.end_date = str(raw_end).strip()
+            self.data.end_date_is_frozen = True
 
         # Apply fast_mode overrides
         if self.fast_mode.enabled:

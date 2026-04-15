@@ -1,7 +1,7 @@
 
 # Detaillierte statistische Auswertung & Forschungsergebnisse
 
-Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. Alle Auswertungen basieren auf dem Datensatz bis zum gestrigen Tag und werden automatisiert aktualisiert.
+Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. Alle Auswertungen basieren auf dem **eingefrorenen Datensatz** vom **1990-01-02** bis **2026-04-17** (Thesis-Freeze).
 
 ---
 
@@ -28,7 +28,7 @@ Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
 | Zeitreihe     |   Mittelwert (tägl.) |   Std.Abw. (tägl.) |     Min |    Max |   Schiefe (Skew) |   Kurtosis |
 |:--------------|---------------------:|-------------------:|--------:|-------:|-----------------:|-----------:|
 | Returns_GSPC  |             0.000326 |           0.01139  | -0.1277 | 0.1096 |          -0.3602 |    10.8106 |
-| Returns_VUSTX |             0.000275 |           0.007485 | -0.0605 | 0.1296 |           0.6392 |    14.3748 |
+| Returns_VUSTX |             0.000275 |           0.007485 | -0.0605 | 0.1296 |           0.6392 |    14.3744 |
 | Returns       |             0.000305 |           0.006935 | -0.0662 | 0.0584 |          -0.2265 |     7.7454 |
 
 **Prüfung auf Stationarität (Augmented Dickey-Fuller Test):**
@@ -36,7 +36,7 @@ Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
 |:--------------|----------------:|-----------:|------------------:|:-------------|
 | Returns_GSPC  |        -17.4874 | 4.4557e-30 |           -2.8619 | Ja           |
 | Returns_VUSTX |        -18.1867 | 2.4252e-30 |           -2.8619 | Ja           |
-| Returns       |        -17.5106 | 4.3372e-30 |           -2.8619 | Ja           |
+| Returns       |        -17.5106 | 4.3373e-30 |           -2.8619 | Ja           |
 
 **Volatilitätscluster und Autokorrelation (Heteroskedastizität):**
 ![Volatility Clusters](../assets/eda_volatility_clusters.png)
@@ -179,21 +179,21 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------|:--------------------------|:--------------------|
-| ('Standard', 'Buy Hold')       | 0.00%                     | 497,471.48 €        |
-| ('Standard', 'MSM')            | 0.00%                     | 387,448.46 €        |
-| ('Standard', 'Transformer')    | 0.01%                     | 478,518.03 €        |
 | ('Standard', 'LSTM')           | 0.00%                     | 480,481.09 €        |
+| ('Standard', 'Transformer')    | 0.01%                     | 478,518.03 €        |
+| ('Standard', 'Buy Hold')       | 0.00%                     | 497,471.48 €        |
+| ('Aggressive', 'Transformer')  | 4.18%                     | 233,138.58 €        |
 | ('Standard', 'HMM')            | 0.00%                     | 398,099.22 €        |
+| ('Aggressive', 'Buy Hold')     | 4.41%                     | 244,180.29 €        |
+| ('Aggressive', 'MSM')          | 1.98%                     | 160,416.93 €        |
+| ('Low_Capital', 'Buy Hold')    | 0.50%                     | 213,041.96 €        |
+| ('Low_Capital', 'HMM')         | 0.05%                     | 162,688.82 €        |
 | ('Aggressive', 'LSTM')         | 4.02%                     | 232,260.71 €        |
 | ('Aggressive', 'HMM')          | 1.32%                     | 171,925.79 €        |
-| ('Aggressive', 'Transformer')  | 4.18%                     | 233,138.58 €        |
-| ('Aggressive', 'MSM')          | 1.98%                     | 160,416.93 €        |
-| ('Aggressive', 'Buy Hold')     | 4.41%                     | 244,180.29 €        |
 | ('Low_Capital', 'MSM')         | 0.03%                     | 155,761.25 €        |
+| ('Standard', 'MSM')            | 0.00%                     | 387,448.46 €        |
 | ('Low_Capital', 'Transformer') | 0.39%                     | 204,613.53 €        |
-| ('Low_Capital', 'Buy Hold')    | 0.50%                     | 213,041.96 €        |
 | ('Low_Capital', 'LSTM')        | 0.34%                     | 209,392.88 €        |
-| ('Low_Capital', 'HMM')         | 0.05%                     | 162,688.82 €        |
 
 Verteilung der Endkapitalwerte:
 
@@ -223,13 +223,13 @@ Ausführungszeiten der einzelnen Pipeline-Notebooks (monolithischer Notebook-Ans
 
 | Notebook | Start | Ende | Dauer (s) |
 |----------|-------|------|-----------|
-| 00_dependencies | 14:35:40 | 14:35:44 | 3.9 |
-| 01_data_preprocessing | 14:35:44 | 14:35:51 | 7.6 |
-| 02_feature_engineering | 14:35:51 | 14:35:57 | 5.3 |
-| 03_regime_switching_models | 14:35:57 | 14:56:09 | 1212.2 |
-| 04_backtesting | 14:56:09 | 14:56:15 | 6.1 |
-| 05_evaluation | 14:56:15 | 14:58:46 | 151.6 |
-| **Gesamt** | | | **1386.7** (23m 6.7s) |
+| 00_dependencies | 16:43:22 | 16:43:25 | 2.8 |
+| 01_data_preprocessing | 16:43:25 | 16:43:31 | 6.9 |
+| 02_feature_engineering | 16:43:31 | 16:43:36 | 4.8 |
+| 03_regime_switching_models | 16:43:36 | 16:43:43 | 6.3 |
+| 04_backtesting | 16:43:43 | 16:43:49 | 6.0 |
+| 05_evaluation | 16:43:49 | 16:46:24 | 155.3 |
+| **Gesamt** | | | **182.1** (3m 2.1s) |
 
 ---
 
@@ -251,7 +251,8 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 15.04.2026 14:58<br>
+**Zuletzt aktualisiert:** 15.04.2026 16:46<br>
+**End date:** `2026-04-17`<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 10J, Test: 12M, Step: 12M)<br>
 **Modell-Persistierung:** AKTIV<br>

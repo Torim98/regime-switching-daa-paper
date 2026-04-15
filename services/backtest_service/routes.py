@@ -168,15 +168,22 @@ def evaluate():
     boxplot_template = os.path.join(str(cfg._base_dir / "assets"), "mcs_boxplot_{}.png")
     plot_mcs_boxplots(mcs_paths, daily_rets.columns, scenarios, mcs_cfg.sim_years,
                       boxplot_template)
+
+    # Simulationen starten am Tag nach dem Daten-Cutoff
+    from datetime import datetime
+    sim_start_year = datetime.strptime(cfg.data.end_date, "%Y-%m-%d").year + 1
+
     plot_mcs_paths(
         mcs_results, scenarios_list, strategies, cfg.color_map,
         cfg.asset_path("mcs_paths"),
         trading_days_per_year=mcs_cfg.trading_days_per_year,
+        start_year=sim_start_year,
     )
     plot_mcs_quantiles(
         mcs_results, scenarios_list, strategies, total_days, cfg.color_map,
         cfg.asset_path("mcs_quantiles"),
         trading_days_per_year=mcs_cfg.trading_days_per_year,
+        start_year=sim_start_year,
     )
 
     # Statistics Report generieren (wie Notebook 99)

@@ -3,6 +3,7 @@
 import yfinance as yf
 import pandas as pd
 from pathlib import Path
+from datetime import datetime, timedelta
 
 
 def download_market_data(
@@ -16,10 +17,15 @@ def download_market_data(
 
     Wählt 'Adj Close' wenn verfügbar, sonst 'Close'.
     Gibt DataFrame mit einer Spalte pro Ticker (tägliche Kurse) zurück.
+
+    Hinweis: yfinance behandelt `end` exklusiv. Wir addieren +1 Tag, damit
+    `end_date` aus Nutzersicht inklusiv ist (wichtig im Thesis-Freeze-Mode).
     """
-    # Alles ohne Index-Zugriff runterladen
-    # Enddatum: yfinance lädt exklusive Enddatum, d.h. bis gestern inklusive
-    raw_data = yf.download(tickers, start=start_date, end=end_date)
+    end_exclusive = (
+        datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    raw_data = yf.download(tickers, start=start_date, end=end_exclusive)
 
     # --- ROBUSTER MULTI-INDEX FIX (Keyerror-Fix) ---
     # Wir prüfen, welcher Preis-Typ verfügbar ist ('Adj Close' bevorzugt, sonst 'Close')
