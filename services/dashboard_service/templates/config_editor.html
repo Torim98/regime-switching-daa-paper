@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Config — YAML-Editor{% endblock %}
+{% block header %}Config — YAML-Editor{% endblock %}
+
+{% block content %}
+<div x-data="configPage()" x-init="init()" class="space-y-6">
+
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="text-sm text-slate-500">Datei</div>
+        <div class="font-mono text-sm" x-text="path"></div>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span>Letzte Änderung:</span>
+        <span class="font-mono" x-text="mtime"></span>
+        <span class="mx-2">·</span>
+        <span class="font-mono" x-text="sizeBytes + ' B'"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="load()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded text-sm hover:bg-slate-300 dark:hover:bg-slate-600">
+          ↻ Reload
+        </button>
+        <button @click="showBackups = !showBackups" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded text-sm hover:bg-slate-300 dark:hover:bg-slate-600">
+          📁 Backups (<span x-text="backups.length"></span>)
+        </button>
+        <button @click="save()" :disabled="!dirty || saving"
+                class="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300 text-white rounded text-sm font-medium">
+          <span x-show="!saving">💾 Speichern</span>
+          <span x-show="saving">speichert…</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Backup-Drawer -->
+    <div x-show="showBackups" x-cloak class="px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+      <template x-if="backups.length === 0">
+        <div class="text-sm text-slate-500">Noch keine Backups vorhanden.</div>
+      </template>
+      <ul class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+        <template x-for="b in backups" :key="b.name">
+          <li class="py-2 flex items-center justify-between">
+            <span class="font-mono text-xs" x-text="b.name"></span>
+            <span class="text-xs text-slate-500" x-text="b.mtime + ' · ' + b.size_bytes + ' B'"></span>
+            <button @click="restore(b.name)" class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50">
+              Restore
+            </button>
+          </li>
+        </template>
+      </ul>
+    </div>
+
+    <!-- Monaco Editor -->
+    <div id="monaco-host" class="w-full" style="height: 70vh;"></div>
+
+    <div class="px-6 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex items-center justify-between">
+      <div>
+        <span x-show="dirty" class="text-amber-600 dark:text-amber-400">●&nbsp;Ungespeicherte Änderungen</span>
+        <span x-show="!dirty" class="text-emerald-600 dark:text-emerald-400">●&nbsp;Keine Änderungen</span>
+      </div>
+      <div>Ctrl/Cmd+S = Speichern · Änderungen legen automatisch ein <code class="font-mono">.bak</code>-Backup an</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Monaco Loader -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+<script>
+function configPage() {
+  return {
+    path: '', mtime: '', sizeBytes: 0,
+    dirty: false, saving: false,
+    showBackups: false, backups: [],
+    editor: null, originalContent: '',
+
+    async init() {
+      await this.load();
+      await this.loadBackups();
+    },
+
+    async load() {
+      const r = await fetch('/api/config');
+      const j = await r.json();
+      this.path = j.path;
+      this.mtime = j.mtime;
+      this.sizeBytes = j.size_bytes;
+      this.originalContent = j.content;
+      this.dirty = false;
+
+      if (!this.editor) this._initMonaco(j.content);
+      else {
+        this.editor.setValue(j.content);
+      }
+    },
+
+    async loadBackups() {
+      const r = await fetch('/api/config/backups');
+      const j = await r.json();
+      this.backups = j.backups;
+    },
+
+    _initMonaco(initial) {
+      const self = this;
+      require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' } });
+      require(['vs/editor/editor.main'], function () {
+        const dark = document.documentElement.classList.contains('dark');
+        self.editor = monaco.editor.create(document.getElementById('monaco-host'), {
+          value: initial,
+          language: 'yaml',
+          theme: dark ? 'vs-dark' : 'vs',
+          automaticLayout: true,
+          fontSize: 13,
+          minimap: { enabled: true },
+          renderWhitespace: 'selection',
+          scrollBeyondLastLine: false,
+        });
+        self.editor.onDidChangeModelContent(() => {
+          self.dirty = self.editor.getValue() !== self.originalContent;
+        });
+        self.editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+          () => self.save()
+        );
+      });
+    },
+
+    async save() {
+      if (!this.editor || this.saving || !this.dirty) return;
+      this.saving = true;
+      try {
+        const r = await fetch('/api/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: this.editor.getValue() }),
+        });
+        const j = await r.json();
+        if (r.ok) {
+          toast(`Gespeichert. Backup: ${j.backup}`, 'success');
+          this.originalContent = this.editor.getValue();
+          this.dirty = false;
+          await this.loadBackups();
+          await this.load(); // mtime refresh
+        } else {
+          toast(`Fehler: ${j.detail || j.message || 'unbekannt'}`, 'error');
+        }
+      } catch (e) {
+        toast(`Netzwerkfehler: ${e}`, 'error');
+      } finally {
+        this.saving = false;
+      }
+    },
+
+    async restore(name) {
+      if (!confirm(`Config auf ${name} zurücksetzen?\nDer aktuelle Stand wird ebenfalls gesichert.`)) return;
+      const r = await fetch('/api/config/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const j = await r.json();
+      if (r.ok) {
+        toast(`Restored — vorheriger Stand: ${j.previous_saved_as}`, 'success');
+        await this.load();
+        await this.loadBackups();
+      } else {
+        toast(`Restore fehlgeschlagen: ${j.detail || ''}`, 'error');
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

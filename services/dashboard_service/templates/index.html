@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Overview — Regime-Switching DAA{% endblock %}
+{% block header %}Overview{% endblock %}
+
+{% block content %}
+<div x-data="overviewPage()" x-init="load()">
+
+  <!-- Status-Kacheln -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+      <div class="text-xs text-slate-500 uppercase tracking-wider">End-Date</div>
+      <div class="mt-2 font-mono text-xl">{{ end_date }}</div>
+      <div class="mt-1 text-xs">
+        {% if end_date_frozen %}
+          <span class="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Thesis-Freeze</span>
+        {% else %}
+          <span class="inline-block px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Dynamic (today)</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+      <div class="text-xs text-slate-500 uppercase tracking-wider">Walk-Forward</div>
+      <div class="mt-2 font-mono text-xl">{{ 'ENABLED' if walk_forward_enabled else 'DISABLED' }}</div>
+      <div class="mt-1 text-xs text-slate-500">rolling / 10y / 12m / 12m</div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+      <div class="text-xs text-slate-500 uppercase tracking-wider">Fast-Mode</div>
+      <div class="mt-2 font-mono text-xl">{{ 'ENABLED' if fast_mode_enabled else 'DISABLED' }}</div>
+      <div class="mt-1 text-xs text-slate-500">n_paths / epochs reduziert</div>
+    </div>
+  </section>
+
+  <!-- Pipeline-Artefakte -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8">
+    <h2 class="text-lg font-semibold mb-4">Pipeline-Artefakte</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <template x-for="(meta, key) in status.data" :key="key">
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-sm" x-text="key"></span>
+            <span class="text-xs px-2 py-0.5 rounded font-mono"
+                  :class="meta.exists
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'"
+                  x-text="meta.exists ? 'OK' : 'MISSING'"></span>
+          </div>
+          <div class="mt-1 text-xs text-slate-500 flex justify-between" x-show="meta.exists">
+            <span x-text="meta.size_mb + ' MB'"></span>
+            <span x-text="meta.mtime"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- Quick-Actions -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <a href="/hub" class="bg-gradient-to-br from-brand-600 to-brand-700 text-white rounded-xl p-6 shadow hover:shadow-md transition">
+      <div class="text-sm opacity-80">Pipeline steuern</div>
+      <div class="mt-1 text-2xl font-semibold">Control Hub →</div>
+      <div class="mt-2 text-sm opacity-80">Alle 10+ FastAPI-Endpoints per Klick auslösen.</div>
+    </a>
+    <a href="/evaluation" class="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition">
+      <div class="text-sm text-slate-500">Ergebnisse</div>
+      <div class="mt-1 text-2xl font-semibold">Evaluation + MCS →</div>
+      <div class="mt-2 text-sm text-slate-500">Komplette statistics.md interaktiv.</div>
+    </a>
+  </section>
+
+  <!-- Coverage-Map -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Abdeckung statistics.md</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/eda" class="hover:underline">Executive Summary · Datenbasis · EDA</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/eda" class="hover:underline">Feature-Korrelation · Historische Drawdowns</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/models" class="hover:underline">Regime-Erkennung (MSM/HMM/LSTM/Transformer)</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/models" class="hover:underline">Label-Konkordanz · Cohen's κ</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/backtest" class="hover:underline">Equity Curves · Drawdown · Rolling Sharpe</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/backtest" class="hover:underline">Annualisierte Metriken · Krisen-Perf · Transaktionskosten</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/evaluation" class="hover:underline">Klassifikationsmetriken · Confusion Matrix</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/evaluation" class="hover:underline">ROC · PR · Churning · Switch-Timing</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/evaluation" class="hover:underline">MCS · Depletion-CI · H1/H2-Tests</a></div>
+      <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/evaluation" class="hover:underline">Break-Even · Withdrawal-Sensitivity</a></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function overviewPage() {
+  return {
+    status: { data: {}, assets_count: 0 },
+    async load() {
+      try {
+        const r = await fetch('/api/status');
+        this.status = await r.json();
+      } catch (e) {
+        toast('Status-Load fehlgeschlagen: ' + e, 'error');
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

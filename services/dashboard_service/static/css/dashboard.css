@@ -1,0 +1,66 @@
+/* Eigene Overrides zusätzlich zu Tailwind */
+
+/* Alpine x-cloak */
+[x-cloak] { display: none !important; }
+
+/* Prose-Tabellen: kompakter + scrollbar + Zebra */
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.prose table th,
+.prose table td {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgb(226 232 240 / 1);   /* slate-200 */
+}
+.dark .prose table th,
+.dark .prose table td {
+  border-color: rgb(51 65 85 / 1);           /* slate-700 */
+}
+.prose table th {
+  background: rgb(241 245 249 / 1);          /* slate-100 */
+  font-weight: 600;
+  text-align: left;
+}
+.dark .prose table th {
+  background: rgb(30 41 59 / 1);             /* slate-800 */
+}
+.prose table tbody tr:nth-child(even) td {
+  background: rgb(248 250 252 / 0.5);        /* slate-50/50 */
+}
+.dark .prose table tbody tr:nth-child(even) td {
+  background: rgb(15 23 42 / 0.4);           /* slate-900/40 */
+}
+
+/* Plotly-Container: max-width verhindert überschießen */
+.js-plotly-plot,
+.plot-container {
+  max-width: 100%;
+}
+
+/* Toast */
+.toast {
+  min-width: 250px;
+  max-width: 400px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-size: 0.875rem;
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1);
+  animation: toast-in 0.2s ease-out;
+}
+.toast.success { background: #059669; }
+.toast.error   { background: #dc2626; }
+.toast.info    { background: #2563eb; }
+@keyframes toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Scrollbar in Log-View dezenter */
+#log-view::-webkit-scrollbar { width: 10px; height: 10px; }
+#log-view::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+#log-view::-webkit-scrollbar-track { background: #0f172a; }

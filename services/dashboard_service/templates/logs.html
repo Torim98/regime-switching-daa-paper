@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Live-Logs — docker compose logs -f{% endblock %}
+{% block header %}Live-Logs{% endblock %}
+
+{% block content %}
+<div x-data="logsPage()" x-init="init()" class="space-y-4">
+
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-sm">
+        <label>Datei
+          <select x-model="file" @change="reconnect()"
+                  class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1 font-mono">
+            <template x-for="f in files" :key="f.name">
+              <option :value="f.name" x-text="f.name + ' (' + f.size_kb + ' KB)'"></option>
+            </template>
+          </select>
+        </label>
+        <label>Initial-Tail
+          <input type="number" min="20" max="5000" step="20" x-model.number="tail"
+                 @change="reconnect()"
+                 class="ml-1 w-24 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1" />
+        </label>
+        <label class="flex items-center gap-1"><input type="checkbox" x-model="autoscroll" />Auto-Scroll</label>
+        <label class="flex items-center gap-1"><input type="checkbox" x-model="wrap" />Word-Wrap</label>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1 text-xs">
+          <span class="w-2 h-2 rounded-full"
+                :class="connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
+          <span x-text="connected ? 'verbunden' : 'getrennt'"></span>
+        </span>
+        <button @click="clear()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded text-sm hover:bg-slate-300 dark:hover:bg-slate-600">🗑 Clear</button>
+        <button @click="reconnect()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded text-sm">↻ Reconnect</button>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <input type="text" x-model="filter" placeholder="Filter (case-insensitive, regex erlaubt)…"
+             class="w-full bg-slate-100 dark:bg-slate-700 rounded px-3 py-2 text-sm font-mono" />
+    </div>
+  </section>
+
+  <!-- Log-Viewer -->
+  <section class="bg-slate-900 text-slate-100 rounded-xl shadow-sm border border-slate-700 overflow-hidden">
+    <div id="log-view"
+         class="overflow-auto font-mono text-xs p-3"
+         :class="wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'"
+         style="height: 70vh;"></div>
+  </section>
+
+  <!-- Hinweis -->
+  <section class="text-xs text-slate-500">
+    Streams kontinuierlich neue Zeilen der gewählten Datei (File-Tail, äquivalent zu <code class="font-mono">docker compose logs -f</code>).
+    Rotation/Truncation wird erkannt. Verbindung via WebSocket <code class="font-mono">/ws/logs/{file}</code>.
+  </section>
+
+</div>
+
+<script>
+function logsPage() {
+  return {
+    files: [], file: 'data_service.log',
+    tail: 500, autoscroll: true, wrap: false,
+    filter: '',
+    ws: null, connected: false,
+
+    async init() {
+      await this.loadFiles();
+      if (this.files.length > 0) {
+        const preferred = ['data_service.log','model_service.log','backtest_service.log','dashboard_service.log'];
+        this.file = preferred.find(p => this.files.some(f => f.name === p)) || this.files[0].name;
+      }
+      this.connect();
+
+      // Filter live anwenden
+      this.$watch('filter', () => this.applyFilter());
+    },
+
+    async loadFiles() {
+      const r = await fetch('/api/logs/files');
+      const j = await r.json();
+      this.files = j.files;
+    },
+
+    clear() {
+      document.getElementById('log-view').innerHTML = '';
+    },
+
+    reconnect() {
+      this.clear();
+      if (this.ws) try { this.ws.close(); } catch (_) {}
+      this.connect();
+    },
+
+    connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const url = `${proto}://${location.host}/ws/logs/${encodeURIComponent(this.file)}?tail=${this.tail|0}`;
+      this.ws = new WebSocket(url);
+      this.ws.onopen = () => { this.connected = true; };
+      this.ws.onclose = () => { this.connected = false; };
+      this.ws.onerror = () => { this.connected = false; };
+      this.ws.onmessage = (ev) => this.appendLine(ev.data);
+    },
+
+    appendLine(line) {
+      const view = document.getElementById('log-view');
+      const el = document.createElement('div');
+      el.textContent = line;
+      // Level-Color-Hints
+      if (/\bERROR\b|Traceback/i.test(line))       el.className = 'text-rose-400';
+      else if (/\bWARN(ING)?\b/i.test(line))       el.className = 'text-amber-300';
+      else if (/\bINFO\b/i.test(line))             el.className = 'text-slate-300';
+      else if (/\bDEBUG\b/i.test(line))            el.className = 'text-slate-500';
+
+      if (this.filter) {
+        try {
+          const re = new RegExp(this.filter, 'i');
+          if (!re.test(line)) el.style.display = 'none';
+        } catch (_) {
+          if (!line.toLowerCase().includes(this.filter.toLowerCase())) el.style.display = 'none';
+        }
+      }
+      view.appendChild(el);
+
+      // Cap: nicht mehr als 10k Zeilen im DOM halten
+      while (view.childNodes.length > 10000) view.removeChild(view.firstChild);
+      if (this.autoscroll) view.scrollTop = view.scrollHeight;
+    },
+
+    applyFilter() {
+      const view = document.getElementById('log-view');
+      let re = null;
+      if (this.filter) {
+        try { re = new RegExp(this.filter, 'i'); } catch (_) { re = null; }
+      }
+      const q = this.filter.toLowerCase();
+      for (const el of view.childNodes) {
+        const text = el.textContent;
+        const match = !this.filter
+          ? true
+          : (re ? re.test(text) : text.toLowerCase().includes(q));
+        el.style.display = match ? '' : 'none';
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

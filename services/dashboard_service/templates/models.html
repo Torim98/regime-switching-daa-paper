@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Modelle — Regime-Erkennung{% endblock %}
+{% block header %}Modelle — Regime-Erkennung{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="modelsPage()" x-init="init()">
+
+  <!-- Interaktives Regime-Overlay -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-lg font-semibold">Regime-Overlay (interaktiv)</h2>
+      <div class="flex items-center gap-2 text-sm">
+        <label>Modell
+          <select x-model="model" @change="draw()"
+                  class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+            <option>MSM</option>
+            <option>HMM</option>
+            <option>LSTM</option>
+            <option>Transformer</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div id="chart-regime-overlay" class="w-full"></div>
+    <p class="text-xs text-slate-500 mt-3">
+      Rote Bänder = Bear-Signal. Rechte Achse: 60/40-Kurs (Kontext). Linke Achse: Bear-Probability.
+    </p>
+  </section>
+
+  <!-- Label-Konkordanz (Kapitel 3.5 / 5.2) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Label-Konkordanz & Cohen's κ</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/label_concordance_matrix.png" alt="Concordance Matrix"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Konkordanz-Matrix</figcaption>
+      </figure>
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/label_kappa_matrix.png" alt="Cohen's κ"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Cohen's κ</figcaption>
+      </figure>
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden lg:col-span-2">
+        <img src="/api/asset/label_timeline_comparison.png" alt="Label Timeline"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Label-Timeline-Vergleich (OOS)</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Modell-Plots (aus Pipeline) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Modell-Plots (Pipeline-Output)</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {% for name, caption in [
+        ('msm_regimes.png',       'Markov-Switching-Modell'),
+        ('hmm_regimes.png',       'Hidden Markov Model'),
+        ('lstm_model.png',        'LSTM'),
+        ('transformer_model.png', 'Transformer'),
+      ] %}
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/{{ name }}" alt="{{ caption }}" class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">{{ caption }}</figcaption>
+      </figure>
+      {% endfor %}
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden lg:col-span-2">
+        <img src="/api/asset/regime_comparison.png" alt="Regime Comparison" class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Regime-Vergleich aller 4 Modelle</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Optuna -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Optuna-Hyperparameter-Optimierung</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {% for model in ['MSM', 'HMM', 'LSTM', 'Transformer'] %}
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <h3 class="font-semibold text-sm mb-2">{{ model }}</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <img src="/api/asset/optuna_{{ model }}_history.png"    class="w-full object-contain" loading="lazy" alt="History">
+          <img src="/api/asset/optuna_{{ model }}_importance.png" class="w-full object-contain" loading="lazy" alt="Importance">
+          <img src="/api/asset/optuna_{{ model }}_slice.png"      class="w-full object-contain" loading="lazy" alt="Slice">
+          <img src="/api/asset/optuna_{{ model }}_contour.png"    class="w-full object-contain" loading="lazy" alt="Contour">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+function modelsPage() {
+  return {
+    model: 'MSM',
+    async init() { await this.draw(); },
+    async draw() {
+      await renderChart('chart-regime-overlay',
+        `/api/chart/regime-overlay?model=${encodeURIComponent(this.model)}`);
+    },
+  };
+}
+</script>
+{% endblock %}

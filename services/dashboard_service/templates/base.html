@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Regime-Switching DAA — Dashboard{% endblock %}</title>
+
+  <!-- Tailwind (Play-CDN — zero build) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Plotly.js -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/alpinejs@3.x.x" defer></script>
+  <!-- Marked für MD-Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 font-sans antialiased"
+      x-data="{ theme: localStorage.theme || 'light' }"
+      x-init="$watch('theme', t => { localStorage.theme = t; document.documentElement.classList.toggle('dark', t === 'dark'); }); document.documentElement.classList.toggle('dark', theme === 'dark');">
+
+<div class="min-h-full flex">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+    <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-700">
+      <div class="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400">Thesis</div>
+      <div class="text-lg font-semibold">Regime-Switching DAA</div>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+      {% set items = [
+        ('index',      '/',            'Overview',      '◉'),
+        ('hub',        '/hub',         'Control Hub',   '⚡'),
+        ('eda',        '/eda',         'EDA',           '▦'),
+        ('models',     '/models',      'Modelle',       '◎'),
+        ('backtest',   '/backtest',    'Backtest',      '↗'),
+        ('evaluation', '/evaluation',  'Evaluation',    '∑'),
+        ('config',     '/config',      'Config',        '⚙'),
+        ('logs',       '/logs',        'Live-Logs',     '»'),
+      ] %}
+      {% for key, href, label, icon in items %}
+        <a href="{{ href }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition
+                  {% if active == key %}
+                    bg-brand-600 text-white
+                  {% else %}
+                    text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700
+                  {% endif %}">
+          <span class="text-lg w-5 text-center">{{ icon }}</span>
+          <span>{{ label }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+
+    <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 space-y-1">
+      <div class="flex justify-between"><span>End-Date</span><span class="font-mono">{{ end_date }}</span></div>
+      <div class="flex justify-between"><span>WF</span>
+        <span class="font-mono">{{ 'ON' if walk_forward_enabled else 'OFF' }}</span>
+      </div>
+      <div class="flex justify-between"><span>Fast-Mode</span>
+        <span class="font-mono">{{ 'ON' if fast_mode_enabled else 'OFF' }}</span>
+      </div>
+      <button @click="theme = theme === 'dark' ? 'light' : 'dark'"
+              class="w-full mt-2 py-1.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+        <span x-text="theme === 'dark' ? '☀ Light' : '☾ Dark'"></span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">{% block header %}Dashboard{% endblock %}</h1>
+      <div class="text-xs text-slate-500">Build {{ build_time }}</div>
+    </header>
+
+    <div class="flex-1 p-8 overflow-auto">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<!-- Toast-Container -->
+<div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+<script src="/static/js/common.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

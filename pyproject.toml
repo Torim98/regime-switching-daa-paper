@@ -30,11 +30,18 @@ ml = [
     "torch==2.6.0",
     "optuna==4.8.0",
 ]
-# FastAPI-Runtime (alle drei Services)
+# FastAPI-Runtime (alle Services)
 services = [
     "fastapi==0.135.3",
     "uvicorn[standard]==0.43.0",
     "httpx==0.28.1",
+]
+# Dashboard-Service (Templates, WebSockets, Form-Parsing)
+dashboard = [
+    "jinja2==3.1.4",
+    "python-multipart==0.0.20",
+    "watchfiles==1.1.0",
+    "websockets==14.2",
 ]
 # Notebook-Orchestrierung (nur lokal)
 notebooks = [

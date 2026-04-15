@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Evaluation — Metriken · MCS · Hypothesen{% endblock %}
+{% block header %}Evaluation — Metriken · MCS · Hypothesen{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="evalPage()" x-init="init()">
+
+  <!-- Kennzahlen-Matrix -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Umfassende Kennzahlen-Matrix</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdEval"></div>
+  </section>
+
+  <!-- Klassifikation -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Klassifikationsmetriken (vs. NBER)</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdClass"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <figure><img src="/api/asset/confusion_matrices.png" class="w-full object-contain" loading="lazy" alt="Confusion"><figcaption class="text-xs p-2 text-slate-500">Confusion Matrices</figcaption></figure>
+      <figure><img src="/api/asset/roc_curves.png" class="w-full object-contain" loading="lazy" alt="ROC"><figcaption class="text-xs p-2 text-slate-500">ROC-Kurven</figcaption></figure>
+      <figure><img src="/api/asset/pr_curves.png" class="w-full object-contain" loading="lazy" alt="PR"><figcaption class="text-xs p-2 text-slate-500">Precision-Recall-Kurven</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- Churning + Whipsaw + Switch-Timing -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Signal-Churning &amp; Switch-Timing</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Churning</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdChurn"></div>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Switch-Timing vs. DD-Peak</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdSwitch"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Regime-Probability-Heatmap -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Regime-Wahrscheinlichkeits-Heatmap</h2>
+    <img src="/api/asset/regime_probability_heatmap.png" class="w-full object-contain rounded" loading="lazy" alt="Heatmap">
+  </section>
+
+  <!-- Threshold-Sensitivity -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Threshold-Sensitivity</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <template x-for="m in ['MSM','HMM','LSTM','Transformer']" :key="m">
+        <div>
+          <h3 class="text-sm font-semibold mb-1" x-text="m"></h3>
+          <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto text-xs" x-html="thresholdMd[m]"></div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- Time-to-Recovery -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Time-to-Recovery</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <template x-for="m in ['Buy_Hold','MSM','HMM','LSTM','Transformer']" :key="m">
+        <div>
+          <h3 class="text-sm font-semibold mb-1" x-text="m"></h3>
+          <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto text-xs" x-html="ttrMd[m]"></div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- MCS -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Monte-Carlo-Simulation (Block-Bootstrap)</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdMcs"></div>
+    <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+      <label>Szenario
+        <select x-model="scenario" @change="drawMcs()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+          <option>Standard</option><option>Aggressive</option><option>Low_Capital</option>
+        </select>
+      </label>
+      <label>Strategie
+        <select x-model="strategy" @change="drawMcs()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+          <option>Buy_Hold</option><option>MSM</option><option>HMM</option><option>LSTM</option><option>Transformer</option>
+        </select>
+      </label>
+    </div>
+    <div id="chart-mcs-q" class="w-full"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+      <figure><img src="/api/asset/mcs_boxplot_standard.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Standard"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Standard</figcaption></figure>
+      <figure><img src="/api/asset/mcs_boxplot_aggressive.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Aggressive"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Aggressiv</figcaption></figure>
+      <figure><img src="/api/asset/mcs_boxplot_low_capital.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Low Capital"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Low Capital</figcaption></figure>
+      <figure><img src="/api/asset/mcs_violin_standard.png" class="w-full object-contain" loading="lazy" alt="Violin Standard"><figcaption class="text-xs p-2 text-slate-500">Violin — Standard</figcaption></figure>
+      <figure><img src="/api/asset/mcs_violin_aggressive.png" class="w-full object-contain" loading="lazy" alt="Violin Aggressive"><figcaption class="text-xs p-2 text-slate-500">Violin — Aggressiv</figcaption></figure>
+      <figure><img src="/api/asset/mcs_violin_low_capital.png" class="w-full object-contain" loading="lazy" alt="Violin Low Capital"><figcaption class="text-xs p-2 text-slate-500">Violin — Low Capital</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- Depletion Rate + Hypothesentests -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Depletion-Rate &amp; Hypothesentests</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Depletion-Rate mit 95 %-CI</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdDep"></div>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">H1 — MaxDD vs. B&amp;H</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdH1"></div>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">H2 — Transformer-Dominanz</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdH2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Break-Even + Withdrawal -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Break-Even-Kosten &amp; Entnahmeraten</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Break-Even-Transaktionskosten</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdBe"></div>
+        <img src="/api/asset/break_even_costs.png" class="mt-3 w-full object-contain" loading="lazy" alt="Break-Even">
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Entnahmeraten-Sensitivität</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdWd"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function evalPage() {
+  return {
+    scenario: 'Standard', strategy: 'Transformer',
+    mdEval: '', mdClass: '', mdChurn: '', mdSwitch: '', mdMcs: '',
+    mdDep: '', mdH1: '', mdH2: '', mdBe: '', mdWd: '',
+    thresholdMd: {}, ttrMd: {},
+    async init() {
+      const pairs = await Promise.all([
+        fetchMd('evaluation_table.md'),
+        fetchMd('classification_metrics.md'),
+        fetchMd('churning_stats.md'),
+        fetchMd('switch_timing.md'),
+        fetchMd('mcs_summary.md'),
+        fetchMd('depletion_rate_ci.md'),
+        fetchMd('h1_drawdown_test.md'),
+        fetchMd('h2_transformer_test.md'),
+        fetchMd('break_even_costs.md'),
+        fetchMd('withdrawal_sensitivity.md'),
+      ]);
+      [this.mdEval, this.mdClass, this.mdChurn, this.mdSwitch, this.mdMcs,
+       this.mdDep, this.mdH1, this.mdH2, this.mdBe, this.mdWd] = pairs;
+
+      for (const m of ['MSM','HMM','LSTM','Transformer']) {
+        this.thresholdMd[m] = await fetchMd(`threshold_sensitivity_${m}.md`);
+      }
+      for (const m of ['Buy_Hold','MSM','HMM','LSTM','Transformer']) {
+        this.ttrMd[m] = await fetchMd(`time_to_recovery_${m}.md`);
+      }
+      await this.drawMcs();
+    },
+    async drawMcs() {
+      await renderChart('chart-mcs-q',
+        `/api/chart/mcs-quantiles?scenario=${encodeURIComponent(this.scenario)}&strategy=${encodeURIComponent(this.strategy)}`);
+    },
+  };
+}
+</script>
+{% endblock %}

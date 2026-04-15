@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}EDA — Explorative Datenanalyse{% endblock %}
+{% block header %}EDA — Explorative Datenanalyse{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="edaPage()" x-init="init()">
+
+  <!-- Deskriptive Statistik (aus assets/eda_descriptive_stats.md) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Deskriptive Statistik</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdDescriptive"></div>
+  </section>
+
+  <!-- ADF-Tests -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Stationaritätstest (ADF)</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdAdf"></div>
+  </section>
+
+  <!-- Interaktive Zeitreihe -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-lg font-semibold">Interaktive Zeitreihe</h2>
+      <div class="flex items-center gap-2 text-sm">
+        <label>Spalte
+          <select x-model="col" @change="drawReturns()"
+                  class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+            <option>Returns</option>
+            <option>Returns_GSPC</option>
+            <option>Returns_VUSTX</option>
+            <option>VIX</option>
+            <option>TNX_10Y</option>
+            <option>IRX_3M</option>
+          </select>
+        </label>
+        <label>Smoothing
+          <input type="number" min="0" max="252" step="5" x-model.number="smoothing"
+                 @change="drawReturns()"
+                 class="ml-1 w-20 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1" />
+        </label>
+      </div>
+    </div>
+    <div id="chart-returns" class="w-full"></div>
+  </section>
+
+  <!-- Feature-Korrelationsmatrix (interaktiv) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Feature-Korrelationsmatrix</h2>
+    <div id="chart-feature-corr" class="w-full"></div>
+  </section>
+
+  <!-- 60/40 Kapitalkurve (interaktiv) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">60/40 Benchmark-Kapitalkurve</h2>
+    <div id="chart-capital-curve" class="w-full"></div>
+  </section>
+
+  <!-- Bestehende EDA-PNGs als Gallery -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Weitere EDA-Plots (Pipeline-Output)</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/eda_volatility_clusters.png" alt="Volatility Clusters"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Volatilitätscluster &amp; Autokorrelation</figcaption>
+      </figure>
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/eda_historical_drawdowns.png" alt="Historical Drawdowns"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Historische Drawdowns (SORR-Kontext)</figcaption>
+      </figure>
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/feature_correlation_matrix.png" alt="Correlation PNG"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Pipeline-generierte Korrelationsmatrix</figcaption>
+      </figure>
+      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <img src="/api/asset/capital_curve.png" alt="Capital Curve"
+             class="w-full object-contain" loading="lazy">
+        <figcaption class="text-xs p-2 text-slate-500">Pipeline-generierte Kapitalkurve</figcaption>
+      </figure>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function edaPage() {
+  return {
+    col: 'Returns', smoothing: 0,
+    mdDescriptive: '', mdAdf: '',
+    async init() {
+      this.mdDescriptive = await fetchMd('eda_descriptive_stats.md');
+      this.mdAdf = await fetchMd('eda_adf_tests.md');
+      await Promise.all([
+        this.drawReturns(),
+        renderChart('chart-feature-corr', '/api/chart/feature-correlation'),
+        renderChart('chart-capital-curve', '/api/chart/capital-curve'),
+      ]);
+    },
+    async drawReturns() {
+      await renderChart('chart-returns',
+        `/api/chart/returns?col=${encodeURIComponent(this.col)}&smoothing=${this.smoothing|0}`);
+    },
+  };
+}
+</script>
+{% endblock %}

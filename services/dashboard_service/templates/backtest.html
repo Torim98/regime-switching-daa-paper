@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Backtest — Strategie-Performance{% endblock %}
+{% block header %}Backtest — Strategie-Performance{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="btPage()" x-init="init()">
+
+  <!-- Performance Summary -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Executive Summary</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdPerfSummary"></div>
+  </section>
+
+  <!-- Annualisierte Metriken -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Annualisierte Metriken</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdAnnualized"></div>
+  </section>
+
+  <!-- Equity Curves -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Equity Curves (interaktiv)</h2>
+    <div id="chart-equity" class="w-full"></div>
+  </section>
+
+  <!-- Drawdown -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Drawdown-Verlauf (interaktiv)</h2>
+    <div id="chart-drawdown" class="w-full"></div>
+  </section>
+
+  <!-- Rolling Sharpe -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-lg font-semibold">Rolling Sharpe (interaktiv)</h2>
+      <label class="text-sm">Fenster
+        <input type="number" min="21" max="1260" step="21" x-model.number="window" @change="drawSharpe()"
+               class="ml-1 w-24 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1" />
+      </label>
+    </div>
+    <div id="chart-rolling-sharpe" class="w-full"></div>
+  </section>
+
+  <!-- Krisen-Performance -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Krisen-Performance</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdCrisis"></div>
+  </section>
+
+  <!-- Transaktionskosten + SORR-Plots -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Transaktionskosten &amp; SORR-Szenarien</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <figure><img src="/api/asset/transaction_costs.png" class="w-full object-contain" loading="lazy" alt="TxCosts">
+        <figcaption class="text-xs p-2 text-slate-500">Kumulierte Transaktionskosten</figcaption></figure>
+      <figure><img src="/api/asset/sorr_sim_standard.png" class="w-full object-contain" loading="lazy" alt="SORR Standard">
+        <figcaption class="text-xs p-2 text-slate-500">SORR — Standard-Szenario</figcaption></figure>
+      <figure><img src="/api/asset/sorr_sim_aggressive.png" class="w-full object-contain" loading="lazy" alt="SORR Aggressive">
+        <figcaption class="text-xs p-2 text-slate-500">SORR — Aggressiv</figcaption></figure>
+      <figure><img src="/api/asset/sorr_sim_low_capital.png" class="w-full object-contain" loading="lazy" alt="SORR Low Capital">
+        <figcaption class="text-xs p-2 text-slate-500">SORR — Geringes Kapital</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- SORR-Summary -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">SORR-Summary</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdSorr"></div>
+  </section>
+
+  <!-- Pipeline-Timing -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-4">Pipeline-Laufzeit</h2>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdTiming"></div>
+  </section>
+
+</div>
+
+<script>
+function btPage() {
+  return {
+    window: 252,
+    mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '', mdTiming: '',
+    async init() {
+      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr, this.mdTiming] =
+        await Promise.all([
+          fetchMd('performance_summary.md'),
+          fetchMd('annualized_metrics.md'),
+          fetchMd('crisis_performance.md'),
+          fetchMd('sorr_summary.md'),
+          fetchMd('pipeline_timing.md'),
+        ]);
+      await Promise.all([
+        renderChart('chart-equity',   '/api/chart/equity-curves'),
+        renderChart('chart-drawdown', '/api/chart/drawdown'),
+        this.drawSharpe(),
+      ]);
+    },
+    async drawSharpe() {
+      await renderChart('chart-rolling-sharpe', `/api/chart/rolling-sharpe?window=${this.window|0}`);
+    },
+  };
+}
+</script>
+{% endblock %}
