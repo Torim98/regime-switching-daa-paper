@@ -5,6 +5,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import cohen_kappa_score
 
 
 def compute_concordance_matrix(labels: dict[str, pd.Series]) -> pd.DataFrame:
@@ -33,6 +34,48 @@ def compute_concordance_matrix(labels: dict[str, pd.Series]) -> pd.DataFrame:
             matrix.loc[a, b] = (aligned[a].values == aligned[b].values).mean()
 
     return matrix.astype(float)
+
+
+def compute_kappa_matrix(labels: dict[str, pd.Series]) -> pd.DataFrame:
+    """
+    Paarweise Cohen's-κ-Matrix. κ ∈ [-1, 1], 1 = perfekte Übereinstimmung,
+    0 = Zufallsniveau. Chance-korrigiert → robust gegen ungleiche Klassenverteilungen.
+    """
+    # Auf gemeinsamen Index zuschneiden (wie compute_concordance_matrix)
+    common_index = None
+    for s in labels.values():
+        common_index = s.index if common_index is None else common_index.intersection(s.index)
+
+    aligned = {k: v.reindex(common_index).dropna() for k, v in labels.items()}
+    common_index = sorted(set.intersection(*[set(s.index) for s in aligned.values()]))
+    aligned = {k: v.loc[common_index].astype(int) for k, v in aligned.items()}
+
+    names = list(aligned.keys())
+    matrix = pd.DataFrame(index=names, columns=names, dtype=float)
+    for a in names:
+        for b in names:
+            matrix.loc[a, b] = cohen_kappa_score(aligned[a].values, aligned[b].values)
+    return matrix.astype(float)
+
+
+def plot_kappa_heatmap(matrix: pd.DataFrame, save_path: str) -> None:
+    """Heatmap-Darstellung der Cohen's-κ-Matrix (-0.2 … 1.0)."""
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(matrix.values, cmap="RdYlGn", vmin=-0.2, vmax=1.0)
+    ax.set_xticks(range(len(matrix.columns)))
+    ax.set_yticks(range(len(matrix.index)))
+    ax.set_xticklabels(matrix.columns, rotation=45, ha="right")
+    ax.set_yticklabels(matrix.index)
+    for i in range(len(matrix.index)):
+        for j in range(len(matrix.columns)):
+            ax.text(j, i, f"{matrix.iloc[i, j]:.2f}",
+                    ha="center", va="center", fontsize=9,
+                    color="black" if matrix.iloc[i, j] > 0.5 else "white")
+    ax.set_title("Cohen's κ: Label-Konkordanz (chance-korrigiert)")
+    fig.colorbar(im, ax=ax, shrink=0.8)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def plot_concordance_heatmap(matrix: pd.DataFrame, save_path: str) -> None:
@@ -97,13 +140,15 @@ def run_label_analysis(
     raw_df: pd.DataFrame,
     concordance_path: str,
     timeline_path: str,
+    kappa_path: str | None = None,
 ) -> dict:
     """
     Vergleicht MSM/HMM-Labels mit preisbasierten + makro Alternativen.
 
-    Schreibt Heatmap und Timeline-PNG und liefert eine kompakte
-    Statistik pro Methode (bear_share, n_switches, avg_phase_days)
-    sowie die Konkordanz-Matrix zurueck.
+    Schreibt Heatmap (% Uebereinstimmung), Cohen's-kappa-Heatmap und
+    Timeline-PNG und liefert eine kompakte Statistik pro Methode
+    (bear_share, n_switches, avg_phase_days) sowie Konkordanz- UND
+    Kappa-Matrix zurueck.
     """
     from src.data.labels import (
         label_pagan_sossounov,
@@ -123,9 +168,14 @@ def run_label_analysis(
         "NBER":    load_nber_recession(test_df.index),
     }
 
-    # Heatmap
+    # Heatmap (Anteil uebereinstimmender Tage)
     concordance = compute_concordance_matrix(labels)
     plot_concordance_heatmap(concordance, concordance_path)
+
+    # Cohen's kappa (chance-korrigiert)
+    kappa = compute_kappa_matrix(labels)
+    if kappa_path is not None:
+        plot_kappa_heatmap(kappa, kappa_path)
 
     # Timeline (S&P-500-Kurslinie aus raw)
     plot_prices = raw_df["^GSPC"].reindex(test_df.index).ffill()
@@ -145,5 +195,6 @@ def run_label_analysis(
 
     return {
         "concordance": concordance.round(4).to_dict(),
+        "kappa":       kappa.round(4).to_dict(),
         "switch_stats": switch_stats.round(2).to_dict(orient="index"),
     }

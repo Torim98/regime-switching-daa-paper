@@ -2,7 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Dependencies zuerst (Docker Layer Caching)
+# pip gegen langsame/flaky Downloads härten
+ENV PIP_DEFAULT_TIMEOUT=300 \
+    PIP_RETRIES=10
+
+# Dependencies zuerst (Docker Layer Caching) — ohne ML-Frameworks
 COPY pyproject.toml .
 RUN pip install --no-cache-dir ".[services]"
 

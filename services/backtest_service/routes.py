@@ -1,10 +1,21 @@
 from fastapi import APIRouter, HTTPException
 from config.config_loader import PipelineConfig
 from src.backtest.sorr import run_sorr_simulation, build_sorr_scenarios, build_sorr_summary
-from src.backtest.evaluation import evaluate_strategies, run_monte_carlo_simulation
+from src.backtest.evaluation import (
+    evaluate_strategies, run_monte_carlo_simulation,
+    # Issue #13 — Extended Evaluation
+    add_ulcer_to_table,
+    compute_classification_metrics, plot_confusion_matrices, plot_roc_pr_curves,
+    churning_stats, threshold_sensitivity,
+    time_to_recovery, switch_timing_vs_peak,
+    mcs_final_capitals, depletion_rate_with_ci,
+    test_h1_drawdown, test_h2_transformer, plot_mcs_violins,
+    break_even_transaction_cost, plot_break_even, withdrawal_sensitivity,
+    plot_regime_probability_heatmap,
+)
 from src.backtest.reporting import generate_statistics_report
 from src.backtest.engine import (
-    run_all_backtests,
+    run_all_backtests, backtest,
     calculate_performance_summary,
     calculate_annualized_metrics,
     calculate_crisis_performance,
@@ -15,6 +26,7 @@ from src.backtest.plots import (
     plot_mcs_boxplots, plot_mcs_paths, plot_mcs_quantiles,
     plot_rolling_sharpe, plot_drawdown,
 )
+from src.data.labels import load_nber_recession
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -185,6 +197,113 @@ def evaluate():
         trading_days_per_year=mcs_cfg.trading_days_per_year,
         start_year=sim_start_year,
     )
+
+    # --- Issue #13: Extended Evaluation ---
+    ext = cfg.evaluation.extended
+    models = list(ext.f1_models)
+    logger.info("Running Issue #13 extended evaluation...")
+
+    # 1) Ulcer Index → Evaluation-Tabelle erweitern
+    evaluation_table = add_ulcer_to_table(backtesting_results, evaluation_table)
+    evaluation_table.to_markdown(cfg.asset_path("evaluation_table"), index=True)
+
+    # 2) Classification vs. NBER
+    nber = load_nber_recession(test_df.index, source=ext.nber_source)
+    class_tbl, cms = compute_classification_metrics(test_df, nber, models)
+    class_tbl.to_markdown(cfg.asset_path("classification_metrics"))
+    plot_confusion_matrices(cms, cfg.asset_path("confusion_matrices"))
+    plot_roc_pr_curves(
+        test_df, nber, models, cfg.color_map,
+        cfg.asset_path("roc_curves"), cfg.asset_path("pr_curves"),
+    )
+
+    # 3) Churning + Threshold-Sensitivitaet
+    churn = churning_stats(
+        test_df, models, cfg.transaction_cost_rate,
+        min_phase_days=ext.whipsaw_min_phase_days,
+    )
+    churn.to_markdown(cfg.asset_path("churning_stats"))
+    for m, grid in vars(ext.threshold_grid).items():
+        ts = threshold_sensitivity(
+            test_df, backtest, m, list(grid),
+            cfg.transaction_cost_rate, cfg.backtesting.signal_shift,
+        )
+        ts.to_markdown(cfg.asset_path("threshold_sensitivity").replace("{model}", m))
+
+    # 4) Regime-Wahrscheinlichkeits-Heatmap
+    plot_regime_probability_heatmap(
+        test_df, models, cfg.asset_path("regime_probability_heatmap"),
+    )
+
+    # 5) Time-to-Recovery + Switch-Timing
+    for m in ["Buy_Hold"] + models:
+        if m not in backtesting_results.columns:
+            continue
+        ttr = time_to_recovery(backtesting_results[m], min_dd=ext.ttr_min_dd)
+        ttr.to_markdown(
+            cfg.asset_path("ttr_table").replace("{model}", m), index=False,
+        )
+
+    crisis_windows = {name: tuple(w) for name, w in vars(ext.crisis_windows).items()}
+    switch_rows = []
+    for m in models:
+        t = switch_timing_vs_peak(test_df, backtesting_results, m, crisis_windows)
+        if not t.empty:
+            t.insert(0, "Modell", m)
+            switch_rows.append(t.reset_index())
+    if switch_rows:
+        pd.concat(switch_rows, ignore_index=True).to_markdown(
+            cfg.asset_path("switch_timing"), index=False,
+        )
+
+    # 6) MCS: Depletion-CIs + H1/H2 + Violin-Plots
+    finals = mcs_final_capitals(mcs_paths, scenarios_list, strategies)
+
+    dep = depletion_rate_with_ci(finals, alpha=ext.alpha)
+    dep.to_markdown(cfg.asset_path("depletion_ci"))
+
+    regime_models = [m for m in strategies if m != "Buy_Hold"]
+    h1 = test_h1_drawdown(
+        mcs_paths, scenario=ext.hypothesis_scenario,
+        regime_models=regime_models, alpha=ext.alpha,
+    )
+    h1.to_markdown(cfg.asset_path("h1_drawdown"))
+
+    h2 = test_h2_transformer(
+        finals, scenario=ext.hypothesis_scenario, alpha=ext.alpha,
+    )
+    h2.to_markdown(cfg.asset_path("h2_transformer"))
+
+    violin_template = os.path.join(str(cfg._base_dir / "assets"), "mcs_violin_{}.png")
+    plot_mcs_violins(
+        finals, scenarios_list, strategies, cfg.color_map, violin_template,
+    )
+
+    # 7) Break-Even-Transaktionskosten
+    be_tbl, be_curves = break_even_transaction_cost(
+        test_df, backtest, backtesting_results["Buy_Hold"],
+        [m for m in models if f"{m}_Signal" in test_df.columns],
+        list(ext.fee_grid_bps),
+        cfg.backtesting.signal_shift,
+    )
+    be_tbl.to_markdown(cfg.asset_path("break_even_table"))
+    plot_break_even(
+        be_curves, float(backtesting_results["Buy_Hold"].iloc[-1]),
+        cfg.color_map, cfg.asset_path("break_even_plot"),
+    )
+
+    # 8) Entnahmeraten-Sensitivitaet
+    wdraw = withdrawal_sensitivity(
+        backtesting_results, test_df, run_sorr_simulation,
+        base_scenario={
+            "start": cfg.backtesting.sorr.scenarios.Standard.initial_capital,
+            "fee":   cfg.backtesting.sorr.scenarios.Standard.liquidity_fee,
+        },
+        rates=tuple(ext.withdrawal_rates),
+    )
+    wdraw.to_markdown(cfg.asset_path("withdrawal_sensitivity"))
+
+    logger.info("Issue #13 extended evaluation done")
 
     # Statistics Report generieren (wie Notebook 99)
     generate_report()

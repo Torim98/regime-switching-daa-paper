@@ -128,6 +128,7 @@ def label_analysis():
         test_df=test_df,
         raw_df=raw_df,
         concordance_path=cfg.asset_path("label_concordance_matrix"),
+        kappa_path=cfg.asset_path("label_kappa_matrix"),
         timeline_path=cfg.asset_path("label_timeline_comparison"),
     )
 

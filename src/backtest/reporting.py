@@ -81,6 +81,40 @@ def generate_statistics_report(cfg) -> str:
         fallback="*Keine Krisen-Performance verfügbar.*",
     )
 
+    # --- Issue #13: Extended Evaluation ---
+    classification_md = load_markdown_asset(
+        cfg.asset_path("classification_metrics"),
+        fallback="*Keine Klassifikationsmetriken verfügbar.*",
+    )
+    churning_md = load_markdown_asset(
+        cfg.asset_path("churning_stats"),
+        fallback="*Keine Churning-Statistik verfügbar.*",
+    )
+    depletion_ci_md = load_markdown_asset(
+        cfg.asset_path("depletion_ci"),
+        fallback="*Keine Depletion-CI verfügbar.*",
+    )
+    h1_md = load_markdown_asset(
+        cfg.asset_path("h1_drawdown"),
+        fallback="*H1-Test noch nicht durchgeführt.*",
+    )
+    h2_md = load_markdown_asset(
+        cfg.asset_path("h2_transformer"),
+        fallback="*H2-Test noch nicht durchgeführt.*",
+    )
+    break_even_md = load_markdown_asset(
+        cfg.asset_path("break_even_table"),
+        fallback="*Keine Break-Even-Analyse verfügbar.*",
+    )
+    withdrawal_sensitivity_md = load_markdown_asset(
+        cfg.asset_path("withdrawal_sensitivity"),
+        fallback="*Keine Entnahmeraten-Sensitivität verfügbar.*",
+    )
+    switch_timing_md = load_markdown_asset(
+        cfg.asset_path("switch_timing"),
+        fallback="*Keine Switch-Timing-Analyse verfügbar.*",
+    )
+
     # Fast Mode Status aus config auslesen
     fast_mode_enabled = cfg.fast_mode.enabled
     fast_mode_status = "TRUE (Development Mode)" if fast_mode_enabled else "FALSE (Full Run)"
@@ -189,6 +223,7 @@ Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale alle
 Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
 
 ![Label Concordance](../assets/{cfg.paths.assets.label_concordance_matrix})
+![Label Cohen's κ](../assets/{cfg.paths.assets.label_kappa_matrix})
 ![Label Timeline](../assets/{cfg.paths.assets.label_timeline_comparison})
 
 ---
@@ -204,10 +239,37 @@ Normalisierte Kennzahlen (CAGR, Sharpe, Sortino, Calmar) für den Vergleich übe
 
 {annualized_metrics_md}
 
+### Klassifikationsmetriken (vs. NBER-Rezessionen als Ground Truth)
+Vergleich der Modelle als binäre Rezessionsklassifikatoren (Precision, Recall, F1).
+
+{classification_md}
+
+![Confusion Matrices](../assets/{cfg.paths.assets.confusion_matrices})
+
+**ROC- und Precision-Recall-Kurven** (schwellenunabhängiger Vergleich über `*_Prob`):
+
+![ROC-Kurven](../assets/{cfg.paths.assets.roc_curves})
+![PR-Kurven](../assets/{cfg.paths.assets.pr_curves})
+
+### Signal-Churning & Whipsaw-Analyse
+Quantifizierung der Wechselhäufigkeit und Anteil sehr kurzer Regime-Phasen („Whipsaws").
+
+{churning_md}
+
+### Regime-Wahrscheinlichkeits-Heatmap
+Zeitverlauf der Bear-Wahrscheinlichkeiten aller Modelle.
+
+![Regime Probability Heatmap](../assets/{cfg.paths.assets.regime_probability_heatmap})
+
 ### Krisen-Performance
 Return und Max Drawdown während historischer Krisenperioden — der zentrale Nachweis für den Tail-Risk-Schutz der Regime-Switching-Modelle.
 
 {crisis_performance_md}
+
+### Switch-Timing relativ zum Drawdown-Peak
+Zeitlicher Abstand zwischen dem ersten Bear-Signal des Modells und dem Drawdown-Trough des Buy & Hold-Portfolios je Krise. Positiv = Modell reagierte frühzeitig, negativ = zu spät.
+
+{switch_timing_md}
 
 ### Drawdown-Verlauf
 ![Drawdown](../assets/{cfg.paths.assets.drawdown})
@@ -258,6 +320,32 @@ Wahrscheinlichkeitskorridore:
 
 Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalentwicklung.
 ![MCS Quantiles](../assets/{cfg.paths.assets.mcs_quantiles})
+
+### Depletion Rate mit 95%-Konfidenzintervall
+Wilson-CI für die Ruin-Wahrscheinlichkeit (P[Endkapital ≤ 0]) je Szenario × Strategie.
+
+{depletion_ci_md}
+
+### Hypothesentests (gepaarter Wilcoxon, α = 0.05)
+**H1 — Regime-Switching reduziert MaxDD vs. Buy & Hold:**
+
+{h1_md}
+
+**H2 — Transformer dominiert Ökonometrie und LSTM im Endvermögen:**
+
+{h2_md}
+
+### Break-Even-Transaktionskosten
+Ab welcher Kostenquote (in Basispunkten pro Umschichtung) verliert das aktive Switching seinen Renditevorteil gegenüber Buy & Hold?
+
+{break_even_md}
+
+![Break-Even-Analyse](../assets/{cfg.paths.assets.break_even_plot})
+
+### Entnahmeraten-Sensitivität (3.5 % / 4 % / 5 %)
+Robustheit der SORR-Ergebnisse bei variierenden jährlichen Entnahmen.
+
+{withdrawal_sensitivity_md}
 
 ---
 

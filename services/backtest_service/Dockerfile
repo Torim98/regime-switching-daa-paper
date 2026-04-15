@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+ENV PIP_DEFAULT_TIMEOUT=300 \
+    PIP_RETRIES=10
+
 COPY pyproject.toml .
 RUN pip install --no-cache-dir ".[services]"
 
