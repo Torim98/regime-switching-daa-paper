@@ -355,20 +355,17 @@ def chart_mcs_quantiles(scenario: str = Query("Standard"), strategy: str = Query
     cfg = _cfg()
     df = _read_parquet_or_404(cfg.data_path("mcs_data"), "/backtest/evaluate zuerst")
 
-    key = (scenario, strategy)
-    # mcs_data wurde via pd.DataFrame(dict_of_{(scenario,strategy): ndarray})
-    # gespeichert. Robust beide Varianten prüfen:
-    matrix = None
-    if key in df.columns:
-        matrix = np.stack(df[key].values)
-    else:
-        col_name = f"{scenario}__{strategy}"
-        if col_name in df.columns:
-            matrix = np.stack(df[col_name].values)
-    if matrix is None:
-        available = list(df.columns)[:20]
+    # Spalten folgen dem Schema: {scenario}_{strategy}_path_{N:03d}
+    # z.B. "Standard_Transformer_path_000", "Standard_Transformer_path_001", ...
+    prefix = f"{scenario}_{strategy}_path_"
+    path_cols = [c for c in df.columns if c.startswith(prefix)]
+    if not path_cols:
+        available = sorted({c.rsplit("_path_", 1)[0] for c in df.columns if "_path_" in c})
         raise HTTPException(400, f"Kombination ({scenario}, {strategy}) nicht gefunden. "
-                                  f"Erste Spalten: {available}")
+                                  f"Verfügbare Kombinationen: {available}")
+
+    # matrix: (n_paths, n_days) — jede Spalte ist ein Pfad, jede Zeile ein Tag
+    matrix = df[path_cols].values.T      # Transponieren: Zeilen=Pfade, Spalten=Tage
 
     q = np.quantile(matrix, [0.05, 0.25, 0.5, 0.75, 0.95], axis=0)
     days = np.arange(matrix.shape[1])
