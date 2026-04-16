@@ -86,6 +86,18 @@ Die Pipeline-Services kommunizieren über gemeinsame Dateisystem-Volumes; der Da
 >
 > Das **interaktive Frontend** selbst läuft unter [http://localhost:8004/](http://localhost:8004/) (nur an `127.0.0.1` gebunden, dev-only). Es löst alle Pipeline-Schritte per Klick aus, visualisiert sämtliche Artefakte mit Plotly, erlaubt das Editieren der `config.yaml` mit automatischem Backup/Rollback und streamt Container-Logs via WebSocket — äquivalent zu `docker compose logs -f`.
 
+### Dashboard (Screenshots)
+
+| Overview | Control Hub |
+|:---:|:---:|
+| ![Overview](assets/screenshots/dashboard_overview.png) | ![Control Hub](assets/screenshots/dashboard_control-hub.png) |
+| Status-Kacheln, Pipeline-Artefakte, Coverage-Map | Alle Endpoints per Klick auslösen, Health-Tiles, JSON-Viewer |
+
+| Evaluation | Config-Editor |
+|:---:|:---:|
+| ![Evaluation](assets/screenshots/dashboard_evaluation.png) | ![Config-Editor](assets/screenshots/dashboard_config.png) |
+| Interaktive Plotly-Charts, MCS-Quantile, Hypothesentests | Monaco-YAML-Editor mit Backup/Restore, Dirty-State |
+
 ---
 
 ## Engineering-Konzepte
