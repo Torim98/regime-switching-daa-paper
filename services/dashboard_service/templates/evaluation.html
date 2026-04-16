@@ -15,10 +15,15 @@
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Klassifikationsmetriken (vs. NBER)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdClass"></div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <figure><img src="/api/asset/confusion_matrices.png" class="w-full object-contain" loading="lazy" alt="Confusion"><figcaption class="text-xs p-2 text-slate-500">Confusion Matrices</figcaption></figure>
-      <figure><img src="/api/asset/roc_curves.png" class="w-full object-contain" loading="lazy" alt="ROC"><figcaption class="text-xs p-2 text-slate-500">ROC-Kurven</figcaption></figure>
-      <figure><img src="/api/asset/pr_curves.png" class="w-full object-contain" loading="lazy" alt="PR"><figcaption class="text-xs p-2 text-slate-500">Precision-Recall-Kurven</figcaption></figure>
+    <!-- Confusion Matrices: volle Breite (4 Sub-Plots nebeneinander) -->
+    <figure class="mb-4">
+      <img src="/api/asset/confusion_matrices.png" class="w-full object-contain rounded" loading="lazy" alt="Confusion Matrices">
+      <figcaption class="text-xs p-2 text-slate-500">Confusion Matrices (MSM · HMM · LSTM · Transformer)</figcaption>
+    </figure>
+    <!-- ROC + PR nebeneinander -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <figure><img src="/api/asset/roc_curves.png" class="w-full object-contain rounded" loading="lazy" alt="ROC"><figcaption class="text-xs p-2 text-slate-500">ROC-Kurven</figcaption></figure>
+      <figure><img src="/api/asset/pr_curves.png" class="w-full object-contain rounded" loading="lazy" alt="PR"><figcaption class="text-xs p-2 text-slate-500">Precision-Recall-Kurven</figcaption></figure>
     </div>
   </section>
 
