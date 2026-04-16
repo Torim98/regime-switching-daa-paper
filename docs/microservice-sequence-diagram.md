@@ -125,3 +125,67 @@ sequenceDiagram
     BS->>FS: equity_curves + drawdown + rolling_sharpe
     BS-->>Client: 200 OK
 ```
+
+## Dashboard Service — Control Hub & Visualisierung
+
+Der Dashboard Service (`:8004`) ist kein Schritt der Pipeline, sondern ein UI-Layer darüber. Er liest die Artefakte read-only vom Filesystem und proxy't Pipeline-Calls an die drei Services weiter. Das folgende Diagramm zeigt die typischen Interaktionspfade.
+
+```mermaid
+sequenceDiagram
+    actor User as Browser<br/>localhost:8004
+    participant DB as Dashboard Service<br/>:8004
+    participant DS as Data Service<br/>:8001
+    participant MS as Model Service<br/>:8002
+    participant BS as Backtest Service<br/>:8003
+    participant FS as Filesystem<br/>(Shared Volumes)
+
+    Note over User,FS: Visualisierung (read-only)
+    User->>DB: GET /eda
+    DB->>DB: Jinja2 render eda.html
+    DB-->>User: HTML + Tailwind + Plotly.js
+    User->>DB: GET /api/chart/returns?col=Returns&smoothing=20
+    DB->>FS: read feature_engineered_data.parquet
+    DB->>DB: Plotly Figure → JSON
+    DB-->>User: Plotly-JSON (clientseitig gerendert)
+
+    Note over User,FS: Control Hub (Proxy)
+    User->>DB: GET /api/hub/health
+    DB->>DS: GET /openapi.json
+    DS-->>DB: 200 OK
+    DB->>MS: GET /openapi.json
+    MS-->>DB: 200 OK
+    DB->>BS: GET /openapi.json
+    BS-->>DB: 200 OK
+    DB-->>User: {data: up, model: up, backtest: up}
+
+    User->>DB: POST /api/hub/call?service=data&path=/data/ingest&method=POST
+    DB->>DS: POST /data/ingest (httpx-Proxy, 8h timeout)
+    DS->>FS: Pipeline-Artefakte schreiben
+    DS-->>DB: 200 OK {rows, columns}
+    DB-->>User: {status_code: 200, ok: true, body: {...}}
+
+    Note over User,FS: Live-Log-Streaming (WebSocket)
+    User->>DB: WS /ws/logs/data_service.log?tail=500
+    DB->>FS: read letzte 500 Zeilen
+    DB-->>User: 500× Text-Frame (Initial-Tail)
+    loop Polling (~300 ms)
+        DB->>FS: stat + read neue Bytes
+        DB-->>User: Text-Frame (neue Zeilen)
+    end
+
+    Note over User,FS: Config-Editor (Backup + Rollback)
+    User->>DB: GET /api/config
+    DB->>FS: read config/config.yaml
+    DB-->>User: {content: "yaml...", mtime, size}
+    User->>DB: POST /api/config {content: "geänderter YAML"}
+    DB->>DB: YAML-Parse + Pflicht-Sections-Check
+    DB->>FS: config.yaml → config.YYYYMMDD-HHMMSS.bak
+    DB->>FS: atomic write config.yaml
+    DB->>DB: PipelineConfig() Reload-Test
+    alt Reload OK
+        DB-->>User: {status: ok, backup: "...bak"}
+    else Reload fehlgeschlagen
+        DB->>FS: Rollback aus .bak
+        DB-->>User: 422 {detail: "Rollback durchgeführt"}
+    end
+```

@@ -1,6 +1,6 @@
 # FastAPI Endpoints Dokumentation
 
-Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur, die in drei containerisierte FastAPI-Services unterteilt ist. Jeder Service übernimmt einen spezifischen Teil der quantitativen Pipeline.
+Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur: drei containerisierte FastAPI-Services bilden die quantitative Pipeline ab, ein vierter (Dashboard) stellt das interaktive Frontend mit Control Hub, Config-Editor und Live-Logs bereit.
 
 ---
 
@@ -55,3 +55,106 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur, die in d
 
 ### `GET /backtest/results`
 - **Beschreibung**: Gibt die Ergebnisse der Strategie-Evaluation (die finale Performance-Tabelle) als reinen Text/Markdown im JSON-Format zurück, um die Resultate über die API abfragen zu können. Setzt eine erfolgreiche Ausführung von `/backtest/evaluate` voraus.
+
+---
+
+## Dashboard Service (Port: 8004)
+*Interaktives Frontend mit Visualisierung, Control Hub, Config-Editor und Live-Log-Streaming. Dev-only an `127.0.0.1` gebunden. Ausführliche Beschreibung: [Dashboard Service](dashboard-service.md).*
+
+### HTML-Seiten (Jinja2)
+
+| Pfad | Seite |
+|------|-------|
+| `GET /` | Overview (Status-Kacheln, Artefakt-Grid, Coverage-Map) |
+| `GET /hub` | Control Hub (alle Pipeline-Endpoints per Klick) |
+| `GET /eda` | EDA-Charts + PNG-Gallery |
+| `GET /models` | Regime-Erkennung, Label-Konkordanz, Optuna-Heatmaps |
+| `GET /backtest` | Equity Curves, Drawdown, Rolling Sharpe, SORR, Krisen-Perf |
+| `GET /evaluation` | Vollständige `statistics.md`-Abdeckung (MCS, H1/H2, Break-Even, ...) |
+| `GET /config` | Monaco-YAML-Editor für `config.yaml` |
+| `GET /logs` | Live-Log-Stream (WebSocket) |
+
+### Data-Adapter — Parquet → Plotly-JSON
+
+Alle Chart-Endpoints liefern Plotly-kompatibles JSON, das clientseitig mit Plotly.js gerendert wird. Keine Neuberechnungen, alle Werte stammen aus den Parquet-Artefakten der Pipeline.
+
+#### `GET /api/status`
+- **Beschreibung**: Übersicht aller Pipeline-Artefakte (Existenz, Größe in MB, mtime) plus Meta-Info (End-Date, Walk-Forward-Flag, Fast-Mode-Flag). Basis für die Status-Kacheln und das Artefakt-Grid auf der Overview-Seite.
+
+#### `GET /api/asset/{name}` / `GET /api/markdown/{name}`
+- **Beschreibung**: Read-only-Auslieferung eines PNG- oder MD-Assets aus `assets/`. Path-Traversal-Schutz integriert. `GET /api/markdown/{name}` liefert MD-Inhalte als JSON-Payload für clientseitiges Rendering mit marked.js.
+
+#### `GET /api/chart/returns`
+- **Parameter**: `col` (str, default: `Returns`), `smoothing` (int 0–252, default: 0)
+- **Beschreibung**: Zeitreihe einer beliebigen Spalte aus `feature_engineered_data.parquet` mit optionalem Moving-Average-Smoothing.
+
+#### `GET /api/chart/feature-correlation`
+- **Beschreibung**: Korrelationsmatrix (Pearson) über die in `features.model_features` konfigurierten Spalten.
+
+#### `GET /api/chart/capital-curve`
+- **Beschreibung**: 60/40-Benchmark-Kapitalkurve (kumulierte Returns).
+
+#### `GET /api/chart/equity-curves`
+- **Beschreibung**: Equity Curves aller Strategien aus `backtesting_results.parquet`. Setzt `/backtest/run` voraus.
+
+#### `GET /api/chart/drawdown`
+- **Beschreibung**: Drawdown-Verlauf aller Strategien.
+
+#### `GET /api/chart/rolling-sharpe`
+- **Parameter**: `window` (int 21–1260, default: 252)
+- **Beschreibung**: Rolling Sharpe Ratio mit konfigurierbarem Fenster.
+
+#### `GET /api/chart/regime-overlay`
+- **Parameter**: `model` (str: `MSM` | `HMM` | `LSTM` | `Transformer`, default: `MSM`)
+- **Beschreibung**: 60/40-Kurs mit Bear-Probability und Bear-Signal-Bändern (rote Shapes) überlagert. Zeigt, wann und wo das ausgewählte Modell Bärenmarkt-Phasen erkannt hat.
+
+#### `GET /api/chart/mcs-quantiles`
+- **Parameter**: `scenario` (str, default: `Standard`), `strategy` (str, default: `Transformer`)
+- **Beschreibung**: Quantil-Fächer (5 / 25 / 50 / 75 / 95 %) der Monte-Carlo-Simulation-Pfade. Setzt `/backtest/evaluate` voraus.
+
+### Control-Hub-Proxy
+
+Ruft die Pipeline-Services per `httpx` auf. Read-Timeout: 8 h (für Walk-Forward-Train-All). Service-URLs über Env-Vars konfigurierbar (`DATA_SERVICE_URL`, `MODEL_SERVICE_URL`, `BACKTEST_SERVICE_URL`).
+
+#### `GET /api/hub/catalog`
+- **Beschreibung**: Liefert den kompletten Endpoint-Katalog (Service, Pfad, Methode, Label, Beschreibung, Parameter-Schema, Danger-Flag) für das dynamische UI-Rendering der Control-Hub-Seite.
+
+#### `GET /api/hub/health`
+- **Beschreibung**: Ping-Check auf alle drei Pipeline-Services (`/openapi.json` als Marker). Liefert `{up, status, url}` je Service für die Health-Tiles.
+
+#### `POST /api/hub/call`
+- **Parameter**: `service` (`data` | `model` | `backtest`), `path` (z.B. `/data/ingest`), `method` (`GET` | `POST`), `query` (optional: JSON-String mit Query-Params)
+- **Beschreibung**: Generischer Proxy-Call. Nutzt die UI, um beliebige Endpoints der Pipeline-Services auszulösen. Response: `{status_code, ok, body}` — bei Non-JSON-Responses wird der Body als `{"text": ...}` verpackt.
+
+### Config-Editor
+
+Sicherheitsnetz beim Schreiben: (1) YAML-Parse → (2) Pflicht-Sections-Check → (3) `.bak`-Backup → (4) Atomic Swap via tempfile → (5) `PipelineConfig()`-Reload-Verifikation → (6) Rollback aus Backup bei Reload-Fehler.
+
+#### `GET /api/config`
+- **Beschreibung**: Liefert die aktuelle `config.yaml` als reinen Text plus Meta (Pfad, mtime, Size).
+
+#### `POST /api/config`
+- **Body**: `{"content": "<gesamter YAML-Text>"}`
+- **Beschreibung**: Speichert den übergebenen YAML-Text nach bestandener Validierung. Pflicht-Sections: `data`, `features`, `portfolio`, `models`, `backtesting`, `walk_forward`, `evaluation`, `paths`, `plotting`. Response: `{status, backup, bytes_written, reloaded}`.
+
+#### `GET /api/config/backups`
+- **Beschreibung**: Liste aller `.bak`-Dateien im `config/`-Ordner, sortiert nach mtime (neueste zuerst).
+
+#### `POST /api/config/restore`
+- **Body**: `{"name": "config.YYYYMMDD-HHMMSS.bak"}`
+- **Beschreibung**: Spielt eine bestimmte Backup-Datei als aktive `config.yaml` zurück. Der vorherige Zustand wird zusätzlich als `*.pre-restore.bak` gesichert.
+
+### Live-Log-Streaming
+
+WebSocket-basierter File-Tail auf `logs/*.log`. Rotation und Truncation werden erkannt und mit einer System-Zeile (`[dashboard] Datei truncated — resume from 0`) signalisiert.
+
+#### `GET /api/logs/files`
+- **Beschreibung**: Liste aller verfügbaren `logs/*.log`-Dateien inklusive Größe (KB) und mtime.
+
+#### `GET /api/logs/snapshot/{filename}`
+- **Parameter**: `lines` (int 1–10000, default: 500)
+- **Beschreibung**: Liefert die letzten N Zeilen der angegebenen Log-Datei ohne WebSocket (für Initial-Load oder Snapshots). Path-Traversal-Schutz aktiv.
+
+#### `WS /ws/logs/{filename}`
+- **Parameter**: `tail` (int, default: 200)
+- **Beschreibung**: Sendet zunächst die letzten `tail` Zeilen, dann via ~300 ms-Polling alle neuen Zeilen als Text-Frames. Bei Datei-Truncation wird ab Position 0 neu gelesen. Bei `WebSocketDisconnect` wird die Verbindung sauber geschlossen.

@@ -1,6 +1,6 @@
 # Microservice-Architektur
 
-Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei containerisierte FastAPI-Services betrieben werden. Beide Wege nutzen dieselbe Business Logic unter `src/` und dieselbe Konfiguration unter `config/config.yaml`.
+Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über containerisierte FastAPI-Services betrieben werden. Drei Services bilden die Pipeline ab, ein vierter stellt das interaktive Dashboard bereit. Alle Wege nutzen dieselbe Business Logic unter `src/` und dieselbe Konfiguration unter `config/config.yaml`.
 
 ## Services
 
@@ -9,6 +9,7 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei contain
 | **Data Service** | 8001 | Datenakquise (yfinance), Preprocessing, Feature Engineering, EDA |
 | **Model Service** | 8002 | Training & Prediction aller 4 Regime-Switching-Modelle |
 | **Backtest Service** | 8003 | Backtesting, SORR-Simulation, Monte Carlo, Reporting |
+| **Dashboard Service** | 8004 | Interaktives Frontend: Visualisierung aller Artefakte, Control Hub für Pipeline-Endpoints (httpx-Proxy), YAML-Config-Editor, WebSocket-Log-Streaming. Nur lokal gebunden (`127.0.0.1:8004`). Details: [Dashboard Service](dashboard-service.md). |
 
 ## Endpunkte
 
@@ -37,19 +38,37 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über drei contain
 |---------|------|-------------|
 | POST | `/backtest/run` | Backtesting + Equity Curves + Drawdown + Rolling Sharpe + SORR + Krisen-Performance |
 | POST | `/backtest/evaluate` | Evaluation-Tabelle + Monte Carlo Simulation + `statistics.md` |
+| POST | `/backtest/report` | `statistics.md` erneut generieren |
 | GET | `/backtest/results` | Evaluation-Tabelle als Markdown |
+
+### Dashboard Service (`:8004`)
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| GET | `/`, `/eda`, `/models`, `/backtest`, `/evaluation`, `/hub`, `/config`, `/logs` | HTML-Seiten (Jinja2) |
+| GET | `/api/status` | Pipeline-Artefakt-Übersicht |
+| GET | `/api/chart/{...}` | Plotly-JSON für EDA, Backtest, Regime-Overlay, MCS-Quantile |
+| GET/POST | `/api/hub/{catalog,health,call}` | Control-Hub-Proxy auf `:8001/:8002/:8003` |
+| GET/POST | `/api/config`, `/api/config/backups`, `/api/config/restore` | YAML-Editor mit Backup + Rollback |
+| GET | `/api/logs/files`, `/api/logs/snapshot/{file}` | Log-Listing + Initial-Tail |
+| WS | `/ws/logs/{file}?tail=` | Live-Log-Streaming (File-Tail) |
+
+Vollständige Liste in [dashboard-service.md](dashboard-service.md) und [fastapi-endpoints.md](fastapi-endpoints.md).
 
 ## Abhängigkeiten
 
-Die Services müssen in folgender Reihenfolge aufgerufen werden, da sie über das gemeinsame Dateisystem kommunizieren:
+Die Pipeline-Services müssen in folgender Reihenfolge aufgerufen werden, da sie über das gemeinsame Dateisystem kommunizieren:
 
 ```
 Data Service → Model Service → Backtest Service
 ```
 
-`docker-compose.yml` bildet dies über `depends_on` ab:
+Das Dashboard konsumiert die Artefakte read-only und proxy't schreibende Calls (Training/Backtest) an die Pipeline-Services weiter. Es ist kein Pflicht-Schritt der Pipeline, sondern ein Control- und Visualisierungs-Layer darüber.
+
+`docker-compose.yml` bildet die Abhängigkeiten über `depends_on` ab:
 - `model-service` depends_on `data-service`
 - `backtest-service` depends_on `model-service`
+- `dashboard-service` depends_on `data-service`, `model-service`, `backtest-service`
 
 Innerhalb des Model Service gilt eine feste Trainingsreihenfolge:
 1. **MSM** (Markov-Switching) — unabhängig
@@ -62,14 +81,14 @@ Bei `walk_forward.enabled: true` wird `/models/train-all` direkt aufgerufen und 
 
 Alle Services kommunizieren über gemountete Host-Verzeichnisse:
 
-| Volume | Data Service | Model Service | Backtest Service | Inhalt |
-|--------|:---:|:---:|:---:|--------|
-| `./data` | R/W | R/W | R | Parquet-Dateien (Medallion: Bronze/Silver/Gold) |
-| `./models` | — | R/W | — | Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna SQLite DB |
-| `./assets` | R/W | R/W | R/W | Plots (PNG) und Tabellen (Markdown) |
-| `./config` | R | R | R | `config.yaml` |
-| `./logs` | R/W | R/W | R/W | Service-Logdateien |
-| `./docs` | — | — | R/W | `statistics.md` |
+| Volume | Data | Model | Backtest | Dashboard | Inhalt |
+|--------|:---:|:---:|:---:|:---:|--------|
+| `./data` | R/W | R/W | R | R | Parquet-Dateien (Medallion: Bronze/Silver/Gold) |
+| `./models` | — | R/W | — | — | Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna SQLite DB |
+| `./assets` | R/W | R/W | R/W | R | Plots (PNG) und Tabellen (Markdown) |
+| `./config` | R | R | R | **R/W** | `config.yaml` (Dashboard schreibt mit `.bak`-Backup + Rollback) |
+| `./logs` | R/W | R/W | R/W | R | Service-Logdateien (Dashboard tailt per File-Tail) |
+| `./docs` | — | — | R/W | R | `statistics.md` |
 
 ## Logging
 
@@ -78,10 +97,13 @@ Jeder Service schreibt in eine eigene Logdatei unter `logs/`:
 - `logs/data_service.log`
 - `logs/model_service.log`
 - `logs/backtest_service.log`
+- `logs/dashboard_service.log`
 
 Format: `YYYY-MM-DD HH:MM:SS,ms | service_name | LEVEL | message`
 
 Zeitzone: `Europe/Berlin` (konfiguriert via `TZ` Environment-Variable in `docker-compose.yml`)
+
+Der Dashboard-Service stellt zusätzlich einen WebSocket unter `/ws/logs/{filename}` bereit, der jede dieser Log-Dateien live streamt (File-Tail) — äquivalent zu `docker compose logs -f`.
 
 ## Projektstruktur
 
@@ -120,10 +142,20 @@ regime-switching-daa/
 │   │   ├── Dockerfile
 │   │   ├── main.py
 │   │   └── routes.py
-│   └── backtest_service/
+│   ├── backtest_service/
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   └── routes.py
+│   └── dashboard_service/            # Interaktives Frontend (Port 8004, dev-only)
 │       ├── Dockerfile
 │       ├── main.py
-│       └── routes.py
+│       ├── routes.py                 # HTML-Seiten (Jinja2)
+│       ├── data_adapters.py          # Parquet → Plotly-JSON (/api/chart/*)
+│       ├── hub_api.py                # httpx-Proxy zu data/model/backtest (/api/hub/*)
+│       ├── config_api.py             # YAML-Editor + Backup/Restore (/api/config/*)
+│       ├── websockets.py             # File-Tail-Log-Streaming (/ws/logs/*)
+│       ├── templates/                # 9 Jinja-Templates (base + 8 Pages)
+│       └── static/                   # dashboard.css + common.js
 │
 ├── docker-compose.yml
 ├── pyproject.toml
@@ -136,17 +168,17 @@ regime-switching-daa/
 └── logs/                             # Service-Logdateien
 ```
 
-## Vergleich: Notebook vs. Microservices
+## Vergleich: Notebook vs. Microservices vs. Dashboard
 
-| Aspekt | Notebook-Pipeline | Microservice-Pipeline |
-|--------|------------------|----------------------|
-| Ausführung | Jupyter / Papermill | Docker + curl/HTTP |
-| Interaktivität | Inline-Plots, Zellen-Output | Swagger UI, JSON-Responses |
-| Reproduzierbarkeit | `regime-switching-daa.ipynb` | `docker-compose up --build` |
-| Business Logic | `src/` (import) | `src/` (identisch) |
-| Konfiguration | `config/config.yaml` | `config/config.yaml` (identisch) |
-| Plot-Erzeugung | `src/*/plots.py` + `IPython.display` | `src/*/plots.py` + `matplotlib.use("Agg")` |
-| Daten-Persistierung | Parquet (Medallion) | Parquet (Medallion, identisch) |
-| Timing-Report | `pipeline_timing.md` (Papermill) | Logs pro Service |
+| Aspekt | Notebook-Pipeline | Microservice-Pipeline | Dashboard-UI |
+|--------|------------------|----------------------|--------------|
+| Ausführung | Jupyter / Papermill | Docker + curl/HTTP | Browser-Klick (Control Hub) |
+| Interaktivität | Inline-Plots, Zellen-Output | Swagger UI, JSON-Responses | Plotly-Charts, Forms, Live-Logs |
+| Reproduzierbarkeit | `regime-switching-daa.ipynb` | `docker-compose up --build` | `http://localhost:8004/` |
+| Business Logic | `src/` (import) | `src/` (identisch) | konsumiert Artefakte, proxy't Services |
+| Konfiguration | `config/config.yaml` | `config/config.yaml` (identisch) | In-UI-Editor mit Validation + Rollback |
+| Plot-Erzeugung | `src/*/plots.py` + `IPython.display` | `src/*/plots.py` + `matplotlib.use("Agg")` | Plotly.js (clientseitig, interaktiv) |
+| Daten-Persistierung | Parquet (Medallion) | Parquet (Medallion, identisch) | read-only Konsum |
+| Timing-Report | `pipeline_timing.md` (Papermill) | Logs pro Service | Live-Log-Stream via WebSocket |
 
-Siehe auch: [Sequenzdiagramm](sequence-diagram.md) für den detaillierten Ablauf eines Pipeline-Durchlaufs.
+Siehe auch: [Sequenzdiagramm: Microservice-Pipeline](microservice-sequence-diagram.md) für den detaillierten Ablauf eines Pipeline-Durchlaufs und [Dashboard Service](dashboard-service.md) für Architektur und Seitenstruktur des Frontends.

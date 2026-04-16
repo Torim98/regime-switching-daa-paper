@@ -60,26 +60,31 @@ Ein modulares Pipeline-Design mit spezialisierten Jupyter Notebooks. Ein zentral
 
 ### Microservice-Architektur (Reproduzierbarkeit & Deployment)
 
-Drei containerisierte FastAPI-Services bilden die gesamte Pipeline ab:
+Vier containerisierte FastAPI-Services bilden die gesamte Pipeline und das Frontend ab:
 
 | Service | Port | Beschreibung |
 |---------|------|-------------|
 | **Data Service** | 8001 | Datenakquise, Preprocessing, Feature Engineering, EDA |
 | **Model Service** | 8002 | Training & Prediction (MSM, HMM, LSTM, Transformer) |
 | **Backtest Service** | 8003 | Backtesting, SORR, Monte Carlo Simulation, Reporting |
+| **Dashboard Service** | 8004 | Interaktives UI: EDA/Backtest/Evaluation-Visualisierung, Control Hub für alle Pipeline-Endpoints, YAML-Config-Editor, Live-Log-Streaming |
 
-Die Services kommunizieren über gemeinsame Dateisystem-Volumes und werden über `docker-compose` orchestriert.
+Die Pipeline-Services kommunizieren über gemeinsame Dateisystem-Volumes; der Dashboard-Service liest dieselben Artefakte read-only und ruft die anderen Services per `httpx`-Proxy auf. Orchestrierung über `docker-compose`.
 
 **Weiterführende Dokumentationen:**
 * [Microservice-Architektur & Setup](docs/microservice-architecture.md)
+* [Dashboard Service (UI & Control Hub)](docs/dashboard-service.md)
 * [Sequenzdiagramm: Microservice-Pipeline](docs/microservice-sequence-diagram.md)
 * [Sequenzdiagramm: Jupyter-Pipeline](docs/jupyter-sequence-diagram.md)
-* [API Endpoints & Routen](docs/api-endpoints.md)
+* [API Endpoints & Routen](docs/fastapi-endpoints.md)
 
-> Da die Services auf FastAPI basieren, steht für jeden Service nach dem Start (via `docker-compose up`) auch eine interaktive **Swagger UI** zur Verfügung, über die die Endpoints direkt im Browser getestet werden können:
+> Da alle Services auf FastAPI basieren, steht nach dem Start (via `docker-compose up`) für jeden Service auch eine interaktive **Swagger UI** zur Verfügung:
 > * Data Service: [http://localhost:8001/docs](http://localhost:8001/docs)
 > * Model Service: [http://localhost:8002/docs](http://localhost:8002/docs)
 > * Backtest Service: [http://localhost:8003/docs](http://localhost:8003/docs)
+> * Dashboard Service: [http://localhost:8004/docs](http://localhost:8004/docs)
+>
+> Das **interaktive Frontend** selbst läuft unter [http://localhost:8004/](http://localhost:8004/) (nur an `127.0.0.1` gebunden, dev-only). Es löst alle Pipeline-Schritte per Klick aus, visualisiert sämtliche Artefakte mit Plotly, erlaubt das Editieren der `config.yaml` mit automatischem Backup/Rollback und streamt Container-Logs via WebSocket — äquivalent zu `docker compose logs -f`.
 
 ---
 
@@ -116,6 +121,9 @@ Die Simulation berücksichtigt reale Marktreibungen:
 ### Automated Reporting (Live-Docs)
 Die Datei `statistics.md` wird am Ende jedes Pipeline-Durchlaufs neu generiert. Hierbei werden Markdown-Tabellen und PNG-Assets direkt in das Dokument eingebettet, was eine lückenlose und stets aktuelle Dokumentation der Forschungsergebnisse ermöglicht.
 
+### Interaktives Control Hub & Visualisierung
+Der **Dashboard Service** (`:8004`) stellt ein modernes Zero-Build-Frontend (Tailwind + Plotly + HTMX + Alpine.js + Monaco) bereit. Es deckt vier Bereiche ab: (1) interaktive Visualisierung aller Pipeline-Artefakte inkl. vollständiger `statistics.md`-Abdeckung, (2) ein **Control Hub**, der alle FastAPI-Endpoints der drei Pipeline-Services per Klick aufruft (via `httpx`-Proxy mit langen Read-Timeouts für Walk-Forward-Läufe), (3) ein **YAML-Config-Editor** mit Server-Side-Validation, atomarem Swap und automatischem Rollback bei Reload-Fehlern, sowie (4) ein **Live-Log-Streaming** per WebSocket-File-Tail. Der Service bleibt an `127.0.0.1` gebunden (dev-only) und verändert außer `config/config.yaml` (mit `.bak`-Backup) nichts an den Pipeline-Artefakten.
+
 ---
 
 ## Quickstart
@@ -145,14 +153,18 @@ git clone https://github.com/Torim98/regime-switching-daa.git
 cd regime-switching-daa
 docker-compose up --build -d
 
-# Pipeline ausführen:
+# Variante 1 — Pipeline per curl ausführen:
 curl -X POST http://localhost:8001/data/ingest
 curl -X POST http://localhost:8002/models/optimize-all    # Optional: Hyperparameter-Optimierung
 curl -X POST http://localhost:8002/models/train-all
 curl -X POST http://localhost:8003/backtest/run
 curl -X POST http://localhost:8003/backtest/evaluate
 
-# Swagger UIs: http://localhost:8001/docs, :8002/docs, :8003/docs
+# Variante 2 — Interaktives Dashboard im Browser (empfohlen):
+#   http://localhost:8004/        ← EDA, Backtest, Evaluation, MCS, Config-Editor, Live-Logs
+#   http://localhost:8004/hub     ← Alle Pipeline-Endpoints per Klick
+#
+# Swagger UIs: http://localhost:8001/docs, :8002/docs, :8003/docs, :8004/docs
 ```
 
 ---
@@ -228,7 +240,8 @@ regime-switching-daa/
 ├── services/        FastAPI Microservices
 │   ├── data_service/
 │   ├── model_service/
-│   └── backtest_service/
+│   ├── backtest_service/
+│   └── dashboard_service/   Interaktives Frontend (UI, Control Hub, Config-Editor, Live-Logs)
 ├── src/             Shared Business Logic
 │   ├── data/        Ingestion, Preprocessing, Feature Engineering, EDA, Plots
 │   ├── models/      MSM, HMM, LSTM, Transformer, Plots
@@ -246,12 +259,13 @@ regime-switching-daa/
 |----------|-------------|
 | [Data Architecture](docs/data-architecture.md) | Medallion-Modell (Bronze/Silver/Gold) |
 | [Microservice Architecture](docs/microservice-architecture.md) | Services, Endpunkte, Volumes, Logging |
+| [Dashboard Service](docs/dashboard-service.md) | UI-Seitenstruktur, Control Hub, Config-Editor, WebSocket-Log-Streaming, Security |
 | [Sequence Diagram: Microservices](docs/microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
 | [Sequence Diagram: Jupyter](docs/jupyter-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Notebook-Pipeline |
 | [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
 | [Transformer Architecture](docs/transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
 | [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
-| [FastAPI Endpoints](docs/fastapi-endpoints.md) | API-Routen und Parameter |
+| [FastAPI Endpoints](docs/fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
 
 ---
 
