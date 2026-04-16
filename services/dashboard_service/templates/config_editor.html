@@ -51,7 +51,7 @@
     </div>
 
     <!-- Monaco Editor -->
-    <div id="monaco-host" class="w-full" style="height: 70vh;"></div>
+    <div id="monaco-host" class="w-full" style="height: 70vh; overflow: hidden;"></div>
 
     <div class="px-6 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex items-center justify-between">
       <div>
@@ -63,7 +63,9 @@
   </section>
 
 </div>
+{% endblock %}
 
+{% block scripts %}
 <!-- Monaco Loader -->
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
 <script>
@@ -72,7 +74,7 @@ function configPage() {
     path: '', mtime: '', sizeBytes: 0,
     dirty: false, saving: false,
     showBackups: false, backups: [],
-    editor: null, originalContent: '',
+    editor: null, _monacoInited: false, originalContent: '',
 
     async init() {
       await this.load();
@@ -88,9 +90,10 @@ function configPage() {
       this.originalContent = j.content;
       this.dirty = false;
 
-      if (!this.editor) this._initMonaco(j.content);
-      else {
+      if (this.editor) {
         this.editor.setValue(j.content);
+      } else if (!this._monacoInited) {
+        this._initMonaco(j.content);
       }
     },
 
@@ -101,11 +104,15 @@ function configPage() {
     },
 
     _initMonaco(initial) {
+      this._monacoInited = true;          // synchroner Guard — verhindert Doppel-Init
       const self = this;
       require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' } });
       require(['vs/editor/editor.main'], function () {
+        if (self.editor) return;           // Paranoia-Check falls Callback doppelt feuert
+        const host = document.getElementById('monaco-host');
+        host.innerHTML = '';               // Container leeren (falls Reste)
         const dark = document.documentElement.classList.contains('dark');
-        self.editor = monaco.editor.create(document.getElementById('monaco-host'), {
+        self.editor = monaco.editor.create(host, {
           value: initial,
           language: 'yaml',
           theme: dark ? 'vs-dark' : 'vs',
