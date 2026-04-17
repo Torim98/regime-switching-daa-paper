@@ -47,7 +47,7 @@ _CATALOG = [
             },
             {
                 "id": "data.label_analysis", "method": "POST", "path": "/data/label-analysis",
-                "label": "Label-Analyse (Issue #21)",
+                "label": "Label-Analyse",
                 "description": "Konkordanz + Switch-Stats der Regime-Labeler (MSM, HMM, PagSoss, P2T, LundeT, NBER).",
                 "params": [], "danger": False,
             },
@@ -113,7 +113,7 @@ _CATALOG = [
             },
             {
                 "id": "backtest.evaluate", "method": "POST", "path": "/backtest/evaluate",
-                "label": "Evaluation + MCS + Issue-#13-Metriken",
+                "label": "Evaluation + MCS",
                 "description": "Block-Bootstrap-MCS + Klassifikation + ROC/PR + Churning + H1/H2-Tests.",
                 "params": [], "danger": False,
             },

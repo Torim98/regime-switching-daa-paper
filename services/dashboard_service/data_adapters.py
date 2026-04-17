@@ -152,29 +152,38 @@ def chart_returns(
 
 @router.get("/chart/feature-correlation")
 def chart_feature_correlation():
-    """Korrelationsmatrix der Modell-Features."""
+    """Korrelationsmatrix der Modell-Features (unteres Dreieck, rot=+1, blau=-1)."""
     cfg = _cfg()
     df = _read_parquet_or_404(cfg.data_path("feature_engineered"), "/data/ingest zuerst")
     cols = [c for c in cfg.features.model_features if c in df.columns]
     corr = df[cols].corr()
 
+    upper = np.triu(np.ones_like(corr.values, dtype=bool), k=1)
+    z = corr.values.astype(float).copy()
+    z[upper] = np.nan
+    text = np.where(upper, "", np.round(corr.values, 2).astype(str))
+
     fig = go.Figure(go.Heatmap(
-        z=corr.values, x=corr.columns, y=corr.index,
-        colorscale="RdBu", zmin=-1, zmax=1,
-        text=np.round(corr.values, 2), texttemplate="%{text}",
+        z=z, x=corr.columns, y=corr.index,
+        colorscale="RdBu", reversescale=True,
+        zmin=-1, zmax=1,
+        text=text, texttemplate="%{text}",
+        hovertemplate="%{y} ↔ %{x}<br>ρ = %{z:.2f}<extra></extra>",
         colorbar=dict(title="ρ"),
     ))
     fig.update_layout(
         title="Feature-Korrelationsmatrix (Pearson)",
-        template="plotly_white", height=480,
-        margin=dict(l=40, r=20, t=50, b=40),
+        template="plotly_white", height=520,
+        margin=dict(l=130, r=20, t=50, b=80),
+        xaxis=dict(tickangle=-30, automargin=True),
+        yaxis=dict(automargin=True, autorange="reversed"),
     )
     return _fig_to_json(fig)
 
 
 @router.get("/chart/capital-curve")
 def chart_capital_curve():
-    """60/40-Benchmark Kapitalkurve aus den historischen Returns."""
+    """60/40-Benchmark Kapitalkurve in € (Standard-Szenario initial_capital)."""
     cfg = _cfg()
     df = _read_parquet_or_404(cfg.data_path("feature_engineered"), "/data/ingest zuerst")
     if "Cumulative_Returns" in df.columns:
@@ -184,15 +193,20 @@ def chart_capital_curve():
     else:
         raise HTTPException(400, "Returns/Cumulative_Returns fehlt im DataFrame")
 
+    initial_capital = float(cfg.backtesting.sorr.scenarios.Standard.initial_capital)
+    s = s / s.iloc[0] * initial_capital
+
     fig = go.Figure(go.Scatter(
         x=s.index, y=s.values, mode="lines", name="60/40 Benchmark",
-        hovertemplate="%{x|%Y-%m-%d}<br>%{y:.3f}<extra></extra>",
+        hovertemplate="%{x|%Y-%m-%d}<br>%{y:,.0f} €<extra></extra>",
     ))
     fig.update_layout(
-        title="60/40 Benchmark Kapitalkurve",
-        xaxis_title="Datum", yaxis_title="Wert (normiert)",
+        title=f"60/40 Benchmark-Kapitalkurve (Startkapital {initial_capital:,.0f} €)",
+        xaxis_title="Datum", yaxis_title="Kapital (€)",
         template="plotly_white", height=420,
-        margin=dict(l=40, r=20, t=50, b=40),
+        margin=dict(l=110, r=20, t=50, b=40),
+        xaxis=dict(automargin=True),
+        yaxis=dict(tickformat=",.0f", automargin=True, title_standoff=18),
     )
     return _fig_to_json(fig)
 

@@ -24,6 +24,7 @@ async function renderChart(elId, url) {
       fig.layout.xaxis = Object.assign({}, fig.layout.xaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
       fig.layout.yaxis = Object.assign({}, fig.layout.yaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
     }
+    el.innerHTML = '';
     Plotly.newPlot(el, fig.data, fig.layout, {
       responsive: true,
       displaylogo: false,
