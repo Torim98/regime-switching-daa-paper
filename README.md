@@ -269,6 +269,7 @@ regime-switching-daa/
 
 | Dokument | Beschreibung |
 |----------|-------------|
+| [Repository Index](docs/index.md) | Navigations-Hub: kategorisierte Auflistung aller Repo-Dateien |
 | [Data Architecture](docs/data-architecture.md) | Medallion-Modell (Bronze/Silver/Gold) |
 | [Microservice Architecture](docs/microservice-architecture.md) | Services, Endpunkte, Volumes, Logging |
 | [Dashboard Service](docs/dashboard-service.md) | UI-Seitenstruktur, Control Hub, Config-Editor, WebSocket-Log-Streaming, Security |
