@@ -208,6 +208,7 @@ paths:
     feature_correlation_matrix: "feature_correlation_matrix.png"
     feature_correlation_table: "feature_correlation_table.md"
     # Walk-Forward-spezifische Assets
+    walk_forward_schema: "walk_forward_schema.png"
     annualized_metrics: "annualized_metrics.md"
     crisis_performance: "crisis_performance.md"
     rolling_sharpe: "rolling_sharpe.png"

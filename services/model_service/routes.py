@@ -8,6 +8,7 @@ from src.models.common import validate_regime_signal
 from src.models.plots import (
     plot_msm_regimes, plot_hmm_regimes, plot_dl_model, plot_regime_comparison,
 )
+from src.backtest.plots import plot_walk_forward_schema
 from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
 from pathlib import Path
 import pandas as pd
@@ -280,6 +281,18 @@ def train_all():
         )
         assert_no_leakage(splits)
         logger.info(f"Walk-Forward: {len(splits)} Folds generiert.")
+
+        # 1b. Walk-Forward-Schema als PNG persistieren (für Statistics.md / Dashboard)
+        splits_summary = summarize_splits(splits)
+        wf_schema_path = cfg.asset_path("walk_forward_schema")
+        plot_walk_forward_schema(
+            splits_summary=splits_summary,
+            save_path=wf_schema_path,
+            mode=cfg.walk_forward.mode,
+            train_window_years=cfg.walk_forward.train_window_years,
+            test_window_months=cfg.walk_forward.test_window_months,
+        )
+        logger.info(f"Walk-Forward-Schema gespeichert: {wf_schema_path}")
 
         # 2. Cache prüfen
         cache_path = cfg.data_path("walk_forward_cache")

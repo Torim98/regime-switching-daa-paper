@@ -9,6 +9,6 @@
 | GFC     | LSTM        | 2009-03-09  | 2007-10-01       |           525 |
 | COVID   | LSTM        | 2020-03-18  |                  |           nan |
 | 2022    | LSTM        | 2022-10-14  |                  |           nan |
-| GFC     | Transformer | 2009-03-09  | 2007-10-01       |           525 |
+| GFC     | Transformer | 2009-03-09  | 2007-11-20       |           475 |
 | COVID   | Transformer | 2020-03-18  |                  |           nan |
-| 2022    | Transformer | 2022-10-14  |                  |           nan |
+| 2022    | Transformer | 2022-10-14  | 2022-10-27       |           -13 |

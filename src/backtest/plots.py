@@ -1,7 +1,82 @@
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import pandas as pd
+
+
+def plot_walk_forward_schema(
+    splits_summary: pd.DataFrame,
+    save_path: str,
+    mode: str = "rolling",
+    train_window_years: int | None = None,
+    test_window_months: int | None = None,
+    train_color: str = "#4C72B0",
+    test_color: str = "#DD8452",
+) -> None:
+    """
+    Visualisierung des Walk-Forward-Schemas als horizontaler Gantt-artiger Plot.
+
+    Pro Fold wird ein blauer Balken für das Trainingsfenster und ein orangefarbener
+    Balken für das OOS-Testfenster gezeichnet. Fold-IDs wachsen nach unten
+    (Fold 1 oben), wodurch die rollierende Verschiebung des Train/Test-Fensters
+    über die Zeit unmittelbar ablesbar wird.
+
+    Parameter
+    ---------
+    splits_summary : pd.DataFrame
+        Ausgabe von src.backtest.walk_forward.summarize_splits:
+        Index = fold-ID, Spalten = train_start, train_end, test_start, test_end,
+        n_train, n_test.
+    save_path : str
+        Zielpfad für die PNG-Datei (DPI=300).
+    mode : str
+        "rolling" oder "expanding" — fließt nur in den Titel ein.
+    train_window_years : int | None
+        Länge des Trainingsfensters (Jahre) für den Titel.
+    test_window_months : int | None
+        Länge des Testfensters (Monate) für den Titel.
+    train_color, test_color : str
+        Farben der Train/Test-Balken. Defaults konsistent mit den übrigen
+        Pipeline-Plots.
+    """
+    n_folds = len(splits_summary)
+    fig, ax = plt.subplots(figsize=(13, max(4.5, 0.25 * n_folds)))
+
+    for fold_id, row in splits_summary.iterrows():
+        train_width = row["train_end"] - row["train_start"]
+        test_width = row["test_end"] - row["test_start"]
+        ax.barh(fold_id, train_width, left=row["train_start"],
+                height=0.7, color=train_color, edgecolor="none")
+        ax.barh(fold_id, test_width, left=row["test_start"],
+                height=0.7, color=test_color, edgecolor="none")
+
+    ax.invert_yaxis()  # Fold 1 oben
+    ax.set_xlabel("Datum")
+    ax.set_ylabel("Fold")
+
+    subtitle_parts = [f"Modus: {mode}"]
+    if train_window_years is not None:
+        subtitle_parts.append(f"Train: {train_window_years}J")
+    if test_window_months is not None:
+        subtitle_parts.append(f"Test: {test_window_months}M")
+    subtitle_parts.append(f"{n_folds} Folds")
+    ax.set_title(
+        "Walk-Forward-Schema — Train/Test-Fenster über die Zeit\n"
+        + " | ".join(subtitle_parts),
+        fontsize=12,
+    )
+
+    handles = [
+        mpatches.Patch(color=train_color, label="Train"),
+        mpatches.Patch(color=test_color, label="Test (OOS)"),
+    ]
+    ax.legend(handles=handles, loc="upper right", framealpha=0.9)
+    ax.grid(axis="x", alpha=0.25)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def plot_equity_curves(backtesting_results, color_map: dict, save_path: str):

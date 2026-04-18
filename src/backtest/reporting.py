@@ -231,6 +231,11 @@ Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-T
 ## 4. Backtesting & Strategie-Evaluation
 Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in den Geldmarkt.
 
+### Walk-Forward-Schema
+Rollierende Train/Test-Fenster über den gesamten Untersuchungszeitraum. Jede Zeile entspricht einem Fold; der blaue Balken markiert das Trainingsfenster, der orange Balken das OOS-Testfenster. Die strikte chronologische Trennung verhindert Look-ahead Bias.
+
+![Walk-Forward-Schema](../assets/{cfg.paths.assets.walk_forward_schema})
+
 ### Equity Curves im Vergleich
 ![Equity Curves](../assets/{cfg.paths.assets.equity_curves})
 
