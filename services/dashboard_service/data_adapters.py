@@ -342,14 +342,16 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
         elif val == 0 and in_bear:
             shapes.append(dict(type="rect", xref="x", yref="paper",
                                x0=start, x1=idx, y0=0, y1=1,
-                               fillcolor=_rgba("#e53935", 0.08),
-                               line=dict(width=0), layer="below"))
+                               fillcolor=_rgba("#e53935", 0.28),
+                               line=dict(color=_rgba("#e53935", 0.75), width=1),
+                               layer="below"))
             in_bear = False
     if in_bear and start is not None:
         shapes.append(dict(type="rect", xref="x", yref="paper",
                            x0=start, x1=df.index[-1], y0=0, y1=1,
-                           fillcolor=_rgba("#e53935", 0.08),
-                           line=dict(width=0), layer="below"))
+                           fillcolor=_rgba("#e53935", 0.28),
+                           line=dict(color=_rgba("#e53935", 0.75), width=1),
+                           layer="below"))
 
     fig.update_layout(
         title=f"Regime-Overlay – {model}",
