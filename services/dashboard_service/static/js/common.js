@@ -1,5 +1,41 @@
 /* Globale Helper für alle Dashboard-Seiten. */
 
+/* ------------------------------------------------------------------ *
+ *  Dark-Mode-Layout-Overrides für Plotly                              *
+ * ------------------------------------------------------------------ */
+function _darkLayoutOverrides() {
+  return {
+    paper_bgcolor: 'rgba(30,41,59,0)',
+    plot_bgcolor:  'rgba(30,41,59,0)',
+    'font.color':  '#e2e8f0',
+    'xaxis.gridcolor': '#334155',
+    'xaxis.zerolinecolor': '#334155',
+    'yaxis.gridcolor': '#334155',
+    'yaxis.zerolinecolor': '#334155',
+    'legend.bgcolor': 'rgba(30,41,59,0.0)',
+    'legend.font.color': '#e2e8f0',
+    'hoverlabel.bgcolor':   '#0f172a',
+    'hoverlabel.bordercolor': '#475569',
+    'hoverlabel.font.color':  '#f1f5f9',
+  };
+}
+function _lightLayoutOverrides() {
+  return {
+    paper_bgcolor: 'white',
+    plot_bgcolor:  'white',
+    'font.color':  '#0f172a',
+    'xaxis.gridcolor': '#e2e8f0',
+    'xaxis.zerolinecolor': '#e2e8f0',
+    'yaxis.gridcolor': '#e2e8f0',
+    'yaxis.zerolinecolor': '#e2e8f0',
+    'legend.bgcolor': 'rgba(255,255,255,0.0)',
+    'legend.font.color': '#0f172a',
+    'hoverlabel.bgcolor':   '#ffffff',
+    'hoverlabel.bordercolor': '#cbd5e1',
+    'hoverlabel.font.color':  '#0f172a',
+  };
+}
+
 /** Plotly-Chart aus /api/... rendern. */
 async function renderChart(elId, url) {
   const el = document.getElementById(elId);
@@ -15,14 +51,32 @@ async function renderChart(elId, url) {
     }
     const fig = await r.json();
     const isDark = document.documentElement.classList.contains('dark');
+    fig.layout = fig.layout || {};
     if (isDark) {
-      fig.layout = fig.layout || {};
       fig.layout.template = undefined;
       fig.layout.paper_bgcolor = 'rgba(30,41,59,0)';
-      fig.layout.plot_bgcolor = 'rgba(30,41,59,0)';
+      fig.layout.plot_bgcolor  = 'rgba(30,41,59,0)';
       fig.layout.font = Object.assign({}, fig.layout.font, { color: '#e2e8f0' });
       fig.layout.xaxis = Object.assign({}, fig.layout.xaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
       fig.layout.yaxis = Object.assign({}, fig.layout.yaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
+      if (fig.layout.yaxis2) {
+        fig.layout.yaxis2 = Object.assign({}, fig.layout.yaxis2, { gridcolor: '#334155', zerolinecolor: '#334155' });
+      }
+      fig.layout.legend = Object.assign({}, fig.layout.legend, {
+        bgcolor: 'rgba(30,41,59,0.0)',
+        font: Object.assign({}, (fig.layout.legend || {}).font, { color: '#e2e8f0' }),
+      });
+      fig.layout.hoverlabel = Object.assign({}, fig.layout.hoverlabel, {
+        bgcolor:   '#0f172a',
+        bordercolor: '#475569',
+        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#f1f5f9' }),
+      });
+    } else {
+      fig.layout.hoverlabel = Object.assign({}, fig.layout.hoverlabel, {
+        bgcolor:   '#ffffff',
+        bordercolor: '#cbd5e1',
+        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#0f172a' }),
+      });
     }
     el.innerHTML = '';
     Plotly.newPlot(el, fig.data, fig.layout, {
@@ -66,21 +120,66 @@ function toast(msg, kind = 'info', ttl = 4000) {
   }, ttl);
 }
 
+/* ------------------------------------------------------------------ *
+ *  Title „läuft…“-Indikator                                           *
+ *  Verwenden via: setRunning(true) ... setRunning(false)              *
+ * ------------------------------------------------------------------ */
+const _ORIGINAL_TITLE = document.title;
+let _runningCount = 0;
+function setRunning(isRunning) {
+  _runningCount += isRunning ? 1 : -1;
+  if (_runningCount < 0) _runningCount = 0;
+  const prefix = _runningCount > 0 ? 'läuft… ' : '';
+  document.title = prefix + _ORIGINAL_TITLE;
+}
+// Beim Navigieren/Reload sauber zurücksetzen
+window.addEventListener('beforeunload', () => { document.title = _ORIGINAL_TITLE; });
+
+/* ------------------------------------------------------------------ *
+ *  Image-Lightbox: jede <img data-lightbox> klickbar → Overlay        *
+ * ------------------------------------------------------------------ */
+function _initLightbox() {
+  const modal = document.getElementById('img-lightbox');
+  const target = document.getElementById('img-lightbox-target');
+  if (!modal || !target) return;
+  document.body.addEventListener('click', (e) => {
+    const img = e.target.closest('img[data-lightbox]');
+    if (!img) return;
+    target.src = img.src;
+    target.alt = img.alt || '';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+  });
+}
+
+/** Alle <figure><img> unter dem Body bekommen data-lightbox + cursor-zoom-in. */
+function _enableLightboxOnAssets() {
+  document.querySelectorAll('img[src^="/api/asset/"]').forEach((img) => {
+    if (!img.hasAttribute('data-lightbox')) {
+      img.setAttribute('data-lightbox', '');
+      img.classList.add('cursor-zoom-in', 'hover:opacity-90', 'transition');
+    }
+  });
+}
+
 /** Theme-Switch triggert Re-Render aller Plotly-Charts. */
 document.addEventListener('DOMContentLoaded', () => {
+  _initLightbox();
+  _enableLightboxOnAssets();
+  // Mutation-Observer: auch später dynamisch eingefügte <img> bekommen Lightbox.
+  new MutationObserver(() => _enableLightboxOnAssets())
+    .observe(document.body, { childList: true, subtree: true });
+
   const obs = new MutationObserver((muts) => {
     for (const m of muts) {
       if (m.attributeName === 'class') {
+        const isDark = document.documentElement.classList.contains('dark');
+        const overrides = isDark ? _darkLayoutOverrides() : _lightLayoutOverrides();
         document.querySelectorAll('.js-plotly-plot').forEach((el) => {
-          // Plotly.relayout mit neuen Theme-Farben
-          const isDark = document.documentElement.classList.contains('dark');
-          Plotly.relayout(el, {
-            'paper_bgcolor': isDark ? 'rgba(30,41,59,0)' : 'white',
-            'plot_bgcolor':  isDark ? 'rgba(30,41,59,0)' : 'white',
-            'font.color':    isDark ? '#e2e8f0' : '#0f172a',
-            'xaxis.gridcolor': isDark ? '#334155' : '#e2e8f0',
-            'yaxis.gridcolor': isDark ? '#334155' : '#e2e8f0',
-          });
+          Plotly.relayout(el, overrides);
         });
       }
     }

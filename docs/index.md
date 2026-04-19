@@ -286,6 +286,7 @@ Jedes Artefakt wird in `docs/statistics.md` und/oder im Dashboard eingebettet.
 
 | Datei | Beschreibung |
 |-------|-------------|
+| [assets/walk_forward_schema.png](../assets/walk_forward_schema.png) | Walk-Forward Schema |
 | [assets/hmm_regimes.png](../assets/hmm_regimes.png) | Von HMM identifizierte Regimes |
 | [assets/msm_regimes.png](../assets/msm_regimes.png) | Von MSM identifizierte Regimes |
 | [assets/lstm_model.png](../assets/lstm_model.png) | LSTM-Architekturskizze |

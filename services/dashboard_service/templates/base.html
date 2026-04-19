@@ -35,13 +35,13 @@
   <link rel="stylesheet" href="/static/css/dashboard.css" />
 </head>
 
-<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 font-sans antialiased"
+<body class="h-full overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 font-sans antialiased"
       x-data="{ theme: localStorage.theme || 'light' }"
       x-init="$watch('theme', t => { localStorage.theme = t; document.documentElement.classList.toggle('dark', t === 'dark'); }); document.documentElement.classList.toggle('dark', theme === 'dark');">
 
-<div class="min-h-full flex">
+<div class="h-screen flex">
   <!-- Sidebar -->
-  <aside class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+  <aside class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col h-screen sticky top-0">
     <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-700">
       <div class="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400">Thesis</div>
       <div class="text-lg font-semibold">Regime-Switching DAA</div>
@@ -88,9 +88,9 @@
   </aside>
 
   <!-- Main -->
-  <main class="flex-1 flex flex-col min-w-0">
-    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4 flex items-center justify-between">
-      <h1 class="text-xl font-semibold">{% block header %}Dashboard{% endblock %}</h1>
+  <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+    <header class="bg-white/95 dark:bg-slate-800/95 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-8 py-4 flex items-center justify-between sticky top-0 z-20 shrink-0">
+      <h1 class="text-xl font-semibold" data-page-title>{% block header %}Dashboard{% endblock %}</h1>
       <div class="text-xs text-slate-500">Build {{ build_time }}</div>
     </header>
 
@@ -98,6 +98,13 @@
       {% block content %}{% endblock %}
     </div>
   </main>
+</div>
+
+<!-- Image-Lightbox (click-to-enlarge für PNG-Assets) -->
+<div id="img-lightbox"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-6 cursor-zoom-out"
+     onclick="this.classList.add('hidden'); this.classList.remove('flex');">
+  <img id="img-lightbox-target" src="" alt="" class="max-h-full max-w-full object-contain rounded shadow-2xl" />
 </div>
 
 <!-- Toast-Container -->

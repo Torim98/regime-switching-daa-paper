@@ -227,13 +227,14 @@ def chart_equity_curves():
         fig.add_trace(go.Scatter(
             x=df.index, y=df[col], mode="lines", name=col,
             line=dict(color=_plotly_color(colors.get(col)), width=1.8),
-            hovertemplate=f"<b>{col}</b><br>%{{x|%Y-%m-%d}}<br>%{{y:.3f}}<extra></extra>",
+            hovertemplate=f"<b>{col}</b>: %{{y:.3f}}<extra></extra>",
         ))
     fig.update_layout(
         title="Equity Curves (OOS)",
         xaxis_title="Datum", yaxis_title="Kapital (normiert)",
         template="plotly_white", height=500,
         hovermode="x unified",
+        xaxis=dict(hoverformat="%Y-%m-%d"),
         margin=dict(l=40, r=20, t=50, b=40),
     )
     return _fig_to_json(fig)
@@ -253,13 +254,14 @@ def chart_drawdown():
         fig.add_trace(go.Scatter(
             x=df.index, y=dd * 100, mode="lines", name=col,
             line=dict(color=_plotly_color(colors.get(col)), width=1.5),
-            hovertemplate=f"<b>{col}</b><br>%{{x|%Y-%m-%d}}<br>%{{y:.2f}}%<extra></extra>",
+            hovertemplate=f"<b>{col}</b>: %{{y:.2f}}%<extra></extra>",
         ))
     fig.update_layout(
         title="Drawdown-Verlauf (OOS)",
         xaxis_title="Datum", yaxis_title="Drawdown (%)",
         template="plotly_white", height=420,
         hovermode="x unified",
+        xaxis=dict(hoverformat="%Y-%m-%d"),
         margin=dict(l=40, r=20, t=50, b=40),
     )
     return _fig_to_json(fig)
@@ -278,13 +280,14 @@ def chart_rolling_sharpe(window: int = Query(252, ge=21, le=1260)):
         fig.add_trace(go.Scatter(
             x=rolling.index, y=rolling.values, mode="lines", name=col,
             line=dict(color=_plotly_color(cfg.color_map.get(col)), width=1.4),
-            hovertemplate=f"<b>{col}</b><br>%{{x|%Y-%m-%d}}<br>%{{y:.3f}}<extra></extra>",
+            hovertemplate=f"<b>{col}</b>: %{{y:.3f}}<extra></extra>",
         ))
     fig.update_layout(
         title=f"Rolling Sharpe (Fenster = {window} Tage)",
         xaxis_title="Datum", yaxis_title="Sharpe Ratio (annualisiert)",
         template="plotly_white", height=420,
         hovermode="x unified",
+        xaxis=dict(hoverformat="%Y-%m-%d"),
         margin=dict(l=40, r=20, t=50, b=40),
     )
     return _fig_to_json(fig)
@@ -315,7 +318,8 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
             x=df.index, y=df[price_col], mode="lines", name="60/40 Kurs",
             line=dict(color="#444", width=1.2),
             yaxis="y2",
-            hovertemplate="%{x|%Y-%m-%d}<br>Kurs %{y:.3f}<extra></extra>",
+            # Unified-Hover blendet das Datum einmal global ein → hier nur y.
+            hovertemplate="Kurs %{y:.3f}<extra></extra>",
         ))
 
     fig.add_trace(go.Scatter(
@@ -323,7 +327,7 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
         name=f"{model} Bear-Prob",
         line=dict(color=color, width=1.4),
         fill="tozeroy", fillcolor=_rgba(color, 0.15),
-        hovertemplate="%{x|%Y-%m-%d}<br>Prob %{y:.3f}<extra></extra>",
+        hovertemplate="Prob %{y:.3f}<extra></extra>",
     ))
 
     # Bear-Signal-Bänder als shapes
@@ -351,6 +355,8 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
         title=f"Regime-Overlay – {model}",
         template="plotly_white", height=500,
         hovermode="x unified",
+        # Einheitliches Datums-Format im unified-Hover-Header.
+        xaxis=dict(hoverformat="%Y-%m-%d"),
         shapes=shapes,
         yaxis=dict(title="Bear-Probability", range=[0, 1]),
         yaxis2=dict(title="Kurs", overlaying="y", side="right", showgrid=False),

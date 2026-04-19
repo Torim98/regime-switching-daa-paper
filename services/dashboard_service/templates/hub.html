@@ -144,6 +144,7 @@ function hubPage() {
 
       this.busyId = ep.id;
       this.lastResult[ep.id] = null;
+      setRunning(true);   // → document.title bekommt „läuft… "-Prefix
 
       // Pfad + Query-Params aus formState zusammenbauen
       let path = ep.path;
@@ -170,6 +171,7 @@ function hubPage() {
         toast(`Fehler: ${e}`, 'error');
       } finally {
         this.busyId = null;
+        setRunning(false);
       }
     },
   };
