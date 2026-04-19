@@ -19,20 +19,20 @@
 
   <!-- Equity Curves -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Equity Curves (interaktiv)</h2>
+    <h2 class="text-lg font-semibold mb-4">Equity Curves</h2>
     <div id="chart-equity" class="w-full"></div>
   </section>
 
   <!-- Drawdown -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Drawdown-Verlauf (interaktiv)</h2>
+    <h2 class="text-lg font-semibold mb-4">Drawdown-Verlauf</h2>
     <div id="chart-drawdown" class="w-full"></div>
   </section>
 
   <!-- Rolling Sharpe -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-      <h2 class="text-lg font-semibold">Rolling Sharpe (interaktiv)</h2>
+      <h2 class="text-lg font-semibold">Rolling Sharpe</h2>
       <label class="text-sm">Fenster
         <input type="number" min="21" max="1260" step="21" x-model.number="window" @change="drawSharpe()"
                class="ml-1 w-24 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1" />

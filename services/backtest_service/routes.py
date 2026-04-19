@@ -92,7 +92,8 @@ def run_backtest():
 
     # Plots (bisherig)
     plot_equity_curves(backtesting_results, cfg.color_map,
-                       cfg.asset_path("equity_curves"))
+                       cfg.asset_path("equity_curves"),
+                       initial_capital=float(cfg.backtesting.sorr.scenarios.Standard.initial_capital))
     plot_transaction_costs(backtesting_costs, cfg.transaction_cost_rate,
                            cfg.color_map,
                            cfg.asset_path("transaction_costs"))

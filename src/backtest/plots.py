@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.ticker as mticker
 import pandas as pd
 
 
@@ -79,13 +80,14 @@ def plot_walk_forward_schema(
     plt.close(fig)
 
 
-def plot_equity_curves(backtesting_results, color_map: dict, save_path: str):
-    """Equity Curves aller Strategien."""
+def plot_equity_curves(backtesting_results, color_map: dict, save_path: str,
+                       initial_capital: float = 1.0):
+    """Equity Curves aller Strategien in €-Darstellung (unnormiert)."""
     default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     fig, ax = plt.subplots(figsize=(14, 7))
 
-    ax.plot(backtesting_results['Buy_Hold'],
+    ax.plot(backtesting_results['Buy_Hold'] * initial_capital,
             label='Statisches 60/40 Portfolio (Benchmark)',
             color=color_map.get('Buy_Hold', 'gray'), alpha=0.5, linestyle='--')
 
@@ -93,13 +95,19 @@ def plot_equity_curves(backtesting_results, color_map: dict, save_path: str):
         if col == 'Buy_Hold':
             continue
         color = color_map.get(col, None)
-        ax.plot(backtesting_results[col],
+        ax.plot(backtesting_results[col] * initial_capital,
                 label=f'Strategie: {col.replace("_", " ")}',
                 color=color, linewidth=1.5, alpha=0.8)
 
-    ax.set_title("Equity Curves: Dynamischer Vergleich der Regime-Switching-Modelle")
+    ax.set_title(
+        f"Equity Curves: Dynamischer Vergleich der Regime-Switching-Modelle "
+        f"(Startkapital {initial_capital:,.0f} €)"
+    )
     ax.set_xlabel("Datum")
-    ax.set_ylabel("Kumuliertes Vermögen (Start = 1.0)")
+    ax.set_ylabel("Kapital (€)")
+    ax.yaxis.set_major_formatter(
+        mticker.FuncFormatter(lambda x, _: f"{x:,.0f}")
+    )
     ax.legend(loc='upper left', ncol=2)
     ax.grid(True, alpha=0.2)
 

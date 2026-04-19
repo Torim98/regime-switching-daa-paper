@@ -217,25 +217,27 @@ def chart_capital_curve():
 
 @router.get("/chart/equity-curves")
 def chart_equity_curves():
-    """Equity Curves aller Strategien (interaktiv)."""
+    """Equity Curves aller Strategien in € (Startkapital = Standard-Szenario)."""
     cfg = _cfg()
     df = _read_parquet_or_404(cfg.data_path("backtesting_results"), "/backtest/run zuerst")
     colors = cfg.color_map
+    initial_capital = float(cfg.backtesting.sorr.scenarios.Standard.initial_capital)
 
     fig = go.Figure()
     for col in df.columns:
         fig.add_trace(go.Scatter(
-            x=df.index, y=df[col], mode="lines", name=col,
+            x=df.index, y=df[col] * initial_capital, mode="lines", name=col,
             line=dict(color=_plotly_color(colors.get(col)), width=1.8),
-            hovertemplate=f"<b>{col}</b>: %{{y:.3f}}<extra></extra>",
+            hovertemplate=f"<b>{col}</b>: %{{y:,.0f}} €<extra></extra>",
         ))
     fig.update_layout(
-        title="Equity Curves (OOS)",
-        xaxis_title="Datum", yaxis_title="Kapital (normiert)",
+        title=f"Equity Curves (OOS) — Startkapital {initial_capital:,.0f} €",
+        xaxis_title="Datum", yaxis_title="Kapital (€)",
         template="plotly_white", height=500,
         hovermode="x unified",
         xaxis=dict(hoverformat="%Y-%m-%d"),
-        margin=dict(l=40, r=20, t=50, b=40),
+        yaxis=dict(tickformat=",.0f", automargin=True, title_standoff=18),
+        margin=dict(l=110, r=20, t=50, b=40),
     )
     return _fig_to_json(fig)
 
