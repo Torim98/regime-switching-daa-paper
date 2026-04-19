@@ -544,6 +544,21 @@ def optimize_all(
 
     return studies
 
+def _format_param_value(v) -> str:
+    """Hyperparameter-Wert für Markdown-Tabellen lesbar formatieren."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return f"{v:,}".replace(",", "\u202f")  # narrow no-break space
+    if isinstance(v, float):
+        a = abs(v)
+        if a > 0 and (a < 1e-3 or a >= 1e6):
+            return f"{v:.3e}"
+        # 4 signifikante Stellen, ohne überflüssige Nullen
+        return f"{float(f'{v:.4g}')}"
+    return str(v)
+
+
 def save_optuna_best_params(
     studies: dict[str, "optuna.Study"],
     cfg,
@@ -552,41 +567,47 @@ def save_optuna_best_params(
     """
     Persistiert die besten Hyperparameter aller Optuna-Studies als Markdown.
 
-    Pro Modell wird Best-Score, Trial-Anzahl und ein YAML-Block der
-    Parameter ausgegeben (1:1 zur Notebook-Darstellung in 03a).
+    Format: Übersichts-Tabelle (Modell · Best Score · ✓/✂/Total)
+    plus pro Modell eine Parameter-Tabelle mit lesbar formatierten Werten.
     Zielpfad: cfg.asset_path("optuna_best_params").
     """
     from pathlib import Path
     import datetime
-    import yaml
+    import optuna as _optuna
 
     lines: list[str] = [
         "# Optuna — Beste Hyperparameter",
         "",
-        f"_Generiert am {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_",
-        "",
+        f"_Generiert am {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_  ",
         f"Optimierungs-Metrik: **{metric_label}**",
         "",
+        "## Übersicht",
+        "",
+        "| Modell | Best Score | ✓ Complete | ✗ Pruned | Total |",
+        "|:---|---:|---:|---:|---:|",
     ]
-
-    summary_rows = ["| Modell | Best Score | Trials |", "|:---|---:|---:|"]
     for name, study in studies.items():
-        n_trials = len(study.trials)
-        summary_rows.append(
-            f"| {name} | {study.best_value:.4f} | {n_trials} |"
+        n_complete = sum(
+            1 for t in study.trials
+            if t.state == _optuna.trial.TrialState.COMPLETE
         )
-    lines.extend(summary_rows)
+        n_pruned = sum(
+            1 for t in study.trials
+            if t.state == _optuna.trial.TrialState.PRUNED
+        )
+        lines.append(
+            f"| **{name}** | {study.best_value:.4f} | "
+            f"{n_complete} | {n_pruned} | {len(study.trials)} |"
+        )
     lines.append("")
 
     for name, study in studies.items():
-        lines.append(f"## {name}")
+        lines.append(f"### {name} — Best Score `{study.best_value:.4f}`")
         lines.append("")
-        lines.append(f"- Best Score: **{study.best_value:.4f}**")
-        lines.append(f"- Trials: {len(study.trials)}")
-        lines.append("")
-        lines.append("```yaml")
-        lines.append(yaml.dump(study.best_params, default_flow_style=False).rstrip())
-        lines.append("```")
+        lines.append("| Parameter | Wert |")
+        lines.append("|:---|---:|")
+        for k, v in study.best_params.items():
+            lines.append(f"| `{k}` | `{_format_param_value(v)}` |")
         lines.append("")
 
     path = Path(cfg.asset_path("optuna_best_params"))

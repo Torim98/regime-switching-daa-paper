@@ -88,7 +88,75 @@ Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Hea
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](../assets/regime_comparison.png)
 
-### F. Label-Konkordanz (Auswahl der Trainings-Labels)
+### F. Hyperparameter-Optimierung (Optuna)
+Bayessche Suche über den Hyperparameter-Raum aller vier Modelle mittels Walk-Forward-Validierung als innere CV. Optimierungsziel ist der mediane OOS-Sharpe-Ratio über die subgesampelten Folds; geprunete Trials nutzen den Median-Pruner. Die hier ausgewiesenen Werte wurden 1:1 in die `config.yaml` übernommen und für den finalen Walk-Forward-Lauf verwendet.
+
+# Optuna — Beste Hyperparameter
+
+_Generiert am 2026-04-19 19:52:21_  
+Optimierungs-Metrik: **Sharpe (Median OOS)**
+
+## Übersicht
+
+| Modell | Best Score | ✓ Complete | ✂ Pruned | Total |
+|:---|---:|---:|---:|---:|
+| **MSM** | 1.3918 | 28 | 34 | 83 |
+| **HMM** | 2.0117 | 35 | 15 | 59 |
+| **LSTM** | 1.3393 | 30 | 20 | 53 |
+| **Transformer** | 1.3537 | 22 | 28 | 54 |
+
+### MSM — Best Score `1.3918`
+
+| Parameter | Wert |
+|:---|---:|
+| `k_regimes` | `2` |
+| `threshold` | `0.35` |
+
+### HMM — Best Score `2.0117`
+
+| Parameter | Wert |
+|:---|---:|
+| `n_components` | `2` |
+| `covariance_type` | `full` |
+| `threshold` | `0.5` |
+
+### LSTM — Best Score `1.3393`
+
+| Parameter | Wert |
+|:---|---:|
+| `window_size` | `120` |
+| `units_l1` | `16` |
+| `units_l2` | `128` |
+| `learning_rate` | `1.254e-04` |
+| `dropout` | `0.1` |
+| `epochs` | `40` |
+| `threshold` | `0.3` |
+
+### Transformer — Best Score `1.3537`
+
+| Parameter | Wert |
+|:---|---:|
+| `d_model` | `128` |
+| `n_heads` | `8` |
+| `n_layers` | `3` |
+| `dim_feedforward` | `64` |
+| `learning_rate` | `3.148e-05` |
+| `dropout` | `0.25` |
+| `epochs` | `20` |
+| `window_size` | `120` |
+| `threshold` | `0.45` |
+
+
+**Diagnose-Plots pro Modell** (Optimization History · Param-Importance · Slice · Contour):
+
+| Modell | History | Importance | Slice | Contour |
+|:---|:---|:---|:---|:---|
+| MSM         | ![](../assets/optuna_MSM_history.png)         | ![](../assets/optuna_MSM_importance.png)         | ![](../assets/optuna_MSM_slice.png)         | ![](../assets/optuna_MSM_contour.png)         |
+| HMM         | ![](../assets/optuna_HMM_history.png)         | ![](../assets/optuna_HMM_importance.png)         | ![](../assets/optuna_HMM_slice.png)         | ![](../assets/optuna_HMM_contour.png)         |
+| LSTM        | ![](../assets/optuna_LSTM_history.png)        | ![](../assets/optuna_LSTM_importance.png)        | ![](../assets/optuna_LSTM_slice.png)        | ![](../assets/optuna_LSTM_contour.png)        |
+| Transformer | ![](../assets/optuna_Transformer_history.png) | ![](../assets/optuna_Transformer_importance.png) | ![](../assets/optuna_Transformer_slice.png) | ![](../assets/optuna_Transformer_contour.png) |
+
+### G. Label-Konkordanz (Auswahl der Trainings-Labels)
 Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
 
 ![Label Concordance](../assets/label_concordance_matrix.png)
@@ -506,7 +574,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 19.04.2026 16:33<br>
+**Zuletzt aktualisiert:** 19.04.2026 20:03<br>
 **End date:** `2026-04-17`<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 10J, Test: 12M, Step: 12M)<br>

@@ -64,6 +64,7 @@ services:
       - ./docs:/app/docs
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./models:/app/models  # read-only Zugriff auf Optuna-DB für /api/optuna/best-params
     environment:
       - PYTHONPATH=/app
       - TZ=Europe/Berlin

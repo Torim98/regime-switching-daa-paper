@@ -118,6 +118,71 @@ def get_markdown(name: str):
     return {"name": name, "content": path.read_text(encoding="utf-8")}
 
 
+@router.get("/optuna/best-params")
+def optuna_best_params():
+    """
+    Beste Hyperparameter pro Modell aus dem Optuna-SQLite-Storage.
+
+    Ermöglicht der Dashboard-UI eine strukturierte Card-Darstellung statt
+    Markdown-Rendering — inkl. Best Score, Trial-Counts und Parameter-Map.
+    """
+    cfg = _cfg()
+    db_path = Path(cfg.model_path("optuna_db"))
+    if not db_path.exists():
+        raise HTTPException(
+            404, "Keine Optuna-DB gefunden — Optimierung noch nicht durchgeführt."
+        )
+
+    try:
+        import optuna
+    except ImportError:
+        raise HTTPException(500, "optuna nicht installiert.")
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    storage = f"sqlite:///{db_path}"
+
+    results = []
+    for model_name in ["MSM", "HMM", "LSTM", "Transformer"]:
+        try:
+            study = optuna.load_study(
+                study_name=f"opt_{model_name}", storage=storage,
+            )
+        except KeyError:
+            continue
+
+        try:
+            best_value = float(study.best_value)
+            best_params = dict(study.best_params)
+        except ValueError:
+            continue  # keine abgeschlossenen Trials
+
+        n_complete = sum(
+            1 for t in study.trials
+            if t.state == optuna.trial.TrialState.COMPLETE
+        )
+        n_pruned = sum(
+            1 for t in study.trials
+            if t.state == optuna.trial.TrialState.PRUNED
+        )
+
+        results.append({
+            "model": model_name,
+            "best_score": best_value,
+            "best_params": best_params,
+            "n_trials_total": len(study.trials),
+            "n_trials_complete": n_complete,
+            "n_trials_pruned": n_pruned,
+        })
+
+    if not results:
+        raise HTTPException(404, "Keine Optuna-Studies in der DB gefunden.")
+
+    return {
+        "metric": "Sharpe (Median OOS)",
+        "results": results,
+    }
+
+
 # ---------------------------------------------------------------------------
 # EDA-Charts
 # ---------------------------------------------------------------------------

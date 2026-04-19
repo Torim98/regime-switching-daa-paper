@@ -1,65 +1,54 @@
 # Optuna — Beste Hyperparameter
 
-_Generiert am 2026-04-19 19:42:45_
-
+_Generiert am 2026-04-19 19:52:21_  
 Optimierungs-Metrik: **Sharpe (Median OOS)**
 
-| Modell | Best Score | Trials |
-|:---|---:|---:|
-| MSM | 1.3918 | 82 |
-| HMM | 2.0117 | 58 |
-| LSTM | 1.3393 | 52 |
-| Transformer | 1.3537 | 53 |
+## Übersicht
 
-## MSM
+| Modell | Best Score | ✓ Complete | ✂ Pruned | Total |
+|:---|---:|---:|---:|---:|
+| **MSM** | 1.3918 | 28 | 34 | 83 |
+| **HMM** | 2.0117 | 35 | 15 | 59 |
+| **LSTM** | 1.3393 | 30 | 20 | 53 |
+| **Transformer** | 1.3537 | 22 | 28 | 54 |
 
-- Best Score: **1.3918**
-- Trials: 82
+### MSM — Best Score `1.3918`
 
-```yaml
-k_regimes: 2
-threshold: 0.35
-```
+| Parameter | Wert |
+|:---|---:|
+| `k_regimes` | `2` |
+| `threshold` | `0.35` |
 
-## HMM
+### HMM — Best Score `2.0117`
 
-- Best Score: **2.0117**
-- Trials: 58
+| Parameter | Wert |
+|:---|---:|
+| `n_components` | `2` |
+| `covariance_type` | `full` |
+| `threshold` | `0.5` |
 
-```yaml
-covariance_type: full
-n_components: 2
-threshold: 0.5
-```
+### LSTM — Best Score `1.3393`
 
-## LSTM
+| Parameter | Wert |
+|:---|---:|
+| `window_size` | `120` |
+| `units_l1` | `16` |
+| `units_l2` | `128` |
+| `learning_rate` | `1.254e-04` |
+| `dropout` | `0.1` |
+| `epochs` | `40` |
+| `threshold` | `0.3` |
 
-- Best Score: **1.3393**
-- Trials: 52
+### Transformer — Best Score `1.3537`
 
-```yaml
-dropout: 0.1
-epochs: 40
-learning_rate: 0.00012536386810872734
-threshold: 0.3
-units_l1: 16
-units_l2: 128
-window_size: 120
-```
-
-## Transformer
-
-- Best Score: **1.3537**
-- Trials: 53
-
-```yaml
-d_model: 128
-dim_feedforward: 64
-dropout: 0.25
-epochs: 20
-learning_rate: 3.1476320331974455e-05
-n_heads: 8
-n_layers: 3
-threshold: 0.45
-window_size: 120
-```
+| Parameter | Wert |
+|:---|---:|
+| `d_model` | `128` |
+| `n_heads` | `8` |
+| `n_layers` | `3` |
+| `dim_feedforward` | `64` |
+| `learning_rate` | `3.148e-05` |
+| `dropout` | `0.25` |
+| `epochs` | `20` |
+| `window_size` | `120` |
+| `threshold` | `0.45` |

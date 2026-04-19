@@ -42,6 +42,7 @@ dashboard = [
     "python-multipart==0.0.20",
     "watchfiles==1.1.0",
     "websockets==14.2",
+    "optuna==4.8.0",  # für /api/optuna/best-params (read-only Zugriff auf Studies-DB)
 ]
 # Notebook-Orchestrierung (nur lokal)
 notebooks = [
