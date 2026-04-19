@@ -8,13 +8,13 @@ Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschung
 ## 1. Executive Summary: Performance & Risiko
 Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Testzeitraum**.
 
-| Strategie   |   Final Wealth | Total Return   | Max Drawdown   |
-|:------------|---------------:|:---------------|:---------------|
-| Buy_Hold    |         4.8283 | +382.83%       | -34.77%        |
-| MSM         |         2.9566 | +195.66%       | -24.92%        |
-| HMM         |         3.846  | +284.60%       | -8.50%         |
-| LSTM        |         4.0427 | +304.27%       | -32.92%        |
-| Transformer |         4.1478 | +314.78%       | -29.66%        |
+| Strategie   | Final Wealth   | Total Return   | Max Drawdown   |
+|:------------|:---------------|:---------------|:---------------|
+| Buy_Hold    | 2,414,155 €    | +382.83%       | -34.77%        |
+| MSM         | 1,478,296 €    | +195.66%       | -24.92%        |
+| HMM         | 1,923,021 €    | +284.60%       | -8.50%         |
+| LSTM        | 2,021,356 €    | +304.27%       | -32.92%        |
+| Transformer | 2,073,893 €    | +314.78%       | -29.66%        |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
@@ -241,21 +241,21 @@ Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade 
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin-Wahrscheinlichkeit   | Median Endkapital   |
 |:-------------------------------|:--------------------------|:--------------------|
-| ('Aggressive', 'MSM')          | 2.06%                     | 162,881.85 €        |
-| ('Low_Capital', 'LSTM')        | 0.56%                     | 190,872.18 €        |
-| ('Low_Capital', 'Transformer') | 0.56%                     | 191,144.41 €        |
-| ('Standard', 'LSTM')           | 0.03%                     | 449,256.04 €        |
-| ('Standard', 'MSM')            | 0.00%                     | 388,380.39 €        |
-| ('Standard', 'HMM')            | 0.00%                     | 453,782.62 €        |
-| ('Standard', 'Transformer')    | 0.02%                     | 455,487.75 €        |
 | ('Standard', 'Buy Hold')       | 0.00%                     | 496,792.52 €        |
-| ('Low_Capital', 'MSM')         | 0.01%                     | 156,876.25 €        |
-| ('Aggressive', 'Transformer')  | 5.06%                     | 215,817.72 €        |
+| ('Standard', 'HMM')            | 0.00%                     | 453,782.62 €        |
+| ('Low_Capital', 'LSTM')        | 0.56%                     | 190,872.18 €        |
+| ('Standard', 'LSTM')           | 0.03%                     | 449,256.04 €        |
+| ('Aggressive', 'Buy Hold')     | 4.58%                     | 245,081.83 €        |
 | ('Low_Capital', 'Buy Hold')    | 0.62%                     | 213,677.49 €        |
+| ('Standard', 'MSM')            | 0.00%                     | 388,380.39 €        |
+| ('Standard', 'Transformer')    | 0.02%                     | 455,487.75 €        |
 | ('Aggressive', 'HMM')          | 0.01%                     | 214,814.48 €        |
+| ('Aggressive', 'MSM')          | 2.06%                     | 162,881.85 €        |
+| ('Aggressive', 'Transformer')  | 5.06%                     | 215,817.72 €        |
 | ('Low_Capital', 'HMM')         | 0.00%                     | 192,037.68 €        |
 | ('Aggressive', 'LSTM')         | 5.68%                     | 205,805.04 €        |
-| ('Aggressive', 'Buy Hold')     | 4.58%                     | 245,081.83 €        |
+| ('Low_Capital', 'MSM')         | 0.01%                     | 156,876.25 €        |
+| ('Low_Capital', 'Transformer') | 0.56%                     | 191,144.41 €        |
 
 Verteilung der Endkapitalwerte:
 
@@ -375,7 +375,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 18.04.2026 09:30<br>
+**Zuletzt aktualisiert:** 19.04.2026 16:22<br>
 **End date:** `2026-04-17`<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 10J, Test: 12M, Step: 12M)<br>

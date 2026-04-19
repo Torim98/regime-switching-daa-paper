@@ -68,7 +68,10 @@ def run_backtest():
     )
 
     # Performance Summary
-    performance_summary = calculate_performance_summary(backtesting_results)
+    performance_summary = calculate_performance_summary(
+        backtesting_results,
+        initial_capital=float(cfg.backtesting.sorr.scenarios.Standard.initial_capital),
+    )
     performance_summary.to_markdown(cfg.asset_path("performance_summary"))
 
     # Annualisierte Metriken
@@ -228,6 +231,7 @@ def evaluate():
         ts = threshold_sensitivity(
             test_df, backtest, m, list(grid),
             cfg.transaction_cost_rate, cfg.backtesting.signal_shift,
+            initial_capital=float(cfg.backtesting.sorr.scenarios.Standard.initial_capital),
         )
         ts.to_markdown(cfg.asset_path("threshold_sensitivity").replace("{model}", m))
 

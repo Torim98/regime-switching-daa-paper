@@ -86,19 +86,21 @@ def run_all_backtests(
 
 def calculate_performance_summary(
     backtesting_results: pd.DataFrame,
+    initial_capital: float = 1.0,
 ) -> pd.DataFrame:
     """
     Performance & Drawdown Zusammenfassung berechnen.
-    Pro Strategie: Final Wealth, Total Return, Max Drawdown.
+    Pro Strategie: Final Wealth (in €), Total Return, Max Drawdown.
     """
     summary_stats = []
 
     for col in backtesting_results.columns:
         series = backtesting_results[col]
 
-        # Finale Werte berechnen
-        final_val = series.iloc[-1]
-        total_ret = (final_val - 1) * 100
+        # Normierter Endwert (Start = 1.0) und Total Return bleiben skalierungs-invariant
+        final_norm = series.iloc[-1]
+        total_ret = (final_norm - 1) * 100
+        final_eur = final_norm * initial_capital
 
         # Max Drawdown berechnen
         roll_max = series.cummax()
@@ -107,7 +109,7 @@ def calculate_performance_summary(
 
         summary_stats.append({
             "Strategie": col,
-            "Final Wealth": f"{final_val:.4f}",
+            "Final Wealth": f"{final_eur:,.0f} €",
             "Total Return": f"{total_ret:+.2f}%",
             "Max Drawdown": f"{mdd:.2f}%",
         })

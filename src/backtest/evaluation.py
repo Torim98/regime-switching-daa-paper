@@ -506,10 +506,11 @@ def threshold_sensitivity(
     thresholds: list[float],
     fee_rate: float,
     signal_shift: int,
+    initial_capital: float = 1.0,
 ) -> pd.DataFrame:
     """
     Variiert die Threshold-Schwelle für ein einzelnes Modell und misst,
-    wie sich Final-Equity, MaxDD und #Wechsel ändern (Kap. 4.1 Glättung).
+    wie sich Final-Equity (in €), MaxDD und #Wechsel ändern (Kap. 4.1 Glättung).
     Setzt voraus, dass `<model>_Prob` in test_df vorhanden ist.
     """
     prob_col = f"{model}_Prob"
@@ -525,7 +526,7 @@ def threshold_sensitivity(
         n_switches = int((sig.diff().abs() == 1).sum())
         rows.append({
             "Threshold": t,
-            "Final Wealth": round(float(eq.iloc[-1]), 4),
+            "Final Wealth": f"{float(eq.iloc[-1]) * initial_capital:,.0f} €",
             "Max Drawdown": f"{dd*100:.2f}%",
             "Wechsel": n_switches,
         })
