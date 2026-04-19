@@ -417,12 +417,36 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         "optuna_slice": plot_slice(study),
     }
 
+    # Anzahl Hyperparameter im Search-Space (für dynamische Größenberechnung)
+    n_params = max(
+        (len(t.params) for t in study.trials if t.params), default=1
+    )
+
+    # Quell-Pixelmaße je Plot-Typ (vor scale=2)
+    # contour ist eine n×n-Matrix → Größe muss mit n_params skalieren,
+    # sonst überlappen Tick-Werte mit den Achsen-Titeln der Nachbarzelle.
+    sizes = {
+        "optuna_history":    (1200, 700),
+        "optuna_importance": (1200, max(500, 60 * n_params)),
+        "optuna_contour":    (max(1400, 260 * n_params), max(1200, 220 * n_params)),
+        "optuna_slice":      (max(1400, 300 * n_params), 700),
+    }
+
     saved = {}
     for key, fig in plots.items():
-        # Template enthält {model} → ersetzen, dann über cfg.asset_path auflösen
-        raw_template = getattr(cfg.paths.assets, key)       # "optuna_{model}_history.png"
+        w, h = sizes[key]
+        fig.update_layout(
+            width=w,
+            height=h,
+            font=dict(size=11),
+            margin=dict(l=110, r=80, t=80, b=110),
+        )
+        # Kleinere Tick-Fonts + mehr Achsen-Abstand verhindern Overlap in Matrix-Plots
+        fig.update_xaxes(tickfont=dict(size=9), title_standoff=20, automargin=True)
+        fig.update_yaxes(tickfont=dict(size=9), title_standoff=20, automargin=True)
+
+        raw_template = getattr(cfg.paths.assets, key)
         filename = raw_template.replace("{model}", model_name)
-        # asset_path nutzt _base_dir → funktioniert in Jupyter UND Docker
         path = Path(cfg.asset_path(key).replace(raw_template, filename))
         path.parent.mkdir(parents=True, exist_ok=True)
         fig.write_image(str(path), scale=2)
