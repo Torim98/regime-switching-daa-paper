@@ -450,7 +450,7 @@ async def optimize_all_models(n_trials: int = 50, every_nth_fold: int = 2):
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
 
-    from src.backtest.optimize import optimize_all
+    from src.backtest.optimize import optimize_all, save_optuna_best_params
     studies = optimize_all(
         df=df,
         cfg=cfg,
@@ -458,6 +458,9 @@ async def optimize_all_models(n_trials: int = 50, every_nth_fold: int = 2):
         every_nth_fold=every_nth_fold,
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
+
+    # Best-Params unter assets/ persistieren (1:1 zum Notebook 03a)
+    save_optuna_best_params(studies, cfg)
 
     return {
         "status": "ok",

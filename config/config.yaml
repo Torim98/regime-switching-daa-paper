@@ -237,6 +237,7 @@ paths:
     optuna_importance: "optuna_{model}_importance.png"
     optuna_contour: "optuna_{model}_contour.png"
     optuna_slice: "optuna_{model}_slice.png"
+    optuna_best_params: "optuna_best_params.md"
     # Label-Analyse (Issue #21)
     label_concordance_matrix: "label_concordance_matrix.png"
     label_timeline_comparison: "label_timeline_comparison.png"

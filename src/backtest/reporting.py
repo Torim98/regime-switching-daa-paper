@@ -114,6 +114,10 @@ def generate_statistics_report(cfg) -> str:
         cfg.asset_path("switch_timing"),
         fallback="*Keine Switch-Timing-Analyse verfügbar.*",
     )
+    optuna_best_params_md = load_markdown_asset(
+        cfg.asset_path("optuna_best_params"),
+        fallback="*Keine Optuna-Optimierung durchgeführt.*",
+    )
 
     # Threshold-Sensitivität pro Modell laden
     threshold_models = list(cfg.evaluation.extended.f1_models)
@@ -241,7 +245,21 @@ Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Hea
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](../assets/{cfg.paths.assets.regime_comparison})
 
-### F. Label-Konkordanz (Auswahl der Trainings-Labels)
+### F. Hyperparameter-Optimierung (Optuna)
+Bayessche Suche über den Hyperparameter-Raum aller vier Modelle mittels Walk-Forward-Validierung als innere CV. Optimierungsziel ist der mediane OOS-Sharpe-Ratio über die subgesampelten Folds; geprunete Trials nutzen den Median-Pruner. Die hier ausgewiesenen Werte wurden 1:1 in die `config.yaml` übernommen und für den finalen Walk-Forward-Lauf verwendet.
+
+{optuna_best_params_md}
+
+**Diagnose-Plots pro Modell** (Optimization History · Param-Importance · Slice · Contour):
+
+| Modell | History | Importance | Slice | Contour |
+|:---|:---|:---|:---|:---|
+| MSM         | ![](../assets/optuna_MSM_history.png)         | ![](../assets/optuna_MSM_importance.png)         | ![](../assets/optuna_MSM_slice.png)         | ![](../assets/optuna_MSM_contour.png)         |
+| HMM         | ![](../assets/optuna_HMM_history.png)         | ![](../assets/optuna_HMM_importance.png)         | ![](../assets/optuna_HMM_slice.png)         | ![](../assets/optuna_HMM_contour.png)         |
+| LSTM        | ![](../assets/optuna_LSTM_history.png)        | ![](../assets/optuna_LSTM_importance.png)        | ![](../assets/optuna_LSTM_slice.png)        | ![](../assets/optuna_LSTM_contour.png)        |
+| Transformer | ![](../assets/optuna_Transformer_history.png) | ![](../assets/optuna_Transformer_importance.png) | ![](../assets/optuna_Transformer_slice.png) | ![](../assets/optuna_Transformer_contour.png) |
+
+### G. Label-Konkordanz (Auswahl der Trainings-Labels)
 Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
 
 ![Label Concordance](../assets/{cfg.paths.assets.label_concordance_matrix})

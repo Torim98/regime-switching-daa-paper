@@ -544,6 +544,58 @@ def optimize_all(
 
     return studies
 
+def save_optuna_best_params(
+    studies: dict[str, "optuna.Study"],
+    cfg,
+    metric_label: str = "Sharpe (Median OOS)",
+) -> str:
+    """
+    Persistiert die besten Hyperparameter aller Optuna-Studies als Markdown.
+
+    Pro Modell wird Best-Score, Trial-Anzahl und ein YAML-Block der
+    Parameter ausgegeben (1:1 zur Notebook-Darstellung in 03a).
+    Zielpfad: cfg.asset_path("optuna_best_params").
+    """
+    from pathlib import Path
+    import datetime
+    import yaml
+
+    lines: list[str] = [
+        "# Optuna — Beste Hyperparameter",
+        "",
+        f"_Generiert am {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_",
+        "",
+        f"Optimierungs-Metrik: **{metric_label}**",
+        "",
+    ]
+
+    summary_rows = ["| Modell | Best Score | Trials |", "|:---|---:|---:|"]
+    for name, study in studies.items():
+        n_trials = len(study.trials)
+        summary_rows.append(
+            f"| {name} | {study.best_value:.4f} | {n_trials} |"
+        )
+    lines.extend(summary_rows)
+    lines.append("")
+
+    for name, study in studies.items():
+        lines.append(f"## {name}")
+        lines.append("")
+        lines.append(f"- Best Score: **{study.best_value:.4f}**")
+        lines.append(f"- Trials: {len(study.trials)}")
+        lines.append("")
+        lines.append("```yaml")
+        lines.append(yaml.dump(study.best_params, default_flow_style=False).rstrip())
+        lines.append("```")
+        lines.append("")
+
+    path = Path(cfg.asset_path("optuna_best_params"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"  ✓ {path}")
+    return str(path)
+
+
 def _get_default_params(model_name: str, cfg) -> dict | None:
     """Aktuelle Config-Werte als Optuna-Trial-Dict."""
     if model_name == "MSM":

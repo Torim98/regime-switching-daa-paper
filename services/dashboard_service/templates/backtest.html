@@ -68,6 +68,16 @@
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdSorr"></div>
   </section>
 
+  <!-- Optuna — Beste Hyperparameter -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-1">Optuna — Beste Hyperparameter</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      Optimierungsergebnisse pro Modell (Median-OOS-Sharpe via Walk-Forward-CV). Diagnose-Plots im
+      <a href="/models" class="underline hover:text-slate-700 dark:hover:text-slate-300">Models-Tab</a>.
+    </p>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdOptuna"></div>
+  </section>
+
   <!-- Pipeline-Timing -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Pipeline-Laufzeit</h2>
@@ -80,15 +90,16 @@
 function btPage() {
   return {
     window: 252,
-    mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '', mdTiming: '',
+    mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '', mdTiming: '', mdOptuna: '',
     async init() {
-      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr, this.mdTiming] =
+      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr, this.mdTiming, this.mdOptuna] =
         await Promise.all([
           fetchMd('performance_summary.md'),
           fetchMd('annualized_metrics.md'),
           fetchMd('crisis_performance.md'),
           fetchMd('sorr_summary.md'),
           fetchMd('pipeline_timing.md'),
+          fetchMd('optuna_best_params.md'),
         ]);
       await Promise.all([
         renderChart('chart-equity',   '/api/chart/equity-curves'),
