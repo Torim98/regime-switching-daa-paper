@@ -556,9 +556,9 @@ def time_to_recovery(equity: pd.Series, min_dd: float = -0.05) -> pd.DataFrame:
             dd_min = float(dd_seg.min())
             if dd_min <= min_dd:
                 phases.append({
-                    "Peak":     start,
-                    "Trough":   trough,
-                    "Recovery": date,
+                    "Peak":     start.strftime("%Y-%m-%d"),
+                    "Trough":   trough.strftime("%Y-%m-%d"),
+                    "Recovery": date.strftime("%Y-%m-%d"),
                     "Max DD":   f"{dd_min*100:.2f}%",
                     "Drawdown-Dauer (T)": (trough - start).days,
                     "Recovery-Dauer (T)": (date - trough).days,
@@ -569,14 +569,15 @@ def time_to_recovery(equity: pd.Series, min_dd: float = -0.05) -> pd.DataFrame:
     if start is not None:
         seg = equity.loc[start:]
         dd_seg = seg / seg.cummax() - 1
+        trough_idx = dd_seg.idxmin()
         dd_min = float(dd_seg.min())
         if dd_min <= min_dd:
             phases.append({
-                "Peak": start,
-                "Trough": dd_seg.idxmin(),
-                "Recovery": pd.NaT,
-                "Max DD": f"{dd_min*100:.2f}%",
-                "Drawdown-Dauer (T)": (dd_seg.idxmin() - start).days,
+                "Peak":     start.strftime("%Y-%m-%d"),
+                "Trough":   trough_idx.strftime("%Y-%m-%d"),
+                "Recovery": "—",
+                "Max DD":   f"{dd_min*100:.2f}%",
+                "Drawdown-Dauer (T)": (trough_idx - start).days,
                 "Recovery-Dauer (T)": np.nan,
                 "Gesamt (T)": np.nan,
             })

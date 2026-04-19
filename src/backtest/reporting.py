@@ -115,6 +115,28 @@ def generate_statistics_report(cfg) -> str:
         fallback="*Keine Switch-Timing-Analyse verfügbar.*",
     )
 
+    # Threshold-Sensitivität pro Modell laden
+    threshold_models = list(cfg.evaluation.extended.f1_models)
+    threshold_sections = []
+    for m in threshold_models:
+        md = load_markdown_asset(
+            cfg.asset_path("threshold_sensitivity").replace("{model}", m),
+            fallback=f"*Keine Threshold-Sensitivity-Tabelle für {m} verfügbar.*",
+        )
+        threshold_sections.append(f"**{m}**\n\n{md}")
+    threshold_sensitivity_md = "\n\n".join(threshold_sections)
+
+    # Time-to-Recovery pro Modell laden (Buy_Hold + alle f1_models)
+    ttr_models = ["Buy_Hold"] + threshold_models
+    ttr_sections = []
+    for m in ttr_models:
+        md = load_markdown_asset(
+            cfg.asset_path("ttr_table").replace("{model}", m),
+            fallback=f"*Keine Time-to-Recovery-Tabelle für {m} verfügbar.*",
+        )
+        ttr_sections.append(f"**{m}**\n\n{md}")
+    ttr_md = "\n\n".join(ttr_sections)
+
     # Fast Mode Status aus config auslesen
     fast_mode_enabled = cfg.fast_mode.enabled
     fast_mode_status = "TRUE (Development Mode)" if fast_mode_enabled else "FALSE (Full Run)"
@@ -265,6 +287,16 @@ Quantifizierung der Wechselhäufigkeit und Anteil sehr kurzer Regime-Phasen („
 Zeitverlauf der Bear-Wahrscheinlichkeiten aller Modelle.
 
 ![Regime Probability Heatmap](../assets/{cfg.paths.assets.regime_probability_heatmap})
+
+### Threshold-Sensitivität
+Variation der Entscheidungs-Schwelle pro Modell. Zeigt, wie robust Final Wealth, Max Drawdown und Anzahl der Regime-Wechsel gegenüber einer veränderten Bull/Bear-Klassifikations-Grenze sind (Kap. 4.1 — Glättung).
+
+{threshold_sensitivity_md}
+
+### Time-to-Recovery
+Alle Drawdown-Phasen jenseits der Mindesttiefe (gemäß `extended.ttr_min_dd`) mit Peak-, Trough- und Recovery-Datum sowie Dauer in Handelstagen. Eine offene (noch nicht erholte) Phase wird im Recovery-Feld mit „—" markiert.
+
+{ttr_md}
 
 ### Krisen-Performance
 Return und Max Drawdown während historischer Krisenperioden — der zentrale Nachweis für den Tail-Risk-Schutz der Regime-Switching-Modelle.
