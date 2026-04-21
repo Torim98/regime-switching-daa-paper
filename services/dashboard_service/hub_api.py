@@ -81,23 +81,18 @@ _CATALOG = [
             {
                 "id": "model.optimize_one", "method": "POST", "path": "/models/optimize/{model_name}",
                 "label": "Optuna-HPO für ein Modell",
-                "description": "Erfordert walk_forward.enabled=true. Persistiert in optuna_studies.db.",
+                "description": "Erfordert walk_forward.enabled=true. n_trials und every_nth_fold kommen pro Modell aus config.yaml (optimization.n_trials_per_model / every_nth_fold_per_model). Persistiert in optuna_studies.db.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
                      "options": ["MSM", "HMM", "LSTM", "Transformer"]},
-                    {"name": "n_trials",        "in": "query", "type": "int", "default": 50},
-                    {"name": "every_nth_fold",  "in": "query", "type": "int", "default": 2},
                 ],
                 "danger": True,
             },
             {
                 "id": "model.optimize_all", "method": "POST", "path": "/models/optimize-all",
                 "label": "Optuna-HPO für alle Modelle",
-                "description": "Sequentiell MSM → HMM → LSTM → Transformer.",
-                "params": [
-                    {"name": "n_trials",        "in": "query", "type": "int", "default": 50},
-                    {"name": "every_nth_fold",  "in": "query", "type": "int", "default": 2},
-                ],
+                "description": "Sequentiell MSM → HMM → LSTM → Transformer. n_trials und every_nth_fold kommen pro Modell aus config.yaml (Thesis-Default: 50 für MSM/HMM, 30 für LSTM/Transformer).",
+                "params": [],
                 "danger": True,
             },
         ],
@@ -169,7 +164,7 @@ async def hub_call(
 
     Beispiele (vom Frontend):
       - POST /api/hub/call?service=data&path=/data/ingest&method=POST
-      - POST /api/hub/call?service=model&path=/models/optimize/MSM&method=POST&query={"n_trials":20}
+      - POST /api/hub/call?service=model&path=/models/optimize/MSM&method=POST
     """
     import json
     base = _SERVICES.get(service)

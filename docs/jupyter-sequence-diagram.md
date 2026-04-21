@@ -108,13 +108,14 @@ sequenceDiagram
     Note over NB03a,FS: Optional: Hyperparameter-Optimierung (separates Notebook)
     opt Optuna-Optimierung (manuell gestartet)
         NB03a->>FS: read feature_engineered_data
-        NB03a->>SRC: optimize_all (MSM, HMM, n_trials=50)
+        NB03a->>SRC: optimize_all (alle 4 Modelle)
+        Note over SRC: n_trials & every_nth_fold pro Modell<br/>aus config.yaml (50/2 für MSM+HMM,<br/>30/5 für LSTM+Transformer)
         SRC->>SRC: Optuna TPE (Walk-Forward CV als innere Validierung)
         SRC->>FS: optuna_studies.db
-        NB03a->>SRC: optimize_all (LSTM, Transformer, n_trials=30)
-        SRC->>FS: optuna_studies.db (updated)
         NB03a->>SRC: save_optuna_plots
         SRC->>FS: Optuna-Visualisierungen (Assets)
+        NB03a->>SRC: save_optuna_best_params
+        SRC->>FS: assets/optuna_best_params.md
     end
 
     Note over NB03,FS: Walk-Forward-Validierung in NB03

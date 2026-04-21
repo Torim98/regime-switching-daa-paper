@@ -401,7 +401,12 @@ def plot_drawdown(backtesting_results: pd.DataFrame, color_map: dict, save_path:
     plt.close(fig)
  
 def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
-    """Optuna-Visualisierungen (History, Importance, Contour, Slice) als PNG speichern."""
+    """Optuna-Visualisierungen (History, Importance, Contour, Slice) als PNG speichern.
+
+    Der Contour-Plot wird ausschließlich für Modelle mit ≥ 2 Hyperparametern
+    erzeugt — bei einem einzigen Parameter (z.B. MSM mit nur `threshold`)
+    degeneriert die Matrix und der Plot ist inhaltslos.
+    """
     from pathlib import Path
     from optuna.visualization import (
         plot_optimization_history,
@@ -410,17 +415,23 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         plot_slice,
     )
 
-    plots = {
-        "optuna_history": plot_optimization_history(study),
-        "optuna_importance": plot_param_importances(study),
-        "optuna_contour": plot_contour(study),
-        "optuna_slice": plot_slice(study),
-    }
-
-    # Anzahl Hyperparameter im Search-Space (für dynamische Größenberechnung)
+    # Anzahl Hyperparameter im Search-Space (für Contour-Entscheidung + Größe)
     n_params = max(
         (len(t.params) for t in study.trials if t.params), default=1
     )
+
+    plots = {
+        "optuna_history": plot_optimization_history(study),
+        "optuna_importance": plot_param_importances(study),
+        "optuna_slice": plot_slice(study),
+    }
+    if n_params >= 2:
+        plots["optuna_contour"] = plot_contour(study)
+    else:
+        print(
+            f"  ℹ {model_name}: Contour-Plot übersprungen "
+            f"(nur {n_params} Hyperparameter im Search-Space)."
+        )
 
     # Quell-Pixelmaße je Plot-Typ (vor scale=2)
     # contour ist eine n×n-Matrix → Größe muss mit n_params skalieren,

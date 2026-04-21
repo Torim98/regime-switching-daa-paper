@@ -95,7 +95,13 @@
           <img src="/api/asset/optuna_{{ model }}_history.png"    class="w-full object-contain" loading="lazy" alt="History">
           <img src="/api/asset/optuna_{{ model }}_importance.png" class="w-full object-contain" loading="lazy" alt="Importance">
           <img src="/api/asset/optuna_{{ model }}_slice.png"      class="w-full object-contain" loading="lazy" alt="Slice">
+          {% if model != 'MSM' %}
           <img src="/api/asset/optuna_{{ model }}_contour.png"    class="w-full object-contain" loading="lazy" alt="Contour">
+          {% else %}
+          <div class="w-full flex items-center justify-center text-[11px] text-slate-500 italic border border-dashed border-slate-300 dark:border-slate-600 rounded p-3">
+            Kein Contour-Plot<br>(nur 1 Hyperparameter)
+          </div>
+          {% endif %}
         </div>
       </div>
       {% endfor %}

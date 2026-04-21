@@ -406,10 +406,14 @@ def model_status():
     return status
     
 @router.post("/optimize/{model_name}")
-async def optimize_model(model_name: str, n_trials: int = 50, every_nth_fold: int = 2):
+async def optimize_model(model_name: str):
     """
     Optuna-Hyperparameter-Optimierung für ein einzelnes Modell.
     Nutzt Walk-Forward-Splits als innere CV.
+
+    Trial-Anzahl und Fold-Subsampling werden aus der zentralen Config
+    (cfg.optimization.n_trials_per_model bzw. every_nth_fold_per_model)
+    gelesen — keine API-Overrides mehr (Reproduzierbarkeit der Thesis).
     """
     cfg = get_cfg()
 
@@ -427,8 +431,7 @@ async def optimize_model(model_name: str, n_trials: int = 50, every_nth_fold: in
         model_name=model_name,
         df=df,
         cfg=cfg,
-        n_trials=n_trials,
-        every_nth_fold=every_nth_fold,
+        # n_trials / every_nth_fold → aus Config (pro Modell)
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
 
@@ -441,8 +444,14 @@ async def optimize_model(model_name: str, n_trials: int = 50, every_nth_fold: in
     }
 
 @router.post("/optimize-all")
-async def optimize_all_models(n_trials: int = 50, every_nth_fold: int = 2):
-    """Alle 4 Modelle sequenziell optimieren."""
+async def optimize_all_models():
+    """
+    Alle 4 Modelle sequenziell optimieren.
+
+    Trial-Anzahl und Fold-Subsampling werden pro Modell aus der zentralen
+    Config (cfg.optimization.n_trials_per_model bzw. every_nth_fold_per_model)
+    gelesen — 50/30-Split (MSM/HMM vs. LSTM/Transformer) gemäß Thesis.
+    """
     cfg = get_cfg()
 
     if not cfg.walk_forward.enabled:
@@ -454,8 +463,7 @@ async def optimize_all_models(n_trials: int = 50, every_nth_fold: int = 2):
     studies = optimize_all(
         df=df,
         cfg=cfg,
-        n_trials=n_trials,
-        every_nth_fold=every_nth_fold,
+        # n_trials / every_nth_fold → pro Modell aus Config
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
 

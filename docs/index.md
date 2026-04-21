@@ -302,7 +302,6 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 |-------|-------------|
 | [assets/optuna_MSM_history.png](../assets/optuna_MSM_history.png) | MSM — Optuna Trial-History |
 | [assets/optuna_MSM_importance.png](../assets/optuna_MSM_importance.png) | MSM — Parameter-Importance |
-| [assets/optuna_MSM_contour.png](../assets/optuna_MSM_contour.png) | MSM — Parameter-Contour |
 | [assets/optuna_MSM_slice.png](../assets/optuna_MSM_slice.png) | MSM — Parameter-Slice |
 | [assets/optuna_HMM_history.png](../assets/optuna_HMM_history.png) | HMM — Optuna Trial-History |
 | [assets/optuna_HMM_importance.png](../assets/optuna_HMM_importance.png) | HMM — Parameter-Importance |

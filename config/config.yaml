@@ -8,7 +8,7 @@
 # --- Dependencies (00_dependencies) ---
 dependencies:
   install_on_run: false   # true = pip install bei jedem Pipeline-Lauf, false = überspringen
-  nbstripout: false        # true = nbstripout Git-Filter aktivieren (stripped Notebook-Outputs bei git add), muss nur einmalig auf true gesetzt werden (Git-Filter bleibt persistent
+  nbstripout: false        # true = nbstripout Git-Filter aktivieren (stripped Notebook-Outputs bei git add), muss nur einmalig auf true gesetzt werden (Git-Filter bleibt persistent)
 
 # --- Data Ingestion (01_data_preprocessing) ---
 data:
@@ -117,14 +117,24 @@ walk_forward:
 ## --- Hyperparameter-Optimierung (Optuna) ---
 optimization:
   enabled: false                    # Setze enabled: true wenn du Optuna laufen lassen willst, false wenn du die gefundenen Params bereits in der Config hast und nur noch den finalen WF-Lauf machst.
-  n_trials: 50                      # Anzahl Optuna-Trials pro Modell
   metric: "sharpe"                  # Optimierungsziel: "sharpe", "sortino", "calmar"
-  n_folds_subset: null              # null = alle Folds, int = nur jeden n-ten Fold (Speed)
   models:
     - "MSM"
     - "HMM"
     - "LSTM"
     - "Transformer"
+  # Trials pro Modell — ökonometrische Modelle sind günstig (50 Trials),
+  # DL-Modelle teurer (30 Trials). Analog every_nth_fold: DL subsampelt stärker.
+  n_trials_per_model:
+    MSM: 50
+    HMM: 50
+    LSTM: 30
+    Transformer: 30
+  every_nth_fold_per_model:
+    MSM: 2
+    HMM: 2
+    LSTM: 5
+    Transformer: 5
   storage: "sqlite:///models/optuna_studies.db"   # Optional: Persistieren der Optuna-DB
 
 backtesting:

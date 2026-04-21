@@ -220,6 +220,13 @@ def objective_lstm(
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
 
+    # Supervised-Labels einmal global vorberechnen (analog Transformer-Objective).
+    # Ohne diesen Block fehlt die Spalte im Fold und jeder Trial wirft KeyError.
+    if cfg.labels.supervised_label_source != "hmm":
+        df = df.copy()
+        if "Supervised_Label" not in df.columns:
+            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
+
     fold_sharpes = []
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
@@ -230,7 +237,9 @@ def objective_lstm(
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            probs_raw, pred_idx = train_lstm_fold(
+            # train_lstm_fold returniert (probs, pred_idx, weights) — weights
+            # wird für Warm-Starts gebraucht, im HPO-Kontext uninteressant.
+            probs_raw, pred_idx, _ = train_lstm_fold(
                 df_train=df_train,
                 df_test=df_test,
                 features=features,
@@ -315,7 +324,9 @@ def objective_transformer(
             # HMM-Labels für diesen Fold generieren
             df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            probs_raw, pred_idx = train_transformer_fold(
+            # train_transformer_fold returniert (probs, pred_idx, state_dict)
+            # — state_dict ist für Warm-Starts; im HPO-Kontext irrelevant.
+            probs_raw, pred_idx, _ = train_transformer_fold(
                 df_train=df_train,
                 df_test=df_test,
                 features=features,
@@ -371,11 +382,25 @@ _OBJECTIVE_MAP = {
 }
 
 
+def _resolve_from_cfg(cfg, attr: str, model_name: str) -> int | None:
+    """
+    Liest einen pro-Modell-Wert aus cfg.optimization.<attr>.
+
+    Erwartet die neue Struktur mit cfg.optimization.n_trials_per_model bzw.
+    cfg.optimization.every_nth_fold_per_model, die im Config-Loader als
+    SimpleNamespace geladen werden. Rückgabe None, falls der Eintrag fehlt.
+    """
+    container = getattr(cfg.optimization, attr, None)
+    if container is None:
+        return None
+    return getattr(container, model_name, None)
+
+
 def run_optimization(
     model_name: str,
     df: pd.DataFrame,
     cfg,
-    n_trials: int = 50,
+    n_trials: int | None = None,
     every_nth_fold: int | None = None,
     storage: str | None = None,
 ) -> optuna.Study:
@@ -390,10 +415,13 @@ def run_optimization(
         Feature-engineerter DataFrame (Silver-Schicht) mit DatetimeIndex.
     cfg : PipelineConfig
         Zentrale Konfiguration.
-    n_trials : int
-        Anzahl Optuna-Trials.
+    n_trials : int | None
+        Anzahl Optuna-Trials. None = aus
+        cfg.optimization.n_trials_per_model[model_name] lesen.
     every_nth_fold : int | None
-        Nur jeden n-ten Fold verwenden (Speed). None = alle Folds.
+        Nur jeden n-ten Fold verwenden (Speed). None = aus
+        cfg.optimization.every_nth_fold_per_model[model_name] lesen
+        (Fallback: alle Folds, wenn nicht konfiguriert).
     storage : str | None
         Optuna Storage-URL (z.B. "sqlite:///optuna.db").
         None = In-Memory.
@@ -406,6 +434,19 @@ def run_optimization(
         raise ValueError(
             f"Unbekanntes Modell '{model_name}'. "
             f"Verfügbar: {list(_OBJECTIVE_MAP.keys())}"
+        )
+
+    # Defaults aus Config auflösen, wenn nicht explizit übergeben
+    if n_trials is None:
+        n_trials = _resolve_from_cfg(cfg, "n_trials_per_model", model_name)
+        if n_trials is None:
+            raise ValueError(
+                f"n_trials nicht übergeben und cfg.optimization."
+                f"n_trials_per_model.{model_name} fehlt."
+            )
+    if every_nth_fold is None:
+        every_nth_fold = _resolve_from_cfg(
+            cfg, "every_nth_fold_per_model", model_name,
         )
 
     # Optuna-Logging auf Warnungen reduzieren
@@ -434,11 +475,49 @@ def run_optimization(
         db_path.parent.mkdir(parents=True, exist_ok=True)
         storage = f"sqlite:///{db_path}"
 
+    # SQLite auf Docker-Bind-Mounts ist unter Schreibdruck fragil
+    # (intermittente "disk I/O error"). WAL + busy_timeout + NORMAL synchronous
+    # entschärft das; Pre-Ping gegen stale-pool Issues.
+    storage_arg = storage
+    if isinstance(storage, str) and storage.startswith("sqlite:///"):
+        from sqlalchemy import event
+
+        rdb_storage = optuna.storages.RDBStorage(
+            url=storage,
+            heartbeat_interval=60,
+            grace_period=120,
+            engine_kwargs={
+                "connect_args": {"timeout": 30, "check_same_thread": False},
+                "pool_pre_ping": True,
+            },
+        )
+
+        # PRAGMAs nur auf den Optuna-Engine, nicht global (vermeidet
+        # Mehrfach-Registrierung bei optimize_all über 4 Modelle).
+        def _set_sqlite_pragma(dbapi_conn, _):
+            cur = dbapi_conn.cursor()
+            try:
+                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute("PRAGMA synchronous=NORMAL")
+                cur.execute("PRAGMA busy_timeout=30000")
+                cur.execute("PRAGMA temp_store=MEMORY")
+            finally:
+                cur.close()
+
+        event.listen(rdb_storage.engine, "connect", _set_sqlite_pragma)
+        # Bereits offene Connection aus dem Pool nachziehen
+        with rdb_storage.engine.connect() as _conn:
+            _conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+            _conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
+            _conn.exec_driver_sql("PRAGMA busy_timeout=30000")
+
+        storage_arg = rdb_storage
+
     # Study erstellen
     study = optuna.create_study(
         direction="maximize",
         study_name=f"opt_{model_name}",
-        storage=storage,
+        storage=storage_arg,
         load_if_exists=True,
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=5,
@@ -497,7 +576,7 @@ def run_optimization(
 def optimize_all(
     df: pd.DataFrame,
     cfg,
-    n_trials: int = 50,
+    n_trials: int | None = None,
     every_nth_fold: int | None = None,
     models: list[str] | None = None,
     storage: str | None = None,
@@ -512,6 +591,13 @@ def optimize_all(
     ---------
     models : list[str] | None
         Zu optimierende Modelle. None = alle vier.
+    n_trials : int | None
+        Expliziter Override für ALLE Modelle. None = pro Modell aus
+        cfg.optimization.n_trials_per_model lesen (Thesis-Default:
+        50 für MSM/HMM, 30 für LSTM/Transformer).
+    every_nth_fold : int | None
+        Expliziter Override für ALLE Modelle. None = pro Modell aus
+        cfg.optimization.every_nth_fold_per_model lesen.
     Übrige Parameter : siehe run_optimization.
 
     Rückgabe
@@ -527,8 +613,8 @@ def optimize_all(
             model_name=model_name,
             df=df,
             cfg=cfg,
-            n_trials=n_trials,
-            every_nth_fold=every_nth_fold,
+            n_trials=n_trials,            # None → run_optimization liest aus Config
+            every_nth_fold=every_nth_fold,  # None → run_optimization liest aus Config
             storage=storage,
         )
 
