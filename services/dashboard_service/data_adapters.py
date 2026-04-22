@@ -461,12 +461,12 @@ def chart_mcs_quantiles(scenario: str = Query("Standard"), strategy: str = Query
     color = _plotly_color(cfg.color_map.get(strategy, "steelblue"))
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=days, y=q[4], mode="lines", name="95%",
+    fig.add_trace(go.Scatter(x=days, y=q[4], mode="lines", name="5-95%",
                               line=dict(width=0), showlegend=False))
     fig.add_trace(go.Scatter(x=days, y=q[0], mode="lines", name="5-95%",
                               fill="tonexty", fillcolor=_rgba(color, 0.15),
                               line=dict(width=0)))
-    fig.add_trace(go.Scatter(x=days, y=q[3], mode="lines",
+    fig.add_trace(go.Scatter(x=days, y=q[3], mode="lines", name="25-75%",
                               line=dict(width=0), showlegend=False))
     fig.add_trace(go.Scatter(x=days, y=q[1], mode="lines", name="25-75%",
                               fill="tonexty", fillcolor=_rgba(color, 0.3),
