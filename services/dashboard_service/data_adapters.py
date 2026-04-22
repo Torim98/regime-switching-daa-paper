@@ -636,6 +636,90 @@ def chart_drawdown():
     return _fig_to_json(fig)
 
 
+@router.get("/chart/transaction-costs")
+def chart_transaction_costs():
+    """Kumulierte Transaktionskosten pro Strategie (in %), ohne Buy_Hold."""
+    cfg = _cfg()
+    df = _read_parquet_or_404(cfg.data_path("backtesting_costs"), "/backtest/run zuerst")
+    colors = cfg.color_map
+    fee_rate = float(cfg.transaction_cost_rate)
+
+    fig = go.Figure()
+    for col in df.columns:
+        if col == "Buy_Hold":
+            continue
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df[col] * 100, mode="lines",
+            name=f"Kosten: {col.replace('_', ' ')}",
+            line=dict(color=_plotly_color(colors.get(col)), width=1.5),
+            hovertemplate=f"<b>{col}</b>: %{{y:.3f}}%<extra></extra>",
+        ))
+    fig.update_layout(
+        title=f"Kumulierte Transaktionskosten im Zeitverlauf (Gebühr: {fee_rate*100:g}%)",
+        xaxis_title="Datum", yaxis_title="Kosten in %",
+        template="plotly_white", height=420,
+        hovermode="x unified",
+        xaxis=dict(hoverformat="%Y-%m-%d", automargin=True),
+        yaxis=dict(tickformat=".2f", automargin=True),
+        margin=dict(l=60, r=20, t=50, b=40),
+        legend=dict(orientation="v", x=0.01, y=0.99, xanchor="left", yanchor="top"),
+    )
+    return _fig_to_json(fig)
+
+
+@router.get("/chart/sorr-scenario")
+def chart_sorr_scenario(
+    scenario: str = Query("Standard", pattern="^(Standard|Aggressive|Low_Capital)$"),
+):
+    """SORR-Kapitalverlauf für ein Szenario, 1:1 zum Pipeline-PNG.
+
+    Datenquelle: backtesting_sorr (Spalten = "{Szenario}_{Strategie}").
+    Parameter (Start, Entnahme) kommen aus cfg.backtesting.sorr.scenarios.
+    """
+    cfg = _cfg()
+    df = _read_parquet_or_404(cfg.data_path("backtesting_sorr"), "/backtest/run zuerst")
+    colors = cfg.color_map
+
+    scenarios_cfg = cfg.backtesting.sorr.scenarios
+    if not hasattr(scenarios_cfg, scenario):
+        raise HTTPException(400, f"Szenario '{scenario}' nicht in Config.")
+    sc = getattr(scenarios_cfg, scenario)
+    start = float(sc.initial_capital)
+    monthly_withdrawal = start * float(sc.annual_withdrawal_rate) / 12
+
+    prefix = f"{scenario}_"
+    strat_cols = [c for c in df.columns if c.startswith(prefix)]
+    if not strat_cols:
+        available = sorted({c.split("_", 1)[0] for c in df.columns if "_" in c})
+        raise HTTPException(400, f"Szenario '{scenario}' nicht im Parquet. "
+                                  f"Verfügbar: {available}")
+
+    fig = go.Figure()
+    for col in strat_cols:
+        strat = col[len(prefix):]
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df[col], mode="lines",
+            name=strat.replace("_", " "),
+            line=dict(color=_plotly_color(colors.get(strat)), width=1.6),
+            hovertemplate=f"<b>{strat}</b>: %{{y:,.0f}} €<extra></extra>",
+        ))
+
+    fig.add_hline(y=0, line_color="#000", line_width=1)
+
+    fig.update_layout(
+        title=(f"SORR Szenario {scenario.replace('_', ' ')}: "
+               f"Start {start:,.0f} €, Entnahme {monthly_withdrawal:,.0f} €/Monat"),
+        xaxis_title="Datum", yaxis_title="Kapital (€)",
+        template="plotly_white", height=460,
+        hovermode="x unified",
+        xaxis=dict(hoverformat="%Y-%m-%d", automargin=True),
+        yaxis=dict(tickformat=",.0f", automargin=True, title_standoff=18),
+        margin=dict(l=110, r=140, t=50, b=40),
+        legend=dict(orientation="v", x=1.02, y=1.0, xanchor="left", yanchor="top"),
+    )
+    return _fig_to_json(fig)
+
+
 @router.get("/chart/rolling-sharpe")
 def chart_rolling_sharpe(window: int = Query(252, ge=21, le=1260)):
     """Rolling Sharpe über konfigurierbares Fenster."""

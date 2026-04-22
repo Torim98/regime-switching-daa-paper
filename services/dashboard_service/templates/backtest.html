@@ -47,19 +47,29 @@
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdCrisis"></div>
   </section>
 
-  <!-- Transaktionskosten + SORR-Plots -->
+  <!-- Transaktionskosten -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Transaktionskosten &amp; SORR-Szenarien</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <figure><img src="/api/asset/transaction_costs.png" class="w-full object-contain" loading="lazy" alt="TxCosts">
-        <figcaption class="text-xs p-2 text-slate-500">Kumulierte Transaktionskosten</figcaption></figure>
-      <figure><img src="/api/asset/sorr_sim_standard.png" class="w-full object-contain" loading="lazy" alt="SORR Standard">
-        <figcaption class="text-xs p-2 text-slate-500">SORR — Standard-Szenario</figcaption></figure>
-      <figure><img src="/api/asset/sorr_sim_aggressive.png" class="w-full object-contain" loading="lazy" alt="SORR Aggressive">
-        <figcaption class="text-xs p-2 text-slate-500">SORR — Aggressiv</figcaption></figure>
-      <figure><img src="/api/asset/sorr_sim_low_capital.png" class="w-full object-contain" loading="lazy" alt="SORR Low Capital">
-        <figcaption class="text-xs p-2 text-slate-500">SORR — Geringes Kapital</figcaption></figure>
+    <h2 class="text-lg font-semibold mb-4">Kumulierte Transaktionskosten</h2>
+    <div id="chart-transaction-costs" class="w-full"></div>
+  </section>
+
+  <!-- SORR-Szenarien (Toggle) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-lg font-semibold">SORR-Szenarien</h2>
+      <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
+        <template x-for="s in sorrScenarios" :key="s.key">
+          <button type="button"
+                  class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
+                  :class="sorrScenario === s.key
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
+                  @click="sorrScenario = s.key; drawSorr()"
+                  x-text="s.label"></button>
+        </template>
+      </div>
     </div>
+    <div id="chart-sorr" class="w-full"></div>
   </section>
 
   <!-- SORR-Summary -->
@@ -80,6 +90,12 @@
 function btPage() {
   return {
     window: 252,
+    sorrScenario: 'Standard',
+    sorrScenarios: [
+      { key: 'Standard',    label: 'Standard' },
+      { key: 'Aggressive',  label: 'Aggressiv' },
+      { key: 'Low_Capital', label: 'Geringes Kapital' },
+    ],
     mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '', mdTiming: '',
     async init() {
       [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr, this.mdTiming] =
@@ -91,13 +107,18 @@ function btPage() {
           fetchMd('pipeline_timing.md'),
         ]);
       await Promise.all([
-        renderChart('chart-equity',   '/api/chart/equity-curves'),
-        renderChart('chart-drawdown', '/api/chart/drawdown'),
+        renderChart('chart-equity',             '/api/chart/equity-curves'),
+        renderChart('chart-drawdown',           '/api/chart/drawdown'),
+        renderChart('chart-transaction-costs',  '/api/chart/transaction-costs'),
         this.drawSharpe(),
+        this.drawSorr(),
       ]);
     },
     async drawSharpe() {
       await renderChart('chart-rolling-sharpe', `/api/chart/rolling-sharpe?window=${this.window|0}`);
+    },
+    async drawSorr() {
+      await renderChart('chart-sorr', `/api/chart/sorr-scenario?scenario=${encodeURIComponent(this.sorrScenario)}`);
     },
   };
 }
