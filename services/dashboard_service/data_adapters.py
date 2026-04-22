@@ -611,6 +611,246 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
 
 
 # ---------------------------------------------------------------------------
+# Label-Analyse (Konkordanz, Kappa, Timeline)
+# ---------------------------------------------------------------------------
+
+def _build_label_dict(test_df: pd.DataFrame) -> dict:
+    """MSM/HMM aus test_df + preisbasierte/makro Alternativen (on-the-fly berechnet)."""
+    from src.data.labels import (
+        label_pagan_sossounov, label_peak_to_trough,
+        label_lunde_timmermann, load_nber_recession,
+    )
+    prices = test_df["Cumulative_Returns"]
+    return {
+        "MSM":     test_df["MSM_Signal"].astype("int8"),
+        "HMM":     test_df["HMM_Signal"].astype("int8"),
+        "PagSoss": label_pagan_sossounov(prices),
+        "P2T":     label_peak_to_trough(prices, threshold=0.20),
+        "LundeT":  label_lunde_timmermann(prices),
+        "NBER":    load_nber_recession(test_df.index),
+    }
+
+
+@router.get("/chart/label-agreement")
+def chart_label_agreement():
+    """Label-Übereinstimmung als Heatmap mit Toggle: Konkordanz ↔ Cohen's κ."""
+    from src.data.labels import compute_concordance_matrix, compute_kappa_matrix
+
+    cfg = _cfg()
+    test_df = _read_parquet_or_404(cfg.data_path("test_data"),
+                                   "/models/train-all zuerst")
+
+    labels = _build_label_dict(test_df)
+    concordance = compute_concordance_matrix(labels)
+    kappa = compute_kappa_matrix(labels)
+
+    fig = go.Figure()
+    fig.add_trace(go.Heatmap(
+        z=concordance.values, x=list(concordance.columns), y=list(concordance.index),
+        colorscale="RdYlGn", zmin=0.5, zmax=1.0,
+        text=np.round(concordance.values, 2), texttemplate="%{text:.2f}",
+        textfont=dict(size=12),
+        hovertemplate="%{y} ↔ %{x}<br>Konkordanz: %{z:.3f}<extra></extra>",
+        colorbar=dict(title="ρ", thickness=14),
+        visible=True, name="Konkordanz",
+    ))
+    fig.add_trace(go.Heatmap(
+        z=kappa.values, x=list(kappa.columns), y=list(kappa.index),
+        colorscale="RdYlGn", zmin=-0.2, zmax=1.0,
+        text=np.round(kappa.values, 2), texttemplate="%{text:.2f}",
+        textfont=dict(size=12),
+        hovertemplate="%{y} ↔ %{x}<br>κ: %{z:.3f}<extra></extra>",
+        colorbar=dict(title="κ", thickness=14),
+        visible=False, name="Cohen's κ",
+    ))
+
+    fig.update_layout(
+        title="Label-Konkordanz (Anteil übereinstimmender Tage)",
+        template="plotly_white", height=540,
+        margin=dict(l=80, r=60, t=100, b=80),
+        xaxis=dict(automargin=True, tickangle=-30, side="bottom"),
+        yaxis=dict(automargin=True, autorange="reversed"),
+        updatemenus=[dict(
+            type="buttons",
+            direction="right",
+            showactive=True,
+            x=0.0, xanchor="left",
+            y=1.16, yanchor="top",
+            pad=dict(t=4, b=4, l=8, r=8),
+            buttons=[
+                dict(label="Konkordanz", method="update",
+                     args=[{"visible": [True, False]},
+                           {"title": "Label-Konkordanz (Anteil übereinstimmender Tage)"}]),
+                dict(label="Cohen's κ", method="update",
+                     args=[{"visible": [False, True]},
+                           {"title": "Cohen's κ — Label-Konkordanz (chance-korrigiert)"}]),
+            ],
+        )],
+    )
+    return _fig_to_json(fig)
+
+
+@router.get("/chart/label-timeline")
+def chart_label_timeline():
+    """Multi-Panel: S&P 500 Kurs + horizontale Bear-Bänder pro Labeling-Methode."""
+    from plotly.subplots import make_subplots
+
+    cfg = _cfg()
+    test_df = _read_parquet_or_404(cfg.data_path("test_data"),
+                                   "/models/train-all zuerst")
+    raw_df = _read_parquet_or_404(cfg.data_path("raw"),
+                                  "/data/ingest zuerst")
+
+    plot_prices = raw_df["^GSPC"].reindex(test_df.index).ffill()
+    labels = _build_label_dict(test_df)
+
+    n = len(labels)
+    # Preis-Panel 3× so hoch wie ein Label-Streifen
+    heights = [3] + [1] * n
+    total = sum(heights)
+    row_heights = [h / total for h in heights]
+
+    fig = make_subplots(
+        rows=n + 1, cols=1, shared_xaxes=True,
+        row_heights=row_heights,
+        vertical_spacing=0.012,
+    )
+
+    # Preis (Panel 1)
+    fig.add_trace(go.Scatter(
+        x=plot_prices.index, y=plot_prices.values,
+        mode="lines", line=dict(color="#111", width=1.1),
+        name="S&P 500", showlegend=False,
+        hovertemplate="%{x|%Y-%m-%d}<br>S&P 500: %{y:,.0f}<extra></extra>",
+    ), row=1, col=1)
+    fig.update_yaxes(title_text="Preis", row=1, col=1, tickformat=",.0f",
+                     automargin=True)
+
+    # Label-Streifen (Panel 2..n+1)
+    for i, (name, series) in enumerate(labels.items(), start=2):
+        s = series.reindex(test_df.index).fillna(0).astype(int)
+        fig.add_trace(go.Scatter(
+            x=s.index, y=s.values.astype(float),
+            mode="lines",
+            line=dict(width=0, shape="hv"),
+            fill="tozeroy", fillcolor="rgba(220,38,38,0.55)",
+            showlegend=False,
+            hovertemplate=f"<b>{name}</b><br>%{{x|%Y-%m-%d}}<br>Bear = %{{y:.0f}}<extra></extra>",
+        ), row=i, col=1)
+        fig.update_yaxes(
+            range=[0, 1], showticklabels=False, ticks="",
+            title_text=name, title_standoff=6,
+            row=i, col=1,
+        )
+
+    fig.update_xaxes(hoverformat="%Y-%m-%d", row=n + 1, col=1,
+                     title_text="Datum")
+
+    fig.update_layout(
+        title="S&P 500 mit Regime-Labels (rot = Bear)",
+        template="plotly_white",
+        height=160 + 70 * n,
+        margin=dict(l=80, r=20, t=60, b=50),
+        hovermode="x unified",
+        showlegend=False,
+    )
+    return _fig_to_json(fig)
+
+
+# ---------------------------------------------------------------------------
+# Walk-Forward-Schema
+# ---------------------------------------------------------------------------
+
+@router.get("/chart/walk-forward-schema")
+def chart_walk_forward_schema():
+    """Gantt-artige Darstellung der rollierenden Train/Test-Fenster."""
+    from src.backtest.walk_forward import walk_forward_splits, summarize_splits
+
+    cfg = _cfg()
+    wf = cfg.walk_forward
+
+    fe = _read_parquet_or_404(cfg.data_path("feature_engineered"),
+                              "/data/ingest zuerst")
+
+    splits = walk_forward_splits(
+        index=fe.index,
+        mode=wf.mode,
+        train_window_years=wf.train_window_years,
+        test_window_months=wf.test_window_months,
+        step_months=wf.step_months,
+        min_train_years=wf.min_train_years,
+    )
+    summary = summarize_splits(splits)
+    n_folds = len(summary)
+    if n_folds == 0:
+        raise HTTPException(400, "Keine Walk-Forward-Splits erzeugbar.")
+
+    train_color = "#4C72B0"
+    test_color = "#DD8452"
+
+    fig = go.Figure()
+    for fold_id, row in summary.iterrows():
+        train_dur_ms = (row["train_end"] - row["train_start"]).total_seconds() * 1000
+        test_dur_ms = (row["test_end"] - row["test_start"]).total_seconds() * 1000
+
+        fig.add_trace(go.Bar(
+            x=[train_dur_ms], y=[fold_id],
+            base=[row["train_start"]],
+            orientation="h", width=0.72,
+            marker=dict(color=train_color, line=dict(width=0)),
+            name="Train", legendgroup="train",
+            showlegend=bool(fold_id == summary.index[0]),
+            hovertemplate=(
+                f"<b>Fold {fold_id} · Train</b><br>"
+                f"{row['train_start']:%Y-%m-%d} → {row['train_end']:%Y-%m-%d}<br>"
+                f"{row['n_train']} Handelstage<extra></extra>"
+            ),
+        ))
+        fig.add_trace(go.Bar(
+            x=[test_dur_ms], y=[fold_id],
+            base=[row["test_start"]],
+            orientation="h", width=0.72,
+            marker=dict(color=test_color, line=dict(width=0)),
+            name="Test (OOS)", legendgroup="test",
+            showlegend=bool(fold_id == summary.index[0]),
+            hovertemplate=(
+                f"<b>Fold {fold_id} · Test (OOS)</b><br>"
+                f"{row['test_start']:%Y-%m-%d} → {row['test_end']:%Y-%m-%d}<br>"
+                f"{row['n_test']} Handelstage<extra></extra>"
+            ),
+        ))
+
+    subtitle_parts = [f"Modus: <b>{wf.mode}</b>"]
+    if wf.train_window_years:
+        subtitle_parts.append(f"Train: {wf.train_window_years}&nbsp;J")
+    if wf.test_window_months:
+        subtitle_parts.append(f"Test: {wf.test_window_months}&nbsp;M")
+    subtitle_parts.append(f"{n_folds}&nbsp;Folds")
+
+    fig.update_layout(
+        title=dict(
+            text=(
+                "Walk-Forward-Schema — Train/Test-Fenster über die Zeit"
+                f"<br><sub style='color:#64748b'>{' &nbsp;·&nbsp; '.join(subtitle_parts)}</sub>"
+            ),
+            x=0.02, xanchor="left",
+        ),
+        template="plotly_white",
+        height=max(440, 26 * n_folds + 140),
+        barmode="overlay", bargap=0,
+        xaxis=dict(title="Datum", type="date",
+                   showgrid=True, gridcolor="#e2e8f0",
+                   hoverformat="%Y-%m-%d", automargin=True),
+        yaxis=dict(title="Fold", autorange="reversed", dtick=1,
+                   showgrid=False, automargin=True),
+        margin=dict(l=50, r=20, t=90, b=50),
+        legend=dict(orientation="h", y=1.05, x=1, xanchor="right",
+                    bgcolor="rgba(0,0,0,0)"),
+    )
+    return _fig_to_json(fig)
+
+
+# ---------------------------------------------------------------------------
 # MCS-Chart
 # ---------------------------------------------------------------------------
 

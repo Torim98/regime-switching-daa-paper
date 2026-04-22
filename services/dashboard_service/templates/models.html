@@ -27,39 +27,34 @@
     </p>
   </section>
 
-  <!-- Label-Konkordanz (Kapitel 3.5 / 5.2) -->
+  <!-- Label-Konkordanz / Cohen's κ (interaktiv, Toggle) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Label-Konkordanz & Cohen's κ</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-        <img src="/api/asset/label_concordance_matrix.png" alt="Concordance Matrix"
-             class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Konkordanz-Matrix</figcaption>
-      </figure>
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-        <img src="/api/asset/label_kappa_matrix.png" alt="Cohen's κ"
-             class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Cohen's κ</figcaption>
-      </figure>
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden lg:col-span-2">
-        <img src="/api/asset/label_timeline_comparison.png" alt="Label Timeline"
-             class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Label-Timeline-Vergleich (OOS)</figcaption>
-      </figure>
-    </div>
+    <h2 class="text-lg font-semibold mb-2">Label-Konkordanz &amp; Cohen's κ</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      Paarweise Übereinstimmung der Labeling-Methoden. Toggle oben links im Chart wechselt zwischen
+      Anteil übereinstimmender Tage (Konkordanz) und chance-korrigiertem Cohen's κ.
+    </p>
+    <div id="chart-label-agreement" class="w-full"></div>
   </section>
 
-  <!-- Walk-Forward-Schema -->
+  <!-- Label-Timeline (interaktiv) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Walk-Forward-Schema</h2>
-    <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-      <img src="/api/asset/walk_forward_schema.png" alt="Walk-Forward-Schema"
-           class="w-full object-contain" loading="lazy">
-      <figcaption class="text-xs p-2 text-slate-500">
-        Rollierende Train/Test-Fenster über die Zeit (blau = Train, orange = OOS-Test).
-        Strikt chronologisch getrennt, keine Look-ahead-Kontamination.
-      </figcaption>
-    </figure>
+    <h2 class="text-lg font-semibold mb-2">Label-Timeline-Vergleich (OOS)</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      S&amp;P 500 mit Bear-Phasen je Methode (rot). Zoom/Pan synchronisiert alle Panels.
+    </p>
+    <div id="chart-label-timeline" class="w-full"></div>
+  </section>
+
+  <!-- Walk-Forward-Schema (interaktiv) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-2">Walk-Forward-Schema</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      Rollierende Train/Test-Fenster über die Zeit (blau = Train, orange = OOS-Test).
+      Strikt chronologisch getrennt, keine Look-ahead-Kontamination. Hover je Fold für
+      Zeitraum &amp; Anzahl Handelstage.
+    </p>
+    <div id="chart-walk-forward" class="w-full"></div>
   </section>
 
   <!-- Optuna -->
@@ -92,7 +87,14 @@
 function modelsPage() {
   return {
     model: 'MSM',
-    async init() { await this.draw(); },
+    async init() {
+      await Promise.all([
+        this.draw(),
+        renderChart('chart-label-agreement', '/api/chart/label-agreement'),
+        renderChart('chart-label-timeline',  '/api/chart/label-timeline'),
+        renderChart('chart-walk-forward',    '/api/chart/walk-forward-schema'),
+      ]);
+    },
     async draw() {
       await renderChart('chart-regime-overlay',
         `/api/chart/regime-overlay?model=${encodeURIComponent(this.model)}`);

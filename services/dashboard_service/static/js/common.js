@@ -1,7 +1,18 @@
 /* Globale Helper für alle Dashboard-Seiten. */
 
 /* ------------------------------------------------------------------ *
- *  Dark-Mode-Layout-Overrides für Plotly                              *
+ *  Adaptive-Farbe-Sentinels (Trace-Line-Color)                        *
+ *  Wir markieren Linien, die ihre Farbe dem Theme folgen sollen, mit  *
+ *  einem dieser beiden Hex-Codes. renderChart() + MutationObserver    *
+ *  tauschen zwischen Dark/Light bidirektional um.                     *
+ * ------------------------------------------------------------------ */
+const _ADAPTIVE_LIGHT = '#111';
+const _ADAPTIVE_DARK  = '#e2e8f0';
+const _ADAPTIVE_SET   = new Set([_ADAPTIVE_LIGHT.toLowerCase(), _ADAPTIVE_DARK.toLowerCase()]);
+function _adaptiveColor(isDark) { return isDark ? _ADAPTIVE_DARK : _ADAPTIVE_LIGHT; }
+
+/* ------------------------------------------------------------------ *
+ *  Theme-Overrides: Layout (für Plotly.relayout) und Updatemenus      *
  * ------------------------------------------------------------------ */
 function _darkLayoutOverrides() {
   return {
@@ -36,6 +47,20 @@ function _lightLayoutOverrides() {
   };
 }
 
+/** Adaptive Trace-Linien (#111 ↔ #e2e8f0) auf Theme mappen. */
+function _swapAdaptiveTraceColors(fig, isDark) {
+  const target = _adaptiveColor(isDark);
+  fig.data = (fig.data || []).map((t) => {
+    if (t.line && typeof t.line.color === 'string' &&
+        _ADAPTIVE_SET.has(t.line.color.toLowerCase())) {
+      return Object.assign({}, t, {
+        line: Object.assign({}, t.line, { color: target }),
+      });
+    }
+    return t;
+  });
+}
+
 /** Plotly-Chart aus /api/... rendern. */
 async function renderChart(elId, url) {
   const el = document.getElementById(elId);
@@ -52,6 +77,7 @@ async function renderChart(elId, url) {
     const fig = await r.json();
     const isDark = document.documentElement.classList.contains('dark');
     fig.layout = fig.layout || {};
+
     if (isDark) {
       fig.layout.template = undefined;
       fig.layout.paper_bgcolor = 'rgba(30,41,59,0)';
@@ -78,6 +104,10 @@ async function renderChart(elId, url) {
         font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#0f172a' }),
       });
     }
+
+    // Immer (Light+Dark) anwenden: adaptive Trace-Linien
+    _swapAdaptiveTraceColors(fig, isDark);
+
     el.innerHTML = '';
     Plotly.newPlot(el, fig.data, fig.layout, {
       responsive: true,
@@ -175,13 +205,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const obs = new MutationObserver((muts) => {
     for (const m of muts) {
-      if (m.attributeName === 'class') {
-        const isDark = document.documentElement.classList.contains('dark');
-        const overrides = isDark ? _darkLayoutOverrides() : _lightLayoutOverrides();
-        document.querySelectorAll('.js-plotly-plot').forEach((el) => {
-          Plotly.relayout(el, overrides);
-        });
-      }
+      if (m.attributeName !== 'class') continue;
+      const isDark = document.documentElement.classList.contains('dark');
+      const baseOverrides = isDark ? _darkLayoutOverrides() : _lightLayoutOverrides();
+      const adaptive = _adaptiveColor(isDark);
+
+      document.querySelectorAll('.js-plotly-plot').forEach((el) => {
+        // 1) Layout-Overrides
+        Plotly.relayout(el, baseOverrides);
+
+        // 2) Adaptive Trace-Linienfarben (Plotly.restyle — relayout reicht nicht)
+        if (el.data && el.data.length) {
+          const indices = [];
+          el.data.forEach((t, i) => {
+            if (t.line && typeof t.line.color === 'string' &&
+                _ADAPTIVE_SET.has(t.line.color.toLowerCase())) {
+              indices.push(i);
+            }
+          });
+          if (indices.length > 0) {
+            Plotly.restyle(el, { 'line.color': adaptive }, indices);
+          }
+        }
+      });
     }
   });
   obs.observe(document.documentElement, { attributes: true });
