@@ -67,7 +67,11 @@ def ingest():
     df.to_parquet(cfg.data_path("feature_engineered"))
 
     # 6. Feature-Plots
-    plot_capital_curve(df, cfg.asset_path("capital_curve"))
+    plot_capital_curve(
+        df,
+        cfg.asset_path("capital_curve"),
+        initial_capital=float(cfg.backtesting.sorr.scenarios.Standard.initial_capital),
+    )
     plot_feature_correlation(
         df, cfg.features.model_features,
         cfg.asset_path("feature_correlation_matrix"),

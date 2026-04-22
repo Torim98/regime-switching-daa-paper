@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from statsmodels.graphics.tsaplots import plot_acf
 
@@ -40,11 +41,16 @@ def plot_historical_drawdowns(df, save_path: str):
     plt.close(fig)
 
 
-def plot_capital_curve(df, save_path: str):
-    """Kapitalkurve des 60/40 Portfolios."""
+def plot_capital_curve(df, save_path: str, initial_capital: float):
+    """Kapitalkurve des 60/40 Portfolios in € (skaliert auf Startkapital)."""
+    s = df['Cumulative_Returns'].dropna()
+    s = s / s.iloc[0] * initial_capital
+
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(df.index, df['Cumulative_Returns'])
-    ax.set_title("Kapitalkurve des 60/40 Portfolios (Start = 1.0)")
+    ax.plot(s.index, s.values)
+    ax.set_title(f"Kapitalkurve des 60/40 Portfolios (Startkapital {initial_capital:,.0f} €)")
+    ax.set_ylabel("Kapital (€)")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:,.0f}"))
     ax.grid(True, alpha=0.3)
 
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
