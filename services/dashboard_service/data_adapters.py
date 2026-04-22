@@ -1109,6 +1109,160 @@ def chart_mcs_quantiles(scenario: str = Query("Standard"), strategy: str = Query
 
 
 # ---------------------------------------------------------------------------
+# Klassifikation vs. NBER (Confusion-Matrix · ROC · PR)
+# ---------------------------------------------------------------------------
+
+def _load_classification_truth(cfg: PipelineConfig) -> tuple[pd.DataFrame, np.ndarray, list[str]]:
+    """test_df + y_true (NBER) + Liste zu plottender Modelle — gemeinsame Basis."""
+    from src.data.labels import load_nber_recession
+
+    test_df = _read_parquet_or_404(
+        cfg.data_path("test_data"),
+        "/models/train-all + /backtest/run zuerst",
+    )
+    models = [m for m in cfg.evaluation.extended.f1_models]
+
+    try:
+        nber = load_nber_recession(
+            test_df.index,
+            source=cfg.evaluation.extended.nber_source,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"NBER-Daten nicht ladbar: {e}")
+
+    y_true = nber.reindex(test_df.index).fillna(0).astype(int).values
+    return test_df, y_true, models
+
+
+@router.get("/chart/confusion-matrices")
+def chart_confusion_matrices():
+    """Confusion-Matrizen (MSM · HMM · LSTM · Transformer) vs. NBER als Subplot-Grid."""
+    from plotly.subplots import make_subplots
+    from sklearn.metrics import confusion_matrix
+
+    cfg = _cfg()
+    test_df, y_true, models = _load_classification_truth(cfg)
+
+    available = [(m, f"{m}_Signal") for m in models if f"{m}_Signal" in test_df.columns]
+    if not available:
+        raise HTTPException(400, "Keine *_Signal-Spalten in test_data gefunden.")
+
+    n = len(available)
+    fig = make_subplots(
+        rows=1, cols=n, horizontal_spacing=0.10,
+        subplot_titles=[m for m, _ in available],
+    )
+
+    labels = ["No-Rec", "Rec"]
+    for i, (model, sig_col) in enumerate(available, start=1):
+        y_pred = test_df[sig_col].fillna(0).astype(int).values
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        # Zeilen = Wahrheit (NBER), Spalten = Vorhergesagt
+        # autorange='reversed' sorgt dafür, dass y="No-Rec" oben und y="Rec" unten steht.
+        fig.add_trace(
+            go.Heatmap(
+                z=cm, x=labels, y=labels,
+                colorscale="Blues", showscale=(i == n),
+                zmin=0, zmax=float(cm.max()) if cm.max() > 0 else 1.0,
+                text=cm.astype(int), texttemplate="%{text}",
+                textfont=dict(size=14),
+                hovertemplate=(
+                    f"<b>{model}</b><br>NBER: %{{y}}<br>"
+                    "Vorhergesagt: %{x}<br>Anzahl: %{z}<extra></extra>"
+                ),
+                colorbar=dict(title="Anzahl", thickness=12) if i == n else None,
+            ),
+            row=1, col=i,
+        )
+        fig.update_xaxes(title_text="Vorhergesagt", row=1, col=i, automargin=True)
+        fig.update_yaxes(
+            title_text="NBER (Wahrheit)" if i == 1 else "",
+            autorange="reversed", row=1, col=i, automargin=True,
+        )
+
+    fig.update_layout(
+        title="Confusion Matrices (vs. NBER)",
+        template="plotly_white",
+        height=380,
+        margin=dict(l=70, r=40, t=70, b=50),
+    )
+    return _fig_to_json(fig)
+
+
+@router.get("/chart/roc-pr-curves")
+def chart_roc_pr_curves(kind: str = Query("roc", pattern="^(roc|pr)$")):
+    """ROC- oder PR-Kurven aller Modelle vs. NBER; nutzt *_Prob (schwellenunabhängig)."""
+    from sklearn.metrics import roc_curve, precision_recall_curve, auc
+
+    cfg = _cfg()
+    test_df, y_true, models = _load_classification_truth(cfg)
+    colors = cfg.color_map
+
+    available = [(m, f"{m}_Prob") for m in models if f"{m}_Prob" in test_df.columns]
+    if not available:
+        raise HTTPException(400, "Keine *_Prob-Spalten in test_data gefunden.")
+
+    fig = go.Figure()
+
+    if kind == "roc":
+        # Random-Baseline (Diagonale)
+        fig.add_trace(go.Scatter(
+            x=[0, 1], y=[0, 1], mode="lines",
+            line=dict(dash="dash", color="rgba(100,100,100,0.6)", width=1),
+            name="Random", hoverinfo="skip",
+        ))
+
+    for model, prob_col in available:
+        y_score = test_df[prob_col].fillna(0).values
+        color = _plotly_color(colors.get(model))
+
+        if kind == "roc":
+            fpr, tpr, _ = roc_curve(y_true, y_score)
+            auc_value = auc(fpr, tpr)
+            fig.add_trace(go.Scatter(
+                x=fpr, y=tpr, mode="lines",
+                name=f"{model} (AUC={auc_value:.2f})",
+                line=dict(color=color, width=1.8),
+                hovertemplate=(
+                    f"<b>{model}</b><br>"
+                    "FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>"
+                ),
+            ))
+        else:
+            prec, rec, _ = precision_recall_curve(y_true, y_score)
+            auc_value = auc(rec, prec)
+            fig.add_trace(go.Scatter(
+                x=rec, y=prec, mode="lines",
+                name=f"{model} (AUC={auc_value:.2f})",
+                line=dict(color=color, width=1.8),
+                hovertemplate=(
+                    f"<b>{model}</b><br>"
+                    "Recall: %{x:.3f}<br>Precision: %{y:.3f}<extra></extra>"
+                ),
+            ))
+
+    if kind == "roc":
+        title = "ROC-Kurven (vs. NBER)"
+        x_title, y_title = "False Positive Rate", "True Positive Rate"
+        legend_loc = dict(x=0.98, y=0.02, xanchor="right", yanchor="bottom")
+    else:
+        title = "Precision-Recall-Kurven (vs. NBER)"
+        x_title, y_title = "Recall", "Precision"
+        legend_loc = dict(x=0.02, y=0.02, xanchor="left", yanchor="bottom")
+
+    fig.update_layout(
+        title=title,
+        xaxis=dict(title=x_title, range=[0, 1], automargin=True),
+        yaxis=dict(title=y_title, range=[0, 1.02], automargin=True,
+                   scaleanchor="x", scaleratio=1),
+        template="plotly_white", height=520,
+        margin=dict(l=60, r=30, t=60, b=50),
+        legend=dict(orientation="v", bgcolor="rgba(255,255,255,0.0)", **legend_loc),
+    )
+    return _fig_to_json(fig)
+
+
+# ---------------------------------------------------------------------------
 # Helpers — Farben
 # ---------------------------------------------------------------------------
 

@@ -14,16 +14,31 @@
   <!-- Klassifikation -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Klassifikationsmetriken (vs. NBER)</h2>
-    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdClass"></div>
-    <!-- Confusion Matrices: volle Breite (4 Sub-Plots nebeneinander) -->
-    <figure class="mb-4">
-      <img src="/api/asset/confusion_matrices.png" class="w-full object-contain rounded" loading="lazy" alt="Confusion Matrices">
-      <figcaption class="text-xs p-2 text-slate-500">Confusion Matrices (MSM · HMM · LSTM · Transformer)</figcaption>
-    </figure>
-    <!-- ROC + PR nebeneinander -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <figure><img src="/api/asset/roc_curves.png" class="w-full object-contain rounded" loading="lazy" alt="ROC"><figcaption class="text-xs p-2 text-slate-500">ROC-Kurven</figcaption></figure>
-      <figure><img src="/api/asset/pr_curves.png" class="w-full object-contain rounded" loading="lazy" alt="PR"><figcaption class="text-xs p-2 text-slate-500">Precision-Recall-Kurven</figcaption></figure>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-6" x-html="mdClass"></div>
+
+    <!-- Confusion Matrices: volle Breite (4 Heatmaps nebeneinander) -->
+    <div class="mb-6">
+      <h3 class="text-sm font-semibold text-slate-500 mb-2">Confusion Matrices</h3>
+      <div id="chart-confusion-matrices" class="w-full"></div>
+    </div>
+
+    <!-- ROC / PR mit Toggle -->
+    <div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h3 class="text-sm font-semibold text-slate-500">Klassifikationskurven</h3>
+        <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
+          <template x-for="k in rocPrKinds" :key="k.key">
+            <button type="button"
+                    class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
+                    :class="rocPrKind === k.key
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
+                    @click="rocPrKind = k.key; drawRocPr()"
+                    x-text="k.label"></button>
+          </template>
+        </div>
+      </div>
+      <div id="chart-roc-pr" class="w-full"></div>
     </div>
   </section>
 
@@ -142,6 +157,11 @@
 function evalPage() {
   return {
     scenario: 'Standard', strategy: 'Transformer',
+    rocPrKind: 'roc',
+    rocPrKinds: [
+      { key: 'roc', label: 'ROC' },
+      { key: 'pr',  label: 'Precision-Recall' },
+    ],
     mdEval: '', mdClass: '', mdChurn: '', mdSwitch: '', mdMcs: '',
     mdDep: '', mdH1: '', mdH2: '', mdBe: '', mdWd: '',
     thresholdMd: {}, ttrMd: {},
@@ -167,7 +187,15 @@ function evalPage() {
       for (const m of ['Buy_Hold','MSM','HMM','LSTM','Transformer']) {
         this.ttrMd[m] = await fetchMd(`time_to_recovery_${m}.md`);
       }
-      await this.drawMcs();
+      await Promise.all([
+        renderChart('chart-confusion-matrices', '/api/chart/confusion-matrices'),
+        this.drawRocPr(),
+        this.drawMcs(),
+      ]);
+    },
+    async drawRocPr() {
+      await renderChart('chart-roc-pr',
+        `/api/chart/roc-pr-curves?kind=${encodeURIComponent(this.rocPrKind)}`);
     },
     async drawMcs() {
       await renderChart('chart-mcs-q',
