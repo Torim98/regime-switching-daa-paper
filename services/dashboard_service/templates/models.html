@@ -62,28 +62,6 @@
     </figure>
   </section>
 
-  <!-- Modell-Plots (aus Pipeline) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Modell-Plots (Pipeline-Output)</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {% for name, caption in [
-        ('msm_regimes.png',       'Markov-Switching-Modell'),
-        ('hmm_regimes.png',       'Hidden Markov Model'),
-        ('lstm_model.png',        'LSTM'),
-        ('transformer_model.png', 'Transformer'),
-      ] %}
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-        <img src="/api/asset/{{ name }}" alt="{{ caption }}" class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">{{ caption }}</figcaption>
-      </figure>
-      {% endfor %}
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden lg:col-span-2">
-        <img src="/api/asset/regime_comparison.png" alt="Regime Comparison" class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Regime-Vergleich aller 4 Modelle</figcaption>
-      </figure>
-    </div>
-  </section>
-
   <!-- Optuna -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Optuna-Hyperparameter-Optimierung</h2>
