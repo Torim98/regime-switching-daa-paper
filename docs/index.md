@@ -315,6 +315,7 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | [assets/optuna_Transformer_importance.png](../assets/optuna_Transformer_importance.png) | Transformer — Parameter-Importance |
 | [assets/optuna_Transformer_contour.png](../assets/optuna_Transformer_contour.png) | Transformer — Parameter-Contour |
 | [assets/optuna_Transformer_slice.png](../assets/optuna_Transformer_slice.png) | Transformer — Parameter-Slice |
+| [assets/optuna_importance_values.json](../assets/optuna_importance_values.json) | fANOVA-Importance-Cache (Dashboard liest daraus, um 1:1 mit PNG zu matchen. fANOVA ist stochastisch und würde bei Re-Computation abweichen) |
 
 ### 9.5 Backtest & Performance
 

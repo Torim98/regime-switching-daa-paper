@@ -183,6 +183,132 @@ def optuna_best_params():
     }
 
 
+_OPTUNA_PLOT_TITLES = {
+    "history":    "Optimization History",
+    "importance": "Hyperparameter Importances",
+    "slice":      "Slice Plot",
+    "contour":    "Contour Plot",
+}
+
+
+@router.get("/chart/optuna")
+def chart_optuna(
+    model: str = Query(..., pattern="^(MSM|HMM|LSTM|Transformer)$"),
+    plot: str = Query(..., pattern="^(history|importance|slice|contour)$"),
+):
+    """Interaktive Optuna-Visualisierung (History · Importance · Slice · Contour).
+
+    Nutzt optuna.visualization direkt → native Plotly-Figure, 1:1 zum PNG-Pendant.
+    Contour erfordert ≥ 2 Hyperparameter — wird sonst mit 400 abgelehnt.
+    """
+    cfg = _cfg()
+    db_path = Path(cfg.model_path("optuna_db"))
+    if not db_path.exists():
+        raise HTTPException(404, "Keine Optuna-DB gefunden.")
+
+    try:
+        import optuna
+        from optuna.visualization import (
+            plot_optimization_history,
+            plot_param_importances,
+            plot_contour,
+            plot_slice,
+        )
+        from optuna.importance import FanovaImportanceEvaluator
+    except ImportError:
+        raise HTTPException(500, "optuna nicht installiert.")
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    storage = f"sqlite:///{db_path}"
+
+    try:
+        study = optuna.load_study(study_name=f"opt_{model}", storage=storage)
+    except KeyError:
+        raise HTTPException(404, f"Keine Optuna-Study für {model}.")
+
+    try:
+        _ = study.best_value  # schlägt fehl, wenn keine COMPLETE-Trials
+    except ValueError:
+        raise HTTPException(400, f"{model}: keine abgeschlossenen Trials.")
+
+    n_params = max((len(t.params) for t in study.trials if t.params), default=1)
+    if plot == "contour" and n_params < 2:
+        raise HTTPException(400, f"{model}: Contour benötigt ≥ 2 Hyperparameter "
+                                  f"(gefunden: {n_params}).")
+
+    # fANOVA ist stochastisch. Für 1:1-Match mit dem Pipeline-PNG lesen wir
+    # die tatsächlich in die PNG geflossenen Werte aus
+    # assets/optuna_importance_values.json (von save_optuna_plots geschrieben).
+    # Fehlt der Cache → Live-Computation mit festem Seed als Fallback.
+    def _build_importance_fig() -> go.Figure:
+        cache_path = cfg._base_dir / "assets" / "optuna_importance_values.json"
+        cached = None
+        if cache_path.exists():
+            import json as _json
+            try:
+                data = _json.loads(cache_path.read_text(encoding="utf-8"))
+                cached = (data.get("studies") or {}).get(model)
+            except Exception as e:
+                logger.warning("optuna_importance_values.json unlesbar: %s", e)
+
+        if cached:
+            items = sorted(cached.items(), key=lambda kv: kv[1])
+            names = [k for k, _ in items]
+            values = [float(v) for _, v in items]
+            bar = go.Figure(go.Bar(
+                x=values, y=names, orientation="h",
+                text=[f"{v:.2f}" for v in values], textposition="outside",
+                marker=dict(color="rgb(99,110,250)"),
+                hovertemplate="<b>%{y}</b><br>Importance: %{x:.4f}<extra></extra>",
+            ))
+            bar.update_layout(
+                xaxis_title="Hyperparameter Importance",
+                yaxis_title="Hyperparameter",
+            )
+            return bar
+
+        evaluator = FanovaImportanceEvaluator(seed=42)
+        return plot_param_importances(study, evaluator=evaluator)
+
+    builders = {
+        "history":    lambda: plot_optimization_history(study),
+        "importance": _build_importance_fig,
+        "slice":      lambda: plot_slice(study),
+        "contour":    lambda: plot_contour(study),
+    }
+    fig = builders[plot]()
+
+    # Einheitliches Theme (wie alle anderen Charts). Slice (eine Reihe mit
+    # n Panels) und Contour (n×n-Matrix) skalieren mit n_params, sonst werden
+    # die Achsenbeschriftungen unlesbar gequetscht — siehe PNG-Pipeline in
+    # src/backtest/plots.py.
+    heights = {
+        "history":    360,
+        "importance": max(280, 60 * n_params + 120),
+        "slice":      420,
+        "contour":    max(600, 180 * n_params),
+    }
+    layout_updates = dict(
+        title=f"{_OPTUNA_PLOT_TITLES[plot]} — {model}",
+        template="plotly_white",
+        height=heights[plot],
+        margin=dict(l=60, r=30, t=60, b=50),
+        font=dict(size=11),
+    )
+    # Slice / Contour: Plotly-interne Breite explizit setzen, sonst werden
+    # viele Subplots in einen 600-800-px-Container gequetscht und überlappen
+    # mit Nachbar-Panels.
+    if plot == "slice":
+        layout_updates["width"] = max(900, 260 * n_params)
+    elif plot == "contour":
+        layout_updates["width"] = max(900, 180 * n_params)
+
+    fig.update_layout(**layout_updates)
+    fig.update_xaxes(automargin=True, title_standoff=8)
+    fig.update_yaxes(automargin=True, title_standoff=8)
+    return _fig_to_json(fig)
+
+
 # ---------------------------------------------------------------------------
 # EDA-Charts
 # ---------------------------------------------------------------------------

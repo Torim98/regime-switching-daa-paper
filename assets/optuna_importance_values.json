@@ -1,0 +1,33 @@
+{
+  "_comment": "Cache der fANOVA-Importance-Werte aus save_optuna_plots (src/backtest/plots.py). Da FanovaImportanceEvaluator ohne festen Seed stochastisch ist, werden die Werte zum PNG-Zeitpunkt hier gespeichert — sodass das Dashboard exakt dieselben Zahlen zeigt wie das statische PNG. Bei neuen Pipeline-Läufen schreibt save_optuna_plots diese Datei automatisch neu.",
+  "source": "manually extracted from assets/optuna_{model}_importance.png (one-time backfill)",
+  "studies": {
+    "MSM": {
+      "threshold": 1.0
+    },
+    "HMM": {
+      "threshold": 0.64,
+      "covariance_type": 0.36
+    },
+    "LSTM": {
+      "dropout": 0.40,
+      "threshold": 0.29,
+      "window_size": 0.09,
+      "epochs": 0.07,
+      "units_l2": 0.07,
+      "units_l1": 0.07,
+      "learning_rate": 0.03
+    },
+    "Transformer": {
+      "epochs": 0.23,
+      "window_size": 0.20,
+      "dropout": 0.16,
+      "learning_rate": 0.14,
+      "n_layers": 0.14,
+      "dim_feedforward": 0.05,
+      "n_heads": 0.04,
+      "threshold": 0.03,
+      "d_model": 0.02
+    }
+  }
+}

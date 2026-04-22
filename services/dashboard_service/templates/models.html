@@ -57,27 +57,105 @@
     <div id="chart-walk-forward" class="w-full"></div>
   </section>
 
-  <!-- Optuna -->
+  <!-- Optuna — Beste Hyperparameter (von Backtest-Tab verschoben) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Optuna-Hyperparameter-Optimierung</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {% for model in ['MSM', 'HMM', 'LSTM', 'Transformer'] %}
-      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
-        <h3 class="font-semibold text-sm mb-2">{{ model }}</h3>
-        <div class="grid grid-cols-2 gap-2">
-          <img src="/api/asset/optuna_{{ model }}_history.png"    class="w-full object-contain" loading="lazy" alt="History">
-          <img src="/api/asset/optuna_{{ model }}_importance.png" class="w-full object-contain" loading="lazy" alt="Importance">
-          <img src="/api/asset/optuna_{{ model }}_slice.png"      class="w-full object-contain" loading="lazy" alt="Slice">
-          {% if model != 'MSM' %}
-          <img src="/api/asset/optuna_{{ model }}_contour.png"    class="w-full object-contain" loading="lazy" alt="Contour">
-          {% else %}
-          <div class="w-full flex items-center justify-center text-[11px] text-slate-500 italic border border-dashed border-slate-300 dark:border-slate-600 rounded p-3">
-            Kein Contour-Plot<br>(nur 1 Hyperparameter)
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+      <h2 class="text-lg font-semibold">Optuna — Beste Hyperparameter</h2>
+      <span class="text-xs text-slate-500" x-show="optunaMetric">
+        Optimierungs-Metrik: <span class="font-mono" x-text="optunaMetric"></span>
+      </span>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      Optimierungsergebnisse pro Modell via Walk-Forward-CV. Die Diagnose-Plots (History · Importance · Slice · Contour)
+      sind im Abschnitt darunter interaktiv verfügbar.
+    </p>
+
+    <template x-if="optunaError">
+      <p class="text-sm text-rose-500 italic" x-text="optunaError"></p>
+    </template>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" x-show="optunaModels.length">
+      <template x-for="m in optunaModels" :key="m.model">
+        <div class="bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700 p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-base" x-text="m.model"></h3>
+            <span class="text-xs font-mono px-2 py-0.5 rounded-full"
+                  :class="scoreBadgeClass(m.best_score)"
+                  :title="'Median-OOS-' + optunaMetric">
+              <span x-text="m.best_score.toFixed(4)"></span>
+            </span>
           </div>
-          {% endif %}
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 flex gap-3">
+            <span title="Abgeschlossene Trials">
+              <span class="font-mono" x-text="m.n_trials_complete"></span> ✓
+            </span>
+            <span title="Geprunete Trials">
+              <span class="font-mono" x-text="m.n_trials_pruned"></span> ✗
+            </span>
+            <span title="Gesamtzahl Trials">
+              <span class="font-mono" x-text="m.n_trials_total"></span> total
+            </span>
+          </div>
+          <table class="w-full text-xs">
+            <tbody>
+              <template x-for="[k, v] in Object.entries(m.best_params)" :key="k">
+                <tr class="border-t border-slate-200 dark:border-slate-700 first:border-t-0">
+                  <td class="py-1.5 pr-2 font-mono text-slate-500 dark:text-slate-400 truncate" x-text="k"></td>
+                  <td class="py-1.5 text-right font-mono text-slate-800 dark:text-slate-200" x-text="formatParam(v)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- Optuna — Diagnose-Plots (interaktiv) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <div class="flex flex-wrap items-baseline justify-between gap-3 mb-2">
+      <h2 class="text-lg font-semibold">Optuna — Diagnose-Plots</h2>
+      <div class="flex items-center gap-3 text-sm">
+        <label>Modell
+          <select x-model="optunaModel" @change="drawOptuna()"
+                  class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+            <option>MSM</option>
+            <option>HMM</option>
+            <option>LSTM</option>
+            <option>Transformer</option>
+          </select>
+        </label>
       </div>
-      {% endfor %}
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      <span class="font-semibold">History</span> = Objective pro Trial (+ Best-Value-Linie) ·
+      <span class="font-semibold">Importance</span> = fANOVA-Ranking der Hyperparameter ·
+      <span class="font-semibold">Slice</span> = marginale Wirkung je Parameter ·
+      <span class="font-semibold">Contour</span> = 2D-Landscape (entfällt bei ≤ 1 Parameter).
+    </p>
+
+    <!-- Zeile 1: History + Importance (kompakt, nebeneinander) -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <div id="chart-optuna-history" class="w-full"></div>
+      </div>
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <div id="chart-optuna-importance" class="w-full"></div>
+      </div>
+    </div>
+
+    <!-- Zeile 2: Slice (volle Breite — bei LSTM/Transformer bis zu 7 Panels) -->
+    <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 mt-4 overflow-x-auto">
+      <div id="chart-optuna-slice" class="w-full min-w-[900px]"></div>
+    </div>
+
+    <!-- Zeile 3: Contour (volle Breite — n×n-Matrix, quadratisch) -->
+    <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 mt-4 overflow-x-auto">
+      <div x-show="optunaModel !== 'MSM'" id="chart-optuna-contour" class="w-full min-w-[900px]"></div>
+      <div x-show="optunaModel === 'MSM'"
+           class="h-[240px] flex items-center justify-center text-sm text-slate-500 italic border border-dashed border-slate-300 dark:border-slate-600 rounded">
+        Kein Contour-Plot — MSM hat nur 1 Hyperparameter (threshold).
+      </div>
     </div>
   </section>
 
@@ -87,17 +165,65 @@
 function modelsPage() {
   return {
     model: 'MSM',
+    optunaModel: 'MSM',
+    optunaModels: [], optunaMetric: '', optunaError: '',
     async init() {
       await Promise.all([
         this.draw(),
         renderChart('chart-label-agreement', '/api/chart/label-agreement'),
         renderChart('chart-label-timeline',  '/api/chart/label-timeline'),
         renderChart('chart-walk-forward',    '/api/chart/walk-forward-schema'),
+        this.loadOptuna(),
+        this.drawOptuna(),
       ]);
     },
     async draw() {
       await renderChart('chart-regime-overlay',
         `/api/chart/regime-overlay?model=${encodeURIComponent(this.model)}`);
+    },
+    async drawOptuna() {
+      const m = encodeURIComponent(this.optunaModel);
+      const tasks = [
+        renderChart('chart-optuna-history',    `/api/chart/optuna?model=${m}&plot=history`),
+        renderChart('chart-optuna-importance', `/api/chart/optuna?model=${m}&plot=importance`),
+        renderChart('chart-optuna-slice',      `/api/chart/optuna?model=${m}&plot=slice`),
+      ];
+      // Contour entfällt bei MSM (nur 1 Hyperparameter) — Fallback-Card wird gezeigt.
+      if (this.optunaModel !== 'MSM') {
+        tasks.push(renderChart('chart-optuna-contour', `/api/chart/optuna?model=${m}&plot=contour`));
+      }
+      await Promise.all(tasks);
+    },
+    async loadOptuna() {
+      try {
+        const r = await fetch('/api/optuna/best-params');
+        if (!r.ok) {
+          this.optunaError = 'Keine Optuna-Optimierung verfügbar (Studies fehlen).';
+          return;
+        }
+        const data = await r.json();
+        this.optunaModels = data.results || [];
+        this.optunaMetric = data.metric || '';
+      } catch (e) {
+        this.optunaError = `Load-Fehler: ${e}`;
+      }
+    },
+    /** Hyperparameter-Wert lesbar formatieren. */
+    formatParam(v) {
+      if (v === null || v === undefined) return '—';
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      if (typeof v !== 'number') return String(v);
+      if (Number.isInteger(v)) return v.toLocaleString('en-US');
+      const abs = Math.abs(v);
+      if (abs > 0 && (abs < 1e-3 || abs >= 1e6)) return v.toExponential(3);
+      return Number.parseFloat(v.toPrecision(4)).toString();
+    },
+    /** Score → farbiges Badge (visuelle Einordnung). */
+    scoreBadgeClass(score) {
+      if (score >= 1.5) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
+      if (score >= 1.0) return 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300';
+      if (score >= 0.5) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+      return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300';
     },
   };
 }

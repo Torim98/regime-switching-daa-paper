@@ -414,15 +414,22 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         plot_contour,
         plot_slice,
     )
+    from optuna.importance import FanovaImportanceEvaluator
 
     # Anzahl Hyperparameter im Search-Space (für Contour-Entscheidung + Größe)
     n_params = max(
         (len(t.params) for t in study.trials if t.params), default=1
     )
 
+    # fANOVA ist stochastisch (Random-Forest-Sampling) → fixer Seed, damit
+    # Pipeline-PNG und Dashboard-Live-Chart exakt dieselben Zahlen zeigen.
+    importance_evaluator = FanovaImportanceEvaluator(seed=42)
+
     plots = {
         "optuna_history": plot_optimization_history(study),
-        "optuna_importance": plot_param_importances(study),
+        "optuna_importance": plot_param_importances(
+            study, evaluator=importance_evaluator,
+        ),
         "optuna_slice": plot_slice(study),
     }
     if n_params >= 2:
@@ -463,5 +470,32 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         fig.write_image(str(path), scale=2)
         saved[key] = str(path)
         print(f"  ✓ {path}")
+
+    # Importance-Werte in JSON-Cache persistieren, damit das Dashboard
+    # exakt dieselben Zahlen anzeigt wie die PNG-Datei (fANOVA ist stochastisch).
+    # Der Cache wird pro Modell inkrementell aktualisiert.
+    try:
+        import json
+        import optuna
+        importance_dict = optuna.importance.get_param_importances(
+            study, evaluator=importance_evaluator,
+        )
+        cache_path = Path(cfg._base_dir) / "assets" / "optuna_importance_values.json"
+        cache_payload = {"studies": {}}
+        if cache_path.exists():
+            try:
+                cache_payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                cache_payload.setdefault("studies", {})
+            except Exception:
+                pass
+        cache_payload["studies"][model_name] = {
+            k: float(v) for k, v in importance_dict.items()
+        }
+        cache_payload["source"] = "auto-written by save_optuna_plots"
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(cache_payload, indent=2), encoding="utf-8")
+        saved["optuna_importance_json"] = str(cache_path)
+    except Exception as e:
+        print(f"  ⚠ Importance-JSON-Cache nicht geschrieben ({model_name}): {e}")
 
     return saved
