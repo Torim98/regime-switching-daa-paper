@@ -246,6 +246,182 @@ def chart_feature_correlation():
     return _fig_to_json(fig)
 
 
+@router.get("/chart/volatility-clusters")
+def chart_volatility_clusters():
+    """S&P 500 Renditen + ACF der quadrierten Renditen (GARCH-Effekte)."""
+    from plotly.subplots import make_subplots
+    from statsmodels.tsa.stattools import acf
+
+    cfg = _cfg()
+    df = _read_parquet_or_404(cfg.data_path("feature_engineered"), "/data/ingest zuerst")
+    if "Returns_GSPC" not in df.columns:
+        raise HTTPException(400, "Returns_GSPC fehlt im DataFrame")
+
+    rets = df["Returns_GSPC"].dropna()
+    squared = (rets ** 2).dropna()
+
+    nlags = 40
+    ac_values, confint = acf(squared.values, nlags=nlags, alpha=0.05, fft=True)
+    ci_low = confint[:, 0] - ac_values
+    ci_high = confint[:, 1] - ac_values
+    lags = np.arange(nlags + 1)
+
+    fig = make_subplots(
+        rows=2, cols=1, vertical_spacing=0.12,
+        subplot_titles=(
+            "S&P 500 Tägliche Renditen — Visualisierung von Volatilitätsclustern",
+            "Autokorrelation der quadrierten Renditen — Nachweis von GARCH-Effekten",
+        ),
+    )
+
+    fig.add_trace(go.Scatter(
+        x=rets.index, y=rets.values, mode="lines",
+        name="Returns_GSPC",
+        line=dict(color="#1f77b4", width=0.8),
+        hovertemplate="%{x|%Y-%m-%d}<br>%{y:.4f}<extra></extra>",
+        showlegend=False,
+    ), row=1, col=1)
+
+    # 95%-Konfidenzband um 0
+    fig.add_trace(go.Scatter(
+        x=np.concatenate([lags, lags[::-1]]),
+        y=np.concatenate([ci_high, ci_low[::-1]]),
+        fill="toself",
+        fillcolor="rgba(100,149,237,0.18)",
+        line=dict(color="rgba(0,0,0,0)"),
+        hoverinfo="skip",
+        showlegend=False,
+        name="95% CI",
+    ), row=2, col=1)
+
+    # Stems (vertikale Linien vom Nullniveau zum ACF-Wert)
+    stem_x, stem_y = [], []
+    for lag, val in zip(lags, ac_values):
+        stem_x.extend([lag, lag, None])
+        stem_y.extend([0, val, None])
+    fig.add_trace(go.Scatter(
+        x=stem_x, y=stem_y, mode="lines",
+        line=dict(color="#1f77b4", width=1.4),
+        hoverinfo="skip", showlegend=False,
+    ), row=2, col=1)
+
+    # ACF-Marker
+    fig.add_trace(go.Scatter(
+        x=lags, y=ac_values, mode="markers",
+        marker=dict(color="#d62728", size=7),
+        hovertemplate="Lag %{x}<br>ρ = %{y:.3f}<extra></extra>",
+        showlegend=False, name="ACF",
+    ), row=2, col=1)
+
+    fig.add_hline(y=0, row=2, col=1, line_color="#d62728", line_width=1)
+
+    fig.update_xaxes(title_text="Datum", row=1, col=1, hoverformat="%Y-%m-%d")
+    fig.update_yaxes(title_text="Rendite", row=1, col=1)
+    fig.update_xaxes(title_text="Lag", row=2, col=1)
+    fig.update_yaxes(title_text="Autokorrelation", row=2, col=1, range=[-1, 1])
+
+    fig.update_layout(
+        template="plotly_white", height=720,
+        margin=dict(l=60, r=20, t=60, b=40),
+    )
+    return _fig_to_json(fig)
+
+
+def _top_n_drawdown_periods(drawdowns: pd.Series, n: int = 5) -> list[dict]:
+    """Identifiziert die n tiefsten Drawdown-Perioden (Peak → Trough → Recovery)."""
+    periods = []
+    in_period = False
+    start_date = None
+    for date, dd in drawdowns.items():
+        if dd < 0 and not in_period:
+            start_date = date
+            in_period = True
+        elif dd >= 0 and in_period:
+            seg = drawdowns.loc[start_date:date]
+            periods.append({
+                "start": start_date,
+                "trough": seg.idxmin(),
+                "end": date,
+                "magnitude": float(seg.min()),
+            })
+            in_period = False
+    if in_period:
+        seg = drawdowns.loc[start_date:]
+        periods.append({
+            "start": start_date,
+            "trough": seg.idxmin(),
+            "end": drawdowns.index[-1],
+            "magnitude": float(seg.min()),
+        })
+    periods.sort(key=lambda p: p["magnitude"])
+    return periods[:n]
+
+
+@router.get("/chart/historical-drawdowns")
+def chart_historical_drawdowns():
+    """Historische Drawdowns des 60/40 Portfolios — mit markierten Top-5-Episoden."""
+    cfg = _cfg()
+    df = _read_parquet_or_404(cfg.data_path("feature_engineered"), "/data/ingest zuerst")
+    if "Returns" not in df.columns:
+        raise HTTPException(400, "Returns fehlt im DataFrame")
+
+    rets = df["Returns"].fillna(0)
+    cum_returns = np.exp(rets.cumsum())
+    running_max = cum_returns.cummax()
+    drawdowns = (cum_returns / running_max) - 1.0
+
+    top5 = _top_n_drawdown_periods(drawdowns, n=5)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=drawdowns.index, y=drawdowns.values * 100,
+        mode="lines",
+        name="Drawdown",
+        line=dict(color="#8b0000", width=1.2),
+        fill="tozeroy", fillcolor="rgba(220,20,60,0.25)",
+        hovertemplate="%{x|%Y-%m-%d}<br>%{y:.2f}%<extra></extra>",
+    ))
+
+    shapes = []
+    for i, p in enumerate(top5, 1):
+        shapes.append(dict(
+            type="rect", xref="x", yref="paper",
+            x0=p["start"], x1=p["end"], y0=0, y1=1,
+            fillcolor="rgba(255,0,0,0.08)",
+            line=dict(width=0), layer="below",
+        ))
+        fig.add_trace(go.Scatter(
+            x=[p["trough"]],
+            y=[p["magnitude"] * 100],
+            mode="markers+text",
+            marker=dict(color="red", size=11, symbol="x-thin",
+                        line=dict(color="darkred", width=2)),
+            text=[f"#{i}"],
+            textposition="bottom center",
+            textfont=dict(color="darkred", size=11),
+            name=f"Top-{i}: {p['magnitude']*100:.1f}%",
+            hovertemplate=(
+                f"<b>Top-{i} Drawdown</b><br>"
+                f"Peak: {p['start'].strftime('%Y-%m-%d')}<br>"
+                "Trough: %{x|%Y-%m-%d}<br>"
+                f"Recovery: {p['end'].strftime('%Y-%m-%d')}<br>"
+                "Tiefe: %{y:.2f}%<extra></extra>"
+            ),
+            showlegend=True,
+        ))
+
+    fig.update_layout(
+        title="Historische Drawdowns des 60/40 Portfolios — Top 5 markiert",
+        xaxis_title="Datum", yaxis_title="Drawdown (%)",
+        template="plotly_white", height=460,
+        margin=dict(l=60, r=20, t=50, b=40),
+        shapes=shapes,
+        xaxis=dict(hoverformat="%Y-%m-%d", automargin=True),
+        legend=dict(orientation="h", y=-0.18, x=0, xanchor="left"),
+    )
+    return _fig_to_json(fig)
+
+
 @router.get("/chart/capital-curve")
 def chart_capital_curve():
     """60/40-Benchmark Kapitalkurve in € (Standard-Szenario initial_capital)."""

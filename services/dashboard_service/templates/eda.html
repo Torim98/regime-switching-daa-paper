@@ -43,6 +43,15 @@
     <div id="chart-returns" class="w-full"></div>
   </section>
 
+  <!-- Volatilitätscluster &amp; ACF (interaktiv) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-2">Volatilitätscluster &amp; Autokorrelation</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      S&amp;P 500 Tagesrenditen und ACF der quadrierten Renditen bis Lag 40 — Nachweis von GARCH-Effekten.
+    </p>
+    <div id="chart-volatility-clusters" class="w-full"></div>
+  </section>
+
   <!-- Feature-Korrelationsmatrix (interaktiv) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Feature-Korrelationsmatrix</h2>
@@ -55,21 +64,13 @@
     <div id="chart-capital-curve" class="w-full"></div>
   </section>
 
-  <!-- Bestehende EDA-PNGs als Gallery -->
+  <!-- Historische Drawdowns (interaktiv, Top-5 markiert) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Weitere EDA-Plots (Pipeline-Output)</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-        <img src="/api/asset/eda_volatility_clusters.png" alt="Volatility Clusters"
-             class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Volatilitätscluster &amp; Autokorrelation</figcaption>
-      </figure>
-      <figure class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-        <img src="/api/asset/eda_historical_drawdowns.png" alt="Historical Drawdowns"
-             class="w-full object-contain" loading="lazy">
-        <figcaption class="text-xs p-2 text-slate-500">Historische Drawdowns (SORR-Kontext)</figcaption>
-      </figure>
-    </div>
+    <h2 class="text-lg font-semibold mb-2">Historische Drawdowns (60/40 Benchmark)</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      SORR-Kontext: die fünf tiefsten Drawdown-Episoden sind rot hervorgehoben (Rechteck = Peak→Recovery, X = Trough).
+    </p>
+    <div id="chart-historical-drawdowns" class="w-full"></div>
   </section>
 
 </div>
@@ -84,8 +85,10 @@ function edaPage() {
       this.mdAdf = await fetchMd('eda_adf_tests.md');
       await Promise.all([
         this.drawReturns(),
+        renderChart('chart-volatility-clusters', '/api/chart/volatility-clusters'),
         renderChart('chart-feature-corr', '/api/chart/feature-correlation'),
         renderChart('chart-capital-curve', '/api/chart/capital-curve'),
+        renderChart('chart-historical-drawdowns', '/api/chart/historical-drawdowns'),
       ]);
     },
     async drawReturns() {
