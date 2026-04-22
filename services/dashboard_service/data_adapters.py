@@ -1064,6 +1064,106 @@ def chart_walk_forward_schema():
 # MCS-Chart
 # ---------------------------------------------------------------------------
 
+@router.get("/chart/mcs-distribution")
+def chart_mcs_distribution(
+    scenario: str = Query("Standard", pattern="^(Standard|Aggressive|Low_Capital)$"),
+    kind: str = Query("boxplot", pattern="^(boxplot|violin)$"),
+):
+    """Verteilung des MCS-Endkapitals als Box- oder Violin-Plot.
+
+    1:1-Pendant zu den Pipeline-PNGs (mcs_boxplot_{sc}.png / mcs_violin_{sc}.png):
+    pro Strategie das Endkapital aller Pfade (letzter Wert der Simulation).
+    """
+    cfg = _cfg()
+    df = _read_parquet_or_404(cfg.data_path("mcs_data"), "/backtest/evaluate zuerst")
+    colors = cfg.color_map
+
+    # Strategie-Reihenfolge wie in der Pipeline (B&H links, Modelle rechts).
+    strategies = ["Buy_Hold", "MSM", "HMM", "LSTM", "Transformer"]
+    finals: dict[str, np.ndarray] = {}
+    for strat in strategies:
+        prefix = f"{scenario}_{strat}_path_"
+        path_cols = [c for c in df.columns if c.startswith(prefix)]
+        if path_cols:
+            # Letzter Wert je Pfad = Endkapital nach sim_years Jahren
+            finals[strat] = df[path_cols].iloc[-1].to_numpy(dtype=float)
+
+    if not finals:
+        available = sorted({c.rsplit("_path_", 1)[0] for c in df.columns if "_path_" in c})
+        raise HTTPException(400, f"Keine Daten für Szenario '{scenario}'. "
+                                  f"Verfügbar: {available}")
+
+    sc_cfg = getattr(cfg.backtesting.sorr.scenarios, scenario)
+    start = float(sc_cfg.initial_capital)
+    sim_years = int(cfg.evaluation.mcs.sim_years)
+    n_paths = len(next(iter(finals.values())))
+
+    fig = go.Figure()
+
+    if kind == "boxplot":
+        for strat, arr in finals.items():
+            base = _plotly_color(colors.get(strat))
+            fig.add_trace(go.Box(
+                y=arr, name=strat.replace("_", " "),
+                boxpoints=False,  # 10k Outlier-Punkte wären unleserlich
+                marker_color=base,
+                line=dict(color=base, width=1.2),
+                fillcolor=_rgba(base, 0.25),
+                hovertemplate=(
+                    f"<b>{strat}</b><br>"
+                    "Max: %{upperfence:,.0f} €<br>"
+                    "Q3: %{q3:,.0f} €<br>"
+                    "Median: %{median:,.0f} €<br>"
+                    "Q1: %{q1:,.0f} €<br>"
+                    "Min: %{lowerfence:,.0f} €<extra></extra>"
+                ),
+            ))
+            med = float(np.median(arr))
+            fig.add_annotation(
+                x=strat.replace("_", " "), y=med,
+                xshift=36, showarrow=False,
+                text=f"{med:,.0f}€",
+                font=dict(color="#d62728", size=10),
+            )
+        title = (f"MCS {scenario}: Verteilung des Endkapitals "
+                 f"(n={n_paths:,}, Start: {start:,.0f}€)")
+        y_title = f"Endkapital nach {sim_years} Jahren in €"
+    else:  # violin
+        for strat, arr in finals.items():
+            base = _plotly_color(colors.get(strat))
+            fig.add_trace(go.Violin(
+                y=arr, name=strat.replace("_", " "),
+                box_visible=True, meanline_visible=False,
+                points=False, spanmode="hard",
+                fillcolor=_rgba(base, 0.55),
+                line=dict(color=base, width=1.2),
+                box=dict(width=0.15, fillcolor=_rgba(base, 0.85),
+                         line=dict(color="#1f2937", width=1)),
+                hovertemplate=(
+                    f"<b>{strat}</b><br>"
+                    "%{y:,.0f} €<extra></extra>"
+                ),
+            ))
+        title = (f"MCS Endvermögen — Szenario {scenario} "
+                 f"(n={n_paths:,}, Start: {start:,.0f}€)")
+        y_title = f"Endkapital nach {sim_years} Jahren in €"
+
+    fig.add_hline(y=0, line_dash="dash", line_color="#d62728",
+                  line_width=1.2, opacity=0.7)
+
+    fig.update_layout(
+        title=title,
+        template="plotly_white",
+        height=480,
+        showlegend=False,
+        margin=dict(l=90, r=40, t=60, b=60),
+        yaxis=dict(title=y_title, tickformat=",.0f",
+                   automargin=True, title_standoff=14),
+        xaxis=dict(automargin=True),
+    )
+    return _fig_to_json(fig)
+
+
 @router.get("/chart/mcs-quantiles")
 def chart_mcs_quantiles(scenario: str = Query("Standard"), strategy: str = Query("Transformer")):
     """Quantil-Fächer (5 / 25 / 50 / 75 / 95 %) der MCS-Pfade."""

@@ -95,7 +95,7 @@
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdMcs"></div>
     <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
       <label>Szenario
-        <select x-model="scenario" @change="drawMcs()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
+        <select x-model="scenario" @change="drawMcs(); drawMcsDist()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
           <option>Standard</option><option>Aggressive</option><option>Low_Capital</option>
         </select>
       </label>
@@ -106,13 +106,24 @@
       </label>
     </div>
     <div id="chart-mcs-q" class="w-full"></div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-      <figure><img src="/api/asset/mcs_boxplot_standard.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Standard"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Standard</figcaption></figure>
-      <figure><img src="/api/asset/mcs_boxplot_aggressive.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Aggressive"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Aggressiv</figcaption></figure>
-      <figure><img src="/api/asset/mcs_boxplot_low_capital.png" class="w-full object-contain" loading="lazy" alt="MCS Boxplot Low Capital"><figcaption class="text-xs p-2 text-slate-500">Boxplot — Low Capital</figcaption></figure>
-      <figure><img src="/api/asset/mcs_violin_standard.png" class="w-full object-contain" loading="lazy" alt="Violin Standard"><figcaption class="text-xs p-2 text-slate-500">Violin — Standard</figcaption></figure>
-      <figure><img src="/api/asset/mcs_violin_aggressive.png" class="w-full object-contain" loading="lazy" alt="Violin Aggressive"><figcaption class="text-xs p-2 text-slate-500">Violin — Aggressiv</figcaption></figure>
-      <figure><img src="/api/asset/mcs_violin_low_capital.png" class="w-full object-contain" loading="lazy" alt="Violin Low Capital"><figcaption class="text-xs p-2 text-slate-500">Violin — Low Capital</figcaption></figure>
+
+    <!-- Endkapital-Verteilung: Boxplot ↔ Violin, Szenario via Selektor oben -->
+    <div class="mt-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h3 class="text-sm font-semibold text-slate-500">Endkapital-Verteilung je Strategie</h3>
+        <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
+          <template x-for="k in mcsDistKinds" :key="k.key">
+            <button type="button"
+                    class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
+                    :class="mcsDistKind === k.key
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
+                    @click="mcsDistKind = k.key; drawMcsDist()"
+                    x-text="k.label"></button>
+          </template>
+        </div>
+      </div>
+      <div id="chart-mcs-dist" class="w-full"></div>
     </div>
   </section>
 
@@ -162,6 +173,11 @@ function evalPage() {
       { key: 'roc', label: 'ROC' },
       { key: 'pr',  label: 'Precision-Recall' },
     ],
+    mcsDistKind: 'boxplot',
+    mcsDistKinds: [
+      { key: 'boxplot', label: 'Boxplot' },
+      { key: 'violin',  label: 'Violin' },
+    ],
     mdEval: '', mdClass: '', mdChurn: '', mdSwitch: '', mdMcs: '',
     mdDep: '', mdH1: '', mdH2: '', mdBe: '', mdWd: '',
     thresholdMd: {}, ttrMd: {},
@@ -193,6 +209,7 @@ function evalPage() {
         renderChart('chart-break-even', '/api/chart/break-even-costs'),
         this.drawRocPr(),
         this.drawMcs(),
+        this.drawMcsDist(),
       ]);
     },
     async drawRocPr() {
@@ -202,6 +219,10 @@ function evalPage() {
     async drawMcs() {
       await renderChart('chart-mcs-q',
         `/api/chart/mcs-quantiles?scenario=${encodeURIComponent(this.scenario)}&strategy=${encodeURIComponent(this.strategy)}`);
+    },
+    async drawMcsDist() {
+      await renderChart('chart-mcs-dist',
+        `/api/chart/mcs-distribution?scenario=${encodeURIComponent(this.scenario)}&kind=${encodeURIComponent(this.mcsDistKind)}`);
     },
   };
 }
