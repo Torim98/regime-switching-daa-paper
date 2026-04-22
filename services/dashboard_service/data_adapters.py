@@ -5,6 +5,10 @@ rendert clientseitig mit Plotly.js. Keine Neuberechnungen — die Werte
 stammen aus den Artefakten, die von der Pipeline geschrieben wurden.
 """
 from pathlib import Path
+from functools import wraps
+from typing import Callable
+import hashlib
+import json
 import logging
 
 import numpy as np
@@ -28,18 +32,109 @@ def _cfg() -> PipelineConfig:
     return PipelineConfig()
 
 
-def _read_parquet_or_404(path: str, hint: str) -> pd.DataFrame:
+def _read_parquet_or_404(
+    path: str, hint: str, *, columns: list[str] | None = None,
+) -> pd.DataFrame:
+    """Parquet laden oder 404. Mit `columns` nur die gewünschten Spalten lesen.
+    Spart bei großen, spaltenreichen Artefakten (v. a. mcs_data, 3.7 GB)
+    viele Sekunden pro Request."""
     try:
-        return pd.read_parquet(path)
+        return pd.read_parquet(path, columns=columns)
     except FileNotFoundError:
+        raise HTTPException(404, f"Artefakt fehlt: {path} — {hint}")
+
+
+def _list_parquet_columns_or_404(path: str, hint: str) -> list[str]:
+    """Liest nur die Spalten-Namen aus dem Parquet-Footer (quasi kostenlos)."""
+    try:
+        import pyarrow.parquet as pq
+        return list(pq.ParquetFile(path).schema_arrow.names)
+    except (FileNotFoundError, OSError):
         raise HTTPException(404, f"Artefakt fehlt: {path} — {hint}")
 
 
 def _fig_to_json(fig: go.Figure) -> dict:
     """Plotly-Figure → dict. Wir nutzen to_json() und parsen zurück,
     damit numpy/datetime-Werte korrekt serialisiert werden."""
-    import json
     return json.loads(pio.to_json(fig))
+
+
+# ---------------------------------------------------------------------------
+# Chart-JSON-Cache
+#
+# In-Memory-Cache mit mtime-Invalidierung. Jedes Chart-Endpoint ruft die
+# Artefakte nur dann neu ab, wenn sich mindestens eines der Quell-Parquets
+# seit dem letzten Aufruf geändert hat. Der Cache überlebt nur den
+# Prozess-Lifecycle; nach Container-Restart ist er leer.
+#
+# Warum: manche Plotly-Figuren (vor allem MCS) beruhen auf Parquets mit
+# mehreren GB; das wiederholte Laden + Aggregieren pro User-Request war der
+# dominante Overhead. Plotly-JSON selbst ist mit < 2 MB vernachlässigbar.
+# ---------------------------------------------------------------------------
+
+_FIG_CACHE: dict[str, tuple[float, dict]] = {}
+_FIG_CACHE_MAX = 128
+
+
+def _resolve_source_path(cfg: PipelineConfig, source_key: str) -> Path:
+    """`"data_key"` → data_path, `"model:key"` → model_path, `"asset:file"` → assets/<file>."""
+    if source_key.startswith("model:"):
+        return Path(cfg.model_path(source_key[6:]))
+    if source_key.startswith("asset:"):
+        return cfg._base_dir / "assets" / source_key[6:]
+    return Path(cfg.data_path(source_key))
+
+
+def _mtime_fingerprint(paths: list[Path]) -> float:
+    """Max mtime aller Quellen — ändert sich genau dann, wenn eine Datei
+    neu geschrieben wird."""
+    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
+
+
+def _cache_chart(*source_keys: str) -> Callable:
+    """Dekorator: memoisiert das JSON-Ergebnis eines Chart-Endpoints bis sich
+    eine der Quell-Artefakte ändert. Query-Parameter sind Teil des Keys."""
+    def decorator(fn: Callable) -> Callable:
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            cfg = _cfg()
+            paths = [_resolve_source_path(cfg, k) for k in source_keys]
+            fp = _mtime_fingerprint(paths)
+            key_raw = json.dumps(
+                {"fn": fn.__name__, "args": args, "kwargs": kwargs},
+                sort_keys=True, default=str,
+            )
+            key = f"{fn.__name__}:{hashlib.md5(key_raw.encode()).hexdigest()}"
+            cached = _FIG_CACHE.get(key)
+            if cached and cached[0] == fp:
+                return cached[1]
+            payload = fn(*args, **kwargs)
+            # LRU-artig: ältesten Eintrag verdrängen wenn voll
+            if len(_FIG_CACHE) >= _FIG_CACHE_MAX:
+                _FIG_CACHE.pop(next(iter(_FIG_CACHE)))
+            _FIG_CACHE[key] = (fp, payload)
+            return payload
+        return wrapper
+    return decorator
+
+
+@router.get("/cache/status")
+def cache_status():
+    """Anzahl der gecachten Chart-Antworten + Key-Liste — für Diagnose."""
+    return {
+        "entries": len(_FIG_CACHE),
+        "max_entries": _FIG_CACHE_MAX,
+        "keys": list(_FIG_CACHE.keys()),
+    }
+
+
+@router.post("/cache/clear")
+def cache_clear():
+    """Leert den Chart-JSON-Cache manuell (normalerweise unnötig — die mtime-
+    basierte Invalidierung greift automatisch nach Pipeline-Läufen)."""
+    n = len(_FIG_CACHE)
+    _FIG_CACHE.clear()
+    return {"cleared": n}
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +287,7 @@ _OPTUNA_PLOT_TITLES = {
 
 
 @router.get("/chart/optuna")
+@_cache_chart("model:optuna_db", "asset:optuna_importance_values.json")
 def chart_optuna(
     model: str = Query(..., pattern="^(MSM|HMM|LSTM|Transformer)$"),
     plot: str = Query(..., pattern="^(history|importance|slice|contour)$"),
@@ -314,6 +410,7 @@ def chart_optuna(
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/returns")
+@_cache_chart("feature_engineered")
 def chart_returns(
     col: str = Query("Returns", description="Spalte aus feature_engineered"),
     smoothing: int = Query(0, ge=0, le=252),
@@ -342,6 +439,7 @@ def chart_returns(
 
 
 @router.get("/chart/feature-correlation")
+@_cache_chart("feature_engineered")
 def chart_feature_correlation():
     """Korrelationsmatrix der Modell-Features (unteres Dreieck, rot=+1, blau=-1)."""
     cfg = _cfg()
@@ -373,6 +471,7 @@ def chart_feature_correlation():
 
 
 @router.get("/chart/volatility-clusters")
+@_cache_chart("feature_engineered")
 def chart_volatility_clusters():
     """S&P 500 Renditen + ACF der quadrierten Renditen (GARCH-Effekte)."""
     from plotly.subplots import make_subplots
@@ -484,6 +583,7 @@ def _top_n_drawdown_periods(drawdowns: pd.Series, n: int = 5) -> list[dict]:
 
 
 @router.get("/chart/historical-drawdowns")
+@_cache_chart("feature_engineered")
 def chart_historical_drawdowns():
     """Historische Drawdowns des 60/40 Portfolios — mit markierten Top-5-Episoden."""
     cfg = _cfg()
@@ -549,6 +649,7 @@ def chart_historical_drawdowns():
 
 
 @router.get("/chart/capital-curve")
+@_cache_chart("feature_engineered")
 def chart_capital_curve():
     """60/40-Benchmark Kapitalkurve in € (Standard-Szenario initial_capital)."""
     cfg = _cfg()
@@ -583,6 +684,7 @@ def chart_capital_curve():
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/equity-curves")
+@_cache_chart("backtesting_results")
 def chart_equity_curves():
     """Equity Curves aller Strategien in € (Startkapital = Standard-Szenario)."""
     cfg = _cfg()
@@ -610,6 +712,7 @@ def chart_equity_curves():
 
 
 @router.get("/chart/drawdown")
+@_cache_chart("backtesting_results")
 def chart_drawdown():
     """Drawdown-Verlauf aller Strategien."""
     cfg = _cfg()
@@ -637,6 +740,7 @@ def chart_drawdown():
 
 
 @router.get("/chart/transaction-costs")
+@_cache_chart("backtesting_costs")
 def chart_transaction_costs():
     """Kumulierte Transaktionskosten pro Strategie (in %), ohne Buy_Hold."""
     cfg = _cfg()
@@ -668,6 +772,7 @@ def chart_transaction_costs():
 
 
 @router.get("/chart/sorr-scenario")
+@_cache_chart("backtesting_sorr")
 def chart_sorr_scenario(
     scenario: str = Query("Standard", pattern="^(Standard|Aggressive|Low_Capital)$"),
 ):
@@ -721,6 +826,7 @@ def chart_sorr_scenario(
 
 
 @router.get("/chart/rolling-sharpe")
+@_cache_chart("backtesting_results")
 def chart_rolling_sharpe(window: int = Query(252, ge=21, le=1260)):
     """Rolling Sharpe über konfigurierbares Fenster."""
     cfg = _cfg()
@@ -751,6 +857,7 @@ def chart_rolling_sharpe(window: int = Query(252, ge=21, le=1260)):
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/regime-overlay")
+@_cache_chart("test_data")
 def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Transformer)$")):
     """Preis + Bear-Probability + Signal-Overlay für ein Modell (OOS)."""
     cfg = _cfg()
@@ -842,6 +949,7 @@ def _build_label_dict(test_df: pd.DataFrame) -> dict:
 
 
 @router.get("/chart/label-agreement")
+@_cache_chart("test_data")
 def chart_label_agreement():
     """Label-Übereinstimmung als Heatmap mit Toggle: Konkordanz ↔ Cohen's κ."""
     from src.data.labels import compute_concordance_matrix, compute_kappa_matrix
@@ -901,6 +1009,7 @@ def chart_label_agreement():
 
 
 @router.get("/chart/label-timeline")
+@_cache_chart("test_data", "raw")
 def chart_label_timeline():
     """Multi-Panel: S&P 500 Kurs + horizontale Bear-Bänder pro Labeling-Methode."""
     from plotly.subplots import make_subplots
@@ -972,6 +1081,7 @@ def chart_label_timeline():
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/walk-forward-schema")
+@_cache_chart("feature_engineered")
 def chart_walk_forward_schema():
     """Gantt-artige Darstellung der rollierenden Train/Test-Fenster."""
     from src.backtest.walk_forward import walk_forward_splits, summarize_splits
@@ -1065,6 +1175,7 @@ def chart_walk_forward_schema():
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/mcs-distribution")
+@_cache_chart("mcs_data")
 def chart_mcs_distribution(
     scenario: str = Query("Standard", pattern="^(Standard|Aggressive|Low_Capital)$"),
     kind: str = Query("boxplot", pattern="^(boxplot|violin)$"),
@@ -1075,8 +1186,22 @@ def chart_mcs_distribution(
     pro Strategie das Endkapital aller Pfade (letzter Wert der Simulation).
     """
     cfg = _cfg()
-    df = _read_parquet_or_404(cfg.data_path("mcs_data"), "/backtest/evaluate zuerst")
+    mcs_path = cfg.data_path("mcs_data")
+    hint = "/backtest/evaluate zuerst"
     colors = cfg.color_map
+
+    # Parquet-Footer lesen (Billigaktion), dann nur die für dieses Szenario
+    # relevanten Path-Spalten laden. Bei ~150k Gesamtspalten im 3.7-GB-Parquet
+    # spart das pro Request zweistellige Sekunden — der Rest des Files bleibt
+    # auf Disk.
+    all_cols = _list_parquet_columns_or_404(mcs_path, hint)
+    sc_prefix = f"{scenario}_"
+    wanted = [c for c in all_cols if c.startswith(sc_prefix) and "_path_" in c]
+    if not wanted:
+        available = sorted({c.rsplit("_path_", 1)[0] for c in all_cols if "_path_" in c})
+        raise HTTPException(400, f"Keine Daten für Szenario '{scenario}'. "
+                                  f"Verfügbar: {available}")
+    df = _read_parquet_or_404(mcs_path, hint, columns=wanted)
 
     # Strategie-Reihenfolge wie in der Pipeline (B&H links, Modelle rechts).
     strategies = ["Buy_Hold", "MSM", "HMM", "LSTM", "Transformer"]
@@ -1165,19 +1290,24 @@ def chart_mcs_distribution(
 
 
 @router.get("/chart/mcs-quantiles")
+@_cache_chart("mcs_data")
 def chart_mcs_quantiles(scenario: str = Query("Standard"), strategy: str = Query("Transformer")):
     """Quantil-Fächer (5 / 25 / 50 / 75 / 95 %) der MCS-Pfade."""
     cfg = _cfg()
-    df = _read_parquet_or_404(cfg.data_path("mcs_data"), "/backtest/evaluate zuerst")
+    mcs_path = cfg.data_path("mcs_data")
+    hint = "/backtest/evaluate zuerst"
 
     # Spalten folgen dem Schema: {scenario}_{strategy}_path_{N:03d}
     # z.B. "Standard_Transformer_path_000", "Standard_Transformer_path_001", ...
+    # Parquet-Footer lesen, dann gezielt nur die relevanten ~10k Spalten laden.
     prefix = f"{scenario}_{strategy}_path_"
-    path_cols = [c for c in df.columns if c.startswith(prefix)]
+    all_cols = _list_parquet_columns_or_404(mcs_path, hint)
+    path_cols = [c for c in all_cols if c.startswith(prefix)]
     if not path_cols:
-        available = sorted({c.rsplit("_path_", 1)[0] for c in df.columns if "_path_" in c})
+        available = sorted({c.rsplit("_path_", 1)[0] for c in all_cols if "_path_" in c})
         raise HTTPException(400, f"Kombination ({scenario}, {strategy}) nicht gefunden. "
                                   f"Verfügbare Kombinationen: {available}")
+    df = _read_parquet_or_404(mcs_path, hint, columns=path_cols)
 
     # matrix: (n_paths, n_days) — jede Spalte ist ein Pfad, jede Zeile ein Tag
     matrix = df[path_cols].values.T      # Transponieren: Zeilen=Pfade, Spalten=Tage
@@ -1235,6 +1365,7 @@ def _load_classification_truth(cfg: PipelineConfig) -> tuple[pd.DataFrame, np.nd
 
 
 @router.get("/chart/confusion-matrices")
+@_cache_chart("test_data")
 def chart_confusion_matrices():
     """Confusion-Matrizen (MSM · HMM · LSTM · Transformer) vs. NBER als Subplot-Grid."""
     from plotly.subplots import make_subplots
@@ -1290,6 +1421,7 @@ def chart_confusion_matrices():
 
 
 @router.get("/chart/roc-pr-curves")
+@_cache_chart("test_data")
 def chart_roc_pr_curves(kind: str = Query("roc", pattern="^(roc|pr)$")):
     """ROC- oder PR-Kurven aller Modelle vs. NBER; nutzt *_Prob (schwellenunabhängig)."""
     from sklearn.metrics import roc_curve, precision_recall_curve, auc
@@ -1367,6 +1499,7 @@ def chart_roc_pr_curves(kind: str = Query("roc", pattern="^(roc|pr)$")):
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/regime-probability-heatmap")
+@_cache_chart("test_data")
 def chart_regime_probability_heatmap():
     """Bear-Wahrscheinlichkeiten aller Modelle als Heatmap (y=Modell, x=Zeit).
 
@@ -1417,6 +1550,7 @@ def chart_regime_probability_heatmap():
 # ---------------------------------------------------------------------------
 
 @router.get("/chart/break-even-costs")
+@_cache_chart("test_data", "backtesting_results")
 def chart_break_even_costs():
     """Final Wealth vs. Kostenquote pro Modell — 1:1-Pendant zum Pipeline-PNG.
 

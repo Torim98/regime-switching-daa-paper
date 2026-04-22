@@ -9,7 +9,7 @@ from services.warnings_config import configure_warnings
 configure_warnings()
 
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from services.logging_config import setup_service_logger
@@ -33,6 +33,17 @@ app.include_router(hub_router)
 app.include_router(config_router)
 app.include_router(data_router)
 app.include_router(ws_router)
+
+
+@app.middleware("http")
+async def add_chart_cache_headers(request: Request, call_next):
+    """Browser-Cache für Chart-JSON: 5 Minuten private Cache.
+    Kombiniert mit dem serverseitigen mtime-Cache in data_adapters.py ergibt
+    das bei Rereads ≪ 10 ms Latenz — kein Plotly-Re-Render, kein Netzwerk-Hit."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/chart/"):
+        response.headers.setdefault("Cache-Control", "private, max-age=300")
+    return response
 
 
 @app.on_event("startup")
