@@ -1263,6 +1263,137 @@ def chart_roc_pr_curves(kind: str = Query("roc", pattern="^(roc|pr)$")):
 
 
 # ---------------------------------------------------------------------------
+# Regime-Wahrscheinlichkeits-Heatmap
+# ---------------------------------------------------------------------------
+
+@router.get("/chart/regime-probability-heatmap")
+def chart_regime_probability_heatmap():
+    """Bear-Wahrscheinlichkeiten aller Modelle als Heatmap (y=Modell, x=Zeit).
+
+    1:1-Pendant zum Pipeline-PNG (src.backtest.evaluation.plot_regime_probability_heatmap),
+    liest die `{model}_Prob`-Spalten direkt aus test_data.
+    """
+    cfg = _cfg()
+    test_df = _read_parquet_or_404(
+        cfg.data_path("test_data"),
+        "/models/train-all + /backtest/run zuerst",
+    )
+
+    models = [m for m in cfg.evaluation.extended.f1_models
+              if f"{m}_Prob" in test_df.columns]
+    if not models:
+        raise HTTPException(400, "Keine *_Prob-Spalten in test_data gefunden.")
+
+    probs = pd.DataFrame({m: test_df[f"{m}_Prob"] for m in models})
+
+    # Heatmap-Matrix: Zeilen = Modelle, Spalten = Zeitpunkte.
+    z = probs.T.values.astype(float)
+    x = probs.index  # DatetimeIndex
+
+    fig = go.Figure(go.Heatmap(
+        z=z, x=x, y=models,
+        colorscale="RdYlGn", reversescale=True,
+        zmin=0.0, zmax=1.0,
+        colorbar=dict(title="P(Bear)", thickness=14),
+        hovertemplate=(
+            "<b>%{y}</b><br>%{x|%Y-%m-%d}<br>"
+            "P(Bear) = %{z:.3f}<extra></extra>"
+        ),
+    ))
+    fig.update_layout(
+        title="Regime-Bear-Wahrscheinlichkeiten über OOS-Zeitraum",
+        template="plotly_white",
+        height=max(280, 90 * len(models) + 140),
+        margin=dict(l=110, r=40, t=60, b=60),
+        xaxis=dict(title="Datum", hoverformat="%Y-%m-%d",
+                   automargin=True, tickangle=-30),
+        yaxis=dict(automargin=True, autorange="reversed"),
+    )
+    return _fig_to_json(fig)
+
+
+# ---------------------------------------------------------------------------
+# Break-Even-Transaktionskosten
+# ---------------------------------------------------------------------------
+
+@router.get("/chart/break-even-costs")
+def chart_break_even_costs():
+    """Final Wealth vs. Kostenquote pro Modell — 1:1-Pendant zum Pipeline-PNG.
+
+    Rechnet die Break-Even-Kurven on-demand (analog zur Pipeline in
+    `/backtest/evaluate`): für jede Fee-Stufe aus `fee_grid_bps` wird der
+    Backtest je Modell neu evaluiert; die letzte Equity pro Lauf liefert
+    den Kurvenpunkt. B&H-Referenzlinie = letzter Wert aus `backtesting_results`.
+    """
+    from src.backtest.evaluation import break_even_transaction_cost
+    from src.backtest.engine import backtest
+
+    cfg = _cfg()
+    test_df = _read_parquet_or_404(
+        cfg.data_path("test_data"),
+        "/models/train-all + /backtest/run zuerst",
+    )
+    results = _read_parquet_or_404(
+        cfg.data_path("backtesting_results"),
+        "/backtest/run zuerst",
+    )
+    if "Buy_Hold" not in results.columns:
+        raise HTTPException(400, "Buy_Hold fehlt in backtesting_results.")
+    bh_series = results["Buy_Hold"]
+    bh_final = float(bh_series.iloc[-1])
+
+    ext = cfg.evaluation.extended
+    models = [m for m in ext.f1_models if f"{m}_Signal" in test_df.columns]
+    if not models:
+        raise HTTPException(400, "Keine *_Signal-Spalten in test_data gefunden.")
+
+    _, be_curves = break_even_transaction_cost(
+        test_df, backtest, bh_series, models,
+        list(ext.fee_grid_bps), cfg.backtesting.signal_shift,
+    )
+
+    curves = pd.DataFrame(be_curves).sort_index()
+    fee_bps = curves.index.astype(float).tolist()
+    colors = cfg.color_map
+
+    fig = go.Figure()
+    for model in curves.columns:
+        fig.add_trace(go.Scatter(
+            x=fee_bps, y=curves[model].values,
+            mode="lines+markers", name=model,
+            line=dict(color=_plotly_color(colors.get(model)), width=1.8),
+            marker=dict(size=7),
+            hovertemplate=(
+                f"<b>{model}</b><br>"
+                "Kosten: %{x:.0f} bps<br>"
+                "Final Wealth: %{y:.3f}<extra></extra>"
+            ),
+        ))
+
+    fig.add_hline(
+        y=bh_final, line_color="#111", line_dash="dash", line_width=1.2,
+        annotation_text=f"Buy & Hold ({bh_final:.2f})",
+        annotation_position="top right",
+        annotation_font=dict(size=11),
+    )
+
+    fig.update_layout(
+        title="Break-Even-Analyse: Kostenquote vs. Endvermögen",
+        xaxis_title="Transaktionskosten (bps)",
+        yaxis_title="Final Wealth (kumuliert)",
+        template="plotly_white", height=460,
+        margin=dict(l=70, r=30, t=60, b=50),
+        hovermode="x unified",
+        xaxis=dict(automargin=True),
+        yaxis=dict(automargin=True),
+        legend=dict(orientation="v", x=0.98, y=0.98,
+                    xanchor="right", yanchor="top",
+                    bgcolor="rgba(255,255,255,0.0)"),
+    )
+    return _fig_to_json(fig)
+
+
+# ---------------------------------------------------------------------------
 # Helpers — Farben
 # ---------------------------------------------------------------------------
 

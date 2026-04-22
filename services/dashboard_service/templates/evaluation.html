@@ -60,7 +60,7 @@
   <!-- Regime-Probability-Heatmap -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Regime-Wahrscheinlichkeits-Heatmap</h2>
-    <img src="/api/asset/regime_probability_heatmap.png" class="w-full object-contain rounded" loading="lazy" alt="Heatmap">
+    <div id="chart-regime-heatmap" class="w-full"></div>
   </section>
 
   <!-- Threshold-Sensitivity -->
@@ -142,7 +142,7 @@
       <div>
         <h3 class="text-sm font-semibold text-slate-500 mb-2">Break-Even-Transaktionskosten</h3>
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdBe"></div>
-        <img src="/api/asset/break_even_costs.png" class="mt-3 w-full object-contain" loading="lazy" alt="Break-Even">
+        <div id="chart-break-even" class="mt-3 w-full"></div>
       </div>
       <div>
         <h3 class="text-sm font-semibold text-slate-500 mb-2">Entnahmeraten-Sensitivität</h3>
@@ -189,6 +189,8 @@ function evalPage() {
       }
       await Promise.all([
         renderChart('chart-confusion-matrices', '/api/chart/confusion-matrices'),
+        renderChart('chart-regime-heatmap', '/api/chart/regime-probability-heatmap'),
+        renderChart('chart-break-even', '/api/chart/break-even-costs'),
         this.drawRocPr(),
         this.drawMcs(),
       ]);
