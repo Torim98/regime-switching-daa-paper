@@ -123,40 +123,56 @@ def calculate_annualized_metrics(
     """
     Annualisierte Performance-Metriken für alle Strategien.
 
+    Konvention (kanonisch nach Sharpe, 1966; konsistent zu
+    src/backtest/evaluation.py::evaluate_strategies und
+    src/backtest/optimize.py::_compute_oos_sharpe):
+
+    - Tägliche einfache Renditen via pct_change (NICHT Log-Renditen).
+    - Sharpe / Sortino auf Basis des arithmetischen Mittels der Tagesrenditen
+      (AM × √252 / σ bzw. AM × √252 / σ_downside) — nicht CAGR-basiert.
+      Die CAGR-Variante (cagr / σ) unterschätzt Sharpe systematisch um den
+      Volatility-Drag (½σ²) und ist nicht die Sharpe-1966-Definition.
+
     Berechnet pro Strategie:
-    - Annualisierte Rendite (CAGR)
-    - Annualisierte Volatilität
-    - Sharpe Ratio (rf=0, da Cash_Returns bereits in Strategie eingepreist)
-    - Sortino Ratio (Downside-Volatilität)
+    - Annualisierte Rendite (CAGR; weiterhin geometrisch für Renditeausweis)
+    - Annualisierte Volatilität (σ × √252 aus einfachen Tagesrenditen)
+    - Sharpe Ratio (AM × √252 / σ; rf=0, da Cash bereits in Strategie eingepreist)
+    - Sortino Ratio (AM × √252 / σ_downside)
     - Max Drawdown
     - Calmar Ratio (CAGR / |Max DD|)
-    - Anzahl Trades (Signal-Wechsel)
-    - Zeit im Markt (% der Tage mit Signal=0, also investiert)
+    - OOS-Tage / OOS-Jahre
     """
     summary = []
 
     for col in backtesting_results.columns:
         equity = backtesting_results[col]
-        # Tägliche Log-Returns aus der Equity-Kurve
-        daily_rets = np.log(equity / equity.shift(1)).dropna()
+        # Tägliche einfache Renditen (konsistent zu evaluate_strategies)
+        daily_rets = equity.pct_change().dropna()
 
         n_days = len(daily_rets)
         n_years = n_days / trading_days_per_year
 
-        # CAGR
+        # CAGR (geometrische Jahresrendite; nur als Renditeausweis & für Calmar)
         total_return = equity.iloc[-1] / equity.iloc[0]
         cagr = total_return ** (1 / n_years) - 1 if n_years > 0 else 0
 
         # Volatilität (annualisiert)
         ann_vol = daily_rets.std() * np.sqrt(trading_days_per_year)
 
-        # Sharpe Ratio
-        sharpe = cagr / ann_vol if ann_vol > 0 else 0
+        # Sharpe Ratio — AM-basiert (Sharpe, 1966)
+        std_daily = daily_rets.std()
+        sharpe = (
+            (daily_rets.mean() / std_daily) * np.sqrt(trading_days_per_year)
+            if std_daily > 0 else 0
+        )
 
-        # Sortino Ratio (nur Downside-Vol)
+        # Sortino Ratio — AM-basiert (nur Downside-Vol)
         downside = daily_rets[daily_rets < 0]
-        downside_vol = downside.std() * np.sqrt(trading_days_per_year) if len(downside) > 0 else 0
-        sortino = cagr / downside_vol if downside_vol > 0 else 0
+        downside_std_daily = downside.std() if len(downside) > 0 else 0
+        sortino = (
+            (daily_rets.mean() / downside_std_daily) * np.sqrt(trading_days_per_year)
+            if downside_std_daily > 0 else 0
+        )
 
         # Max Drawdown
         roll_max = equity.cummax()
