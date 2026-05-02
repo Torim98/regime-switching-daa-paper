@@ -193,7 +193,7 @@ Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf
 6.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
 7.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
 8.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
-9.  **`99_generate_report`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
+9.  **`99_statistics_md`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
 
 ---
 

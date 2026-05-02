@@ -109,7 +109,7 @@ sequenceDiagram
     opt Optuna-Optimierung (manuell gestartet)
         NB03a->>FS: read feature_engineered_data
         NB03a->>SRC: optimize_all (alle 4 Modelle)
-        Note over SRC: n_trials & every_nth_fold pro Modell<br/>aus config.yaml (50/2 für MSM+HMM,<br/>30/5 für LSTM+Transformer)
+        Note over SRC: n_trials & every_nth_fold pro Modell<br/>aus config.yaml (50/2 für MSM+HMM,<br/>30/2 für LSTM+Transformer)
         SRC->>SRC: Optuna TPE (Walk-Forward CV als innere Validierung)
         SRC->>FS: optuna_studies.db
         NB03a->>SRC: save_optuna_plots

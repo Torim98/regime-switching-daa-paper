@@ -34,7 +34,7 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur: drei con
 
 ### `POST /models/optimize-all`
 - **Parameter**: keine
-- **Beschreibung**: Optimiert alle vier Modelle sequenziell (MSM → HMM → LSTM → Transformer). `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` gelesen (Thesis-Default: 50 Trials / `every_nth_fold=2` für MSM & HMM, 30 / 5 für LSTM & Transformer). Gibt ein Dict mit `best_sharpe` und `best_params` pro Modell zurück.
+- **Beschreibung**: Optimiert alle vier Modelle sequenziell (MSM → HMM → LSTM → Transformer). `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` gelesen (Thesis-Default: 50 Trials / `every_nth_fold=2` für MSM & HMM, 30 / 2 für LSTM & Transformer). Gibt ein Dict mit `best_sharpe` und `best_params` pro Modell zurück.
 
 ### `GET /models/status`
 - **Beschreibung**: Überprüft das Dateisystem und gibt für jedes der vier Modelle als Boolean (`true`/`false`) zurück, ob das jeweilige Modell bereits trainiert und erfolgreich auf der Festplatte persistiert wurde.
