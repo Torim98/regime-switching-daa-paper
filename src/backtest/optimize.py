@@ -585,7 +585,6 @@ def optimize_all(
     Alle (oder ausgewählte) Modelle sequenziell optimieren.
 
     Reihenfolge: MSM → HMM → LSTM → Transformer
-    (HMM vor DL, da DL-Labels auf HMM basieren.)
 
     Parameter
     ---------

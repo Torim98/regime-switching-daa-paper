@@ -33,7 +33,7 @@
 Bevor du ein neues Modell integrierst, stelle sicher, dass:
 
 - [ ] Die Pipeline-Module `00_dependencies`, `01_data_preprocessing` und `02_feature_engineering` erfolgreich durchgelaufen sind
-- [ ] Die Datei `data/02_feature_engineered_data.parquet` existiert und aktuell ist
+- [ ] Die Datei `data/silver/03_feature_engineered_data.parquet` existiert und aktuell ist
 - [ ] Die benötigten Python-Pakete für dein Modell installiert sind (ggf. in `00_dependencies.ipynb` ergänzen)
 - [ ] Du den Aufbau von `jupyter/03_regime_switching_models.ipynb` grundlegend verstanden hast
 
@@ -333,7 +333,7 @@ Die **letzte Zelle** des Notebooks speichert den `test_df` DataFrame automatisch
 # Diese Zelle existiert bereits am Ende von 03_regime_switching_models.ipynb
 # Deine neuen Spalten werden automatisch mit persistiert!
 test_df.to_parquet(cfg.data_path("test_data"))
-# → speichert nach "../data/03_test_df_data.parquet"
+# → speichert nach "../data/04_test_df_data.parquet"
 ```
 
 > Du musst an der Speicher-Zelle **nichts ändern**, solange deine neuen Spalten korrekt im `df` / `test_df` DataFrame enthalten sind.
@@ -603,7 +603,7 @@ Führe nach der Integration folgende Prüfungen durch:
 
 ### Pipeline-Integration
 - [ ] `jupyter/03_regime_switching_models.ipynb` läuft fehlerfrei durch
-- [ ] Die Datei `data/03_test_df_data.parquet` wird erfolgreich aktualisiert
+- [ ] Die Datei `data/04_test_df_data.parquet` wird erfolgreich aktualisiert
 - [ ] `jupyter/04_backtesting.ipynb` erkennt das neue Modell automatisch und berechnet Equity Curves
 - [ ] `jupyter/05_evaluation.ipynb` berechnet Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown) für das neue Modell
 - [ ] `jupyter/99_statistics_md.ipynb` generiert die aktualisierte `statistics.md` mit dem neuen Modell
