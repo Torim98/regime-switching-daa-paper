@@ -103,7 +103,7 @@ sequenceDiagram
     alt Cache Hit
         MS->>FS: load wf_cache.parquet
     else Cache Miss
-        loop Fold 1..60
+        loop Fold 1..26
             MS->>WF: train_msm_fold(train, test)
             MS->>WF: train_hmm_fold(train, test)
             MS->>WF: train_lstm_fold(train, test)
@@ -114,7 +114,7 @@ sequenceDiagram
     end
     MS->>FS: test_df_data.parquet (OOS only)
     MS->>FS: regime_comparison plot
-    MS-->>Client: 200 OK {mode: walk_forward, folds: 60}
+    MS-->>Client: 200 OK {mode: walk_forward, folds: 26}
 
     Note over Client,FS: Phase 3: Backtesting (identisch)
     Client->>BS: POST /backtest/run
