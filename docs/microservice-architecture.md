@@ -83,7 +83,7 @@ Alle Services kommunizieren über gemountete Host-Verzeichnisse:
 | Volume | Data | Model | Backtest | Dashboard | Inhalt |
 |--------|:---:|:---:|:---:|:---:|--------|
 | `./data` | R/W | R/W | R | R | Parquet-Dateien (Medallion: Bronze/Silver/Gold) |
-| `./models` | — | R/W | — | — | Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna SQLite DB |
+| `./models` | — | R/W | — | R | Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna SQLite DB |
 | `./assets` | R/W | R/W | R/W | R | Plots (PNG) und Tabellen (Markdown) |
 | `./config` | R | R | R | **R/W** | `config.yaml` (Dashboard schreibt mit `.bak`-Backup + Rollback) |
 | `./logs` | R/W | R/W | R/W | R | Service-Logdateien (Dashboard tailt per File-Tail) |
