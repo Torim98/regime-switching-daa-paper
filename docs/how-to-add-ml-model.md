@@ -134,7 +134,7 @@ from config_loader import cfg
 cfg.models.hmm.n_components          # → 2
 cfg.models.lstm.epochs               # → 30
 cfg.features.model_features          # → ['Returns', 'Vol_20', ...]
-cfg.data_path("test_data")           # → "../data/03_test_df_data.parquet"
+cfg.data_path("test_data")           # → "../data/04_test_df_data.parquet"
 cfg.asset_path("equity_curves")      # → "../assets/equity_curves.png"
 cfg.transaction_cost_rate             # → 0.001 (convenience property)
 cfg.model_path("lstm")               # → "../models/lstm_regime_model.keras"
@@ -643,8 +643,8 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Bibliothek:** `TensorFlow` / `Keras`
 - **Ansatz:** Supervised Learning auf Pagan-Sossounov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
-- **Config-Key:** `models.lstm` (window_size, units, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose, labels)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `models.lstm.labels`; Vergleich der Label-Quellen in Notebook `01a_label_analysis`)
+- **Config-Key:** `models.lstm` (window_size, units_l1, units_l2, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose)
+- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `labels.supervised_label_source`; Vergleich der Label-Quellen in Notebook `01a_label_analysis`)
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
@@ -659,7 +659,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 |:---|:---|:---|
 | MSM | `cfg.models.msm` | `k_regimes`, `switching_variance` |
 | HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
-| LSTM | `cfg.models.lstm` | `window_size`, `units`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
+| LSTM | `cfg.models.lstm` | `window_size`, `units_l1`, `units_l2`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
 | **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |
 

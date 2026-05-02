@@ -123,7 +123,7 @@ Die 10J/12M/12M-Konfiguration balanciert zwischen ausreichend Trainingsdaten für
 
 **Status:** Bekannte Limitation
 
-Das Hidden Markov Model benötigt eine **Anlaufphase** (Cold Start), um die Zustandsverteilung aus den Emissionen zu schätzen. Bei kurzen Walk-Forward-Testfenstern (6 Monate = ca. 126 Handelstage) können die ersten Vorhersagen eines neuen Folds instabil sein, da das Modell die Zustandssequenz aus den initialen Beobachtungen ableiten muss.
+Das Hidden Markov Model benötigt eine **Anlaufphase** (Cold Start), um die Zustandsverteilung aus den Emissionen zu schätzen. Bei kurzen Walk-Forward-Testfenstern (z.B. 6 Monate = ca. 126 Handelstage) können die ersten Vorhersagen eines neuen Folds instabil sein, da das Modell die Zustandssequenz aus den initialen Beobachtungen ableiten muss.
 
 ### Auswirkung
 

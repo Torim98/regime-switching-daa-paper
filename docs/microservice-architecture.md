@@ -25,7 +25,6 @@ Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über containerisi
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
-| POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (`msm`, `hmm`, `lstm`, `transformer`) |
 | POST | `/models/train/{model_name}` | Einzelnes Modell trainieren (nur bei `walk_forward.enabled: false`) |
 | POST | `/models/train-all` | Alle 4 Modelle trainieren; Single-Split oder Walk-Forward je nach Config |
 | POST | `/models/optimize/{model_name}` | Optuna-Optimierung für ein Modell (Walk-Forward als innere CV) |

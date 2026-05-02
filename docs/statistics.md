@@ -10,11 +10,11 @@ Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Tes
 
 | Strategie   | Final Wealth   | Total Return   | Max Drawdown   |
 |:------------|:---------------|:---------------|:---------------|
-| Buy_Hold    | 2,414,155 €    | +382.83%       | -34.77%        |
-| MSM         | 1,742,347 €    | +248.47%       | -28.68%        |
-| HMM         | 1,766,700 €    | +253.34%       | -15.00%        |
-| LSTM        | 2,484,328 €    | +396.87%       | -27.71%        |
-| Transformer | 2,145,223 €    | +329.04%       | -27.71%        |
+| Buy_Hold    | 2,414,155 €    | +384.52%       | -34.77%        |
+| MSM         | 1,742,347 €    | +249.69%       | -28.68%        |
+| HMM         | 1,766,700 €    | +254.58%       | -15.00%        |
+| LSTM        | 2,484,328 €    | +398.61%       | -27.71%        |
+| Transformer | 2,145,223 €    | +330.55%       | -27.71%        |
 
 > **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
 
