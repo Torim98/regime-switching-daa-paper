@@ -114,7 +114,7 @@ Die gesamte Fachlogik ist in wiederverwendbaren Python-Modulen unter `src/` geka
 Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
 
 ### Walk-Forward-Validierung
-Für die robuste Out-of-Sample-Evaluation steht ein konfigurierbares Walk-Forward-Framework zur Verfügung (`walk_forward.enabled: true` in `config.yaml`). Anstelle eines einzelnen 80/20-Splits werden rollierende Folds generiert (z.B. 5 Jahre Training, 6 Monate Test, 6 Monate Step), in denen jedes Modell pro Fold neu trainiert wird. Die OOS-Vorhersagen aller Folds werden zu einer durchgehenden Serie aggregiert. Ein fingerprint-basierter Parquet-Cache verhindert unnötiges Re-Training bei unveränderter Konfiguration. Im Walk-Forward-Modus ist die Modell-Persistierung deaktiviert, da jeder Fold ein eigenes Modell erzeugt.
+Für die robuste Out-of-Sample-Evaluation steht ein konfigurierbares Walk-Forward-Framework zur Verfügung (`walk_forward.enabled: true` in `config.yaml`). Anstelle eines einzelnen 80/20-Splits werden rollierende Folds generiert (10 Jahre Training, 12 Monate Test, 12 Monate Step), in denen jedes Modell pro Fold neu trainiert wird. Die OOS-Vorhersagen aller Folds werden zu einer durchgehenden Serie aggregiert. Ein fingerprint-basierter Parquet-Cache verhindert unnötiges Re-Training bei unveränderter Konfiguration. Im Walk-Forward-Modus ist die Modell-Persistierung deaktiviert, da jeder Fold ein eigenes Modell erzeugt.
 
 ### Vermeidung von Look-ahead Bias
 Ein kritischer Aspekt im Backtesting ist die Vermeidung von Informationslecks aus der Zukunft. Alle generierten Handelssignale werden systematisch um einen Zeitschritt ($T+1$) verschoben. Entscheidungen werden somit ausschließlich auf Basis der zum Handelszeitpunkt verfügbaren historischen Informationen getroffen.
@@ -230,7 +230,7 @@ Simulation einer Entnahmephase: Wie lange reicht das Kapital unter Berücksichti
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
 ### 6. Statistische Signifikanz (Monte-Carlo-Simulation)
-Um die statistische Signifikanz zu prüfen, wurden 1.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
+Um die statistische Signifikanz zu prüfen, wurden 10.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 
@@ -276,7 +276,6 @@ regime-switching-daa/
 | [Sequence Diagram: Microservices](docs/microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
 | [Sequence Diagram: Jupyter](docs/jupyter-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Notebook-Pipeline |
 | [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
-| [Transformer Architecture](docs/transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
 | [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
 | [FastAPI Endpoints](docs/fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
 

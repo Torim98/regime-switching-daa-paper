@@ -103,19 +103,19 @@ Das klassische 60/40-Portfolio dient als etablierter Benchmark in der Finanzlite
 
 Die Walk-Forward-Validierung nutzt folgende Konfiguration:
 - **Modus:** Rolling Window (nicht expandierend)
-- **Train-Fenster:** 5 Jahre (`train_window_years: 5`)
-- **Test-Fenster:** 6 Monate (`test_window_months: 6`)
-- **Schrittweite:** 6 Monate (`step_months: 6`, nicht-überlappend)
+- **Train-Fenster:** 10 Jahre (`train_window_years: 10`)
+- **Test-Fenster:** 12 Monate (`test_window_months: 12`)
+- **Schrittweite:** 12 Monate (`step_months: 12`, nicht-überlappend)
 
 ### Begründung
 
-Die 5J/6M/6M-Konfiguration balanciert zwischen ausreichend Trainingsdaten für stabile Modellschätzungen und genügend OOS-Folds für eine belastbare Evaluation. Nicht-überlappende Folds vermeiden Autokorrelation zwischen Test-Perioden.
+Die 10J/12M/12M-Konfiguration balanciert zwischen ausreichend Trainingsdaten für stabile Modellschätzungen und genügend OOS-Folds für eine belastbare Evaluation. Nicht-überlappende Folds vermeiden Autokorrelation zwischen Test-Perioden.
 
 ### Einschränkung
 
 - **Rolling vs. Expanding:** Ein expandierendes Fenster würde insbesondere den späteren Folds mehr Trainingsdaten geben, könnte aber ältere, weniger relevante Marktregimes übergewichten.
-- **DL-Modelle bei 5 Jahren Training:** LSTM und Transformer profitieren typischerweise von größeren Datensätzen. Längere Trainingsfenster (7-10 Jahre) könnten die DL-Performance verbessern, würden aber die Anzahl verfügbarer Folds reduzieren.
-- **6-Monats-Folds:** Kürzere Folds (z. B. 3 Monate) würden mehr Datenpunkte für die Evaluation liefern, erhöhen aber die Rechenzeit und das Risiko instabiler Schätzungen bei ökonometrischen Modellen.
+- **DL-Modelle bei 10 Jahren Training:** LSTM und Transformer profitieren typischerweise von größeren Datensätzen. Längere Trainingsfenster könnten die DL-Performance verbessern, würden aber die Anzahl verfügbarer Folds reduzieren.
+- **12-Monats-Folds:** Kürzere Folds (z. B. 6 Monate) würden mehr Datenpunkte für die Evaluation liefern, erhöhen aber die Rechenzeit und das Risiko instabiler Schätzungen bei ökonometrischen Modellen.
 
 ---
 

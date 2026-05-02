@@ -506,7 +506,7 @@ Verwende den Stil und Detailgrad der bestehenden Modellbeschreibungen als Vorlag
 
 ### Schritt D (optional): Architektur-Dokumentation in `docs/`
 
-Für komplexe Modelle (insb. neuronale Netze) empfiehlt es sich, eine dedizierte Architektur-Beschreibung unter `docs/` abzulegen. Bestehende Referenz: [`docs/transformer-architecture-diagram.md`](transformer-architecture-diagram.md).
+Für komplexe Modelle (insb. neuronale Netze) empfiehlt es sich, eine dedizierte Architektur-Beschreibung unter `docs/` abzulegen.
 
 Eine solche Datei sollte enthalten:
 - Schematische Darstellung der Schichten / Module (als Text-Diagramm oder Bild)
@@ -648,7 +648,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
-- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf HMM-Labels
+- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf Pagan-Sossounov-Labels
 - **Output:** `Transformer_Prob`, `Transformer_Signal`
 - **Config-Key:** `models.transformer` (window_size, d_model, n_heads, n_layers, dim_feedforward, dropout, epochs, batch_size, learning_rate, threshold, pos_weight_auto)
 - **Besonderheit:** Nutzt BCEWithLogitsLoss mit automatischer Class-Balance-Gewichtung (sqrt pos_weight). Testet Hypothese H2 (Attention-Mechanismus vs. ökonometrische MSM). Dient als **Referenz-Implementierung** für die guide-konforme Signal-Schnittstelle (vollständiger Sanity Check, Assertions, Config-only Hyperparameter).

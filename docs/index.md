@@ -22,7 +22,6 @@ Navigations-Hub für das Repository: kategorisierte Auflistung aller versioniert
 | [docs/dashboard-service.md](./dashboard-service.md) | Dashboard: Seitenstruktur, Control Hub, Config-Editor, WebSocket-Logs |
 | [docs/fastapi-endpoints.md](./fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
 | [docs/how-to-add-ml-model.md](./how-to-add-ml-model.md) | Schritt-für-Schritt-Integration eines neuen Modells |
-| [docs/transformer-architecture-diagram.md](./transformer-architecture-diagram.md) | Architektur des Transformer-Netzwerks |
 | [docs/statistics.md](./statistics.md) | Auto-generierter Master-Report (Ergebnisse & Tabellen) |
 | [docs/limitations.md](./limitations.md) | Bewusst ausgeklammerte Einflussfaktoren und Scope-Grenzen |
 

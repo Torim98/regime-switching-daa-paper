@@ -98,7 +98,7 @@ sequenceDiagram
     end
     Client->>MS: POST /models/train-all
     MS->>FS: read feature_engineered_data
-    MS->>MS: walk_forward_splits() → 60 Folds
+    MS->>MS: walk_forward_splits() → 26 Folds
     MS->>MS: check cache (fingerprint)
     alt Cache Hit
         MS->>FS: load wf_cache.parquet
