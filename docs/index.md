@@ -236,7 +236,12 @@ Artefakte aus dem Training — versioniert via Git LFS bzw. zur Laufzeit erzeugt
 | Datei / Pattern | Beschreibung |
 |-----------------|-------------|
 | `models/optuna_studies.db` | Persistente Optuna-Studies (SQLite) |
-| `models/transformer_regime_model.pt` | Trainiertes Transformer-Gewicht (PyTorch) |
+| `models/msm_regime_model.pkl` | Trainiertes MSM-Gewicht |
+| `models/hmm_regime_model.pkl` | Trainiertes HMM-Gewicht |
+| `models/hmm_scaler.pkl` | Feature-Scaler zum HMM |
+| `models/lstm_regime_model.keras` | Trainiertes LSTM-Gewicht |
+| `models/tlstm_scaler.pkl` | Feature-Scaler zum LSTM-Modell |
+| `models/transformer_regime_model.pt` | Trainiertes Transformer-Gewicht |
 | `models/transformer_scaler.pkl` | Feature-Scaler zum Transformer |
 
 ---
@@ -264,6 +269,7 @@ Jedes Artefakt wird in `docs/statistics.md` und/oder im Dashboard eingebettet.
 
 | Datei | Beschreibung |
 |-------|-------------|
+| [assets/SORR_schema.png](../assets/SORR_schema.png) | SORR-Schema |
 | [assets/eda_descriptive_stats.md](../assets/eda_descriptive_stats.md) | Deskriptive Statistik der Inputs |
 | [assets/eda_adf_tests.md](../assets/eda_adf_tests.md) | ADF-Stationaritätstests |
 | [assets/eda_historical_drawdowns.png](../assets/eda_historical_drawdowns.png) | Historische Drawdowns des Aktien-Portfolios |
@@ -368,7 +374,9 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | Datei | Beschreibung |
 |-------|-------------|
 | [assets/h1_drawdown_test.md](../assets/h1_drawdown_test.md) | H1 — Drawdown-Reduktion (signifikant?) |
+| [assets/mcs_h1_mdd_forest.png](../assets/mcs_h1_mdd_forest.png) | H1 - Forest-Plot H1/MDD |
 | [assets/h2_transformer_test.md](../assets/h2_transformer_test.md) | H2 — Transformer-Überlegenheit (signifikant?) |
+| [assets/mcs_h2_endkapital_forest.png](../assets/mcs_h2_endkapital_forest.png) | H2 — Forest-Plot H2/Endkapital |
 
 ### 9.8 SORR- und Monte-Carlo-Simulation
 
@@ -380,6 +388,7 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | [assets/sorr_sim_low_capital.png](../assets/sorr_sim_low_capital.png) | SORR-Simulation — niedriges Startkapital |
 | [assets/withdrawal_sensitivity.md](../assets/withdrawal_sensitivity.md) | Sensitivität gegenüber Entnahmeraten |
 | [assets/depletion_rate_ci.md](../assets/depletion_rate_ci.md) | Depletion-Rate mit Konfidenzintervall |
+| [assets/mcs_depletion_rate_forest.png](../assets/mcs_depletion_rate_forest.png) | Forest-Plot Depletion Rate
 | [assets/mcs_summary.md](../assets/mcs_summary.md) | Monte-Carlo-Simulation — Zusammenfassung |
 | [assets/mcs_paths.png](../assets/mcs_paths.png) | MCS-Pfade |
 | [assets/mcs_quantiles.png](../assets/mcs_quantiles.png) | MCS-Quantile |
@@ -389,6 +398,7 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | [assets/mcs_violin_standard.png](../assets/mcs_violin_standard.png) | MCS-Violin — Standard-Entnahme |
 | [assets/mcs_violin_aggressive.png](../assets/mcs_violin_aggressive.png) | MCS-Violin — aggressive Entnahme |
 | [assets/mcs_violin_low_capital.png](../assets/mcs_violin_low_capital.png) | MCS-Violin — niedriges Startkapital |
+| [assets/risk_return_positioning.png](../assets/risk_return_positioning.png) | Risiko-Rendite-Positionierung |
 
 ### 9.9 Dashboard-Screenshots
 

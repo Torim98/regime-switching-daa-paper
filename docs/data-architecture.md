@@ -17,7 +17,7 @@ Yahoo Finance API
   ┌──────────┐
   │  Silver  │  Bereinigte, transformierte und feature-engineerte Daten
   └────┬─────┘
-       │  02–04 Notebooks  /  POST /models/train/{name}
+       │  04–05 Notebooks  /  POST /backtest/run + /backtest/evaluate
        ▼
   ┌──────────┐
   │   Gold   │  Ergebnisse: Backtesting, Monte-Carlo-Simulation
