@@ -828,25 +828,33 @@ def chart_sorr_scenario(
 @router.get("/chart/rolling-sharpe")
 @_cache_chart("backtesting_results")
 def chart_rolling_sharpe(window: int = Query(252, ge=21, le=1260)):
-    """Rolling Sharpe über konfigurierbares Fenster."""
+    """Rolling Sharpe über konfigurierbares Fenster.
+
+    Nutzt dieselbe `calculate_rolling_sharpe`-Funktion wie der Pipeline-Plot
+    (Low-Vol-Fenster → 0, Cap ±10), damit beide Visualisierungen 1:1
+    übereinstimmen und HMM-Spitzen aus Cash-Only-Phasen unterdrückt werden.
+    """
+    from src.backtest.engine import calculate_rolling_sharpe
+
     cfg = _cfg()
     df = _read_parquet_or_404(cfg.data_path("backtesting_results"), "/backtest/run zuerst")
-    rets = df.pct_change().dropna()
+    rolling_sharpe = calculate_rolling_sharpe(df, window_days=window)
 
     fig = go.Figure()
-    for col in rets.columns:
-        rolling = rets[col].rolling(window).mean() / rets[col].rolling(window).std() * np.sqrt(252)
+    for col in rolling_sharpe.columns:
+        series = rolling_sharpe[col].dropna()
         fig.add_trace(go.Scatter(
-            x=rolling.index, y=rolling.values, mode="lines", name=col,
+            x=series.index, y=series.values, mode="lines", name=col,
             line=dict(color=_plotly_color(cfg.color_map.get(col)), width=1.4),
             hovertemplate=f"<b>{col}</b>: %{{y:.3f}}<extra></extra>",
         ))
     fig.update_layout(
-        title=f"Rolling Sharpe (Fenster = {window} Tage)",
+        title=f"Rolling Sharpe (Fenster = {window} Tage, Cap ±10, Low-Vol → 0)",
         xaxis_title="Datum", yaxis_title="Sharpe Ratio (annualisiert)",
         template="plotly_white", height=420,
         hovermode="x unified",
         xaxis=dict(hoverformat="%Y-%m-%d"),
+        yaxis=dict(range=[-3, 5]),
         margin=dict(l=40, r=20, t=50, b=40),
     )
     return _fig_to_json(fig)
