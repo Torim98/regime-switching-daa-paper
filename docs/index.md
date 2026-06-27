@@ -206,14 +206,14 @@ Interaktives UI, Control Hub, Config-Editor, Live-Log-Streaming.
 | [jupyter/05_evaluation.ipynb](../jupyter/05_evaluation.ipynb) | Gesamtauswertung, Confusion-Matrizen, H1/H2-Tests, MCS |
 | [jupyter/99_statistics_md.ipynb](../jupyter/99_statistics_md.ipynb) | Generierung des `docs/statistics.md` Master-Reports |
 
-### 5.2 Sonstige / Explorativ (`jupyter/others/`)
+### 5.2 Sonstige / Explorativ (`jupyter/`)
 
 | Notebook | Beschreibung |
 |----------|-------------|
-| [jupyter/others/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/others/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetrische Korrelation nach Ang & Chen |
-| [jupyter/others/Concept_matrix_venn.ipynb](../jupyter/others/Concept_matrix_venn.ipynb) | Konzept-Venn-Diagramm für die Thesis |
-| [jupyter/others/S&P500_NBER-recessions.ipynb](../jupyter/others/S&P500_NBER-recessions.ipynb) | S&P-500-Verlauf mit NBER-Rezessionsperioden |
-| [jupyter/others/SORR.ipynb](../jupyter/others/SORR.ipynb) | Explorative SORR-Illustration |
+| [jupyter/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/others/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetrische Korrelation nach Ang & Chen |
+| [jupyter/Concept_matrix_venn.ipynb](../jupyter/others/Concept_matrix_venn.ipynb) | Konzept-Venn-Diagramm für die Thesis |
+| [jupyter/S&P500_NBER-recessions.ipynb](../jupyter/others/S&P500_NBER-recessions.ipynb) | S&P-500-Verlauf mit NBER-Rezessionsperioden |
+| [jupyter/SORR.ipynb](../jupyter/others/SORR.ipynb) | Explorative SORR-Illustration |
 
 ---
 
