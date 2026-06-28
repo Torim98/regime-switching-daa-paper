@@ -30,8 +30,8 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 *   **Markov-Switching-Modelle (MSM):** Ein klassisches Regressionsverfahren, bei dem Parameter (wie Mittelwert und Varianz der Rendite) zwischen Zuständen springen. Die Wechselwahrscheinlichkeiten werden über eine Übergangsmatrix berechnet.
 *   **Hidden-Markov-Modelle (HMM):** Ein Unsupervised-Learning-Ansatz aus der Statistik. Das HMM identifiziert Cluster in den Datenverteilungen, um Phasen hoher und niedriger Volatilität voneinander zu trennen, ohne dass vorab gelabelte Daten nötig sind.
 2. **Moderne Machine-Learning-Verfahren:** Dieser Ansatz nutzt die Fähigkeit von künstlichen neuronalen Netzen, hochkomplexe, nicht-lineare Zusammenhänge in großen Datenmengen zu identifizieren, ohne explizite statistische Verteilungsannahmen vorauszusetzen.
-*   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt, trainiert auf Pagan-Sossounov-Labels (siehe Label-Analyse in 01a_label_analysis), analog zum Transformer.
-*   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf Pagan-Sossounov-Labels, siehe Label-Analyse in `01a_label_analysis`) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
+*   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt, trainiert auf Pagan-Sossounov-Labels (siehe Label-Analyse via POST /data/label-analysis bzw. src/data/labels/), analog zum Transformer.
+*   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf Pagan-Sossounov-Labels, siehe Label-Analyse via POST /data/label-analysis bzw. src/data/labels/) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
 
 ---
 
@@ -52,13 +52,7 @@ Für die Umsetzung der Forschungsumgebung wurde ein moderner Data-Science-Stack 
 
 ## Architektur
 
-Das Projekt bietet zwei gleichwertige Ausführungswege, die dieselbe Business Logic (`src/`), Konfiguration (`config/config.yaml`) und Datenpersistierung (Medallion-Architektur) nutzen.
-
-### Notebook-Pipeline (Forschung & Exploration)
-
-Ein modulares Pipeline-Design mit spezialisierten Jupyter Notebooks. Ein zentrales Master-Notebook (`regime-switching-daa.ipynb`) orchestriert die Ausführung der einzelnen Module via Papermill in der korrekten Reihenfolge.
-
-### Microservice-Architektur (Reproduzierbarkeit & Deployment)
+Das Projekt wird über eine containerisierte Microservice-Architektur ausgeführt. Alle Services nutzen dieselbe Business Logic (`src/`), Konfiguration (`config/config.yaml`) und Datenpersistierung (Medallion-Architektur).
 
 Vier containerisierte FastAPI-Services bilden die gesamte Pipeline und das Frontend ab:
 
@@ -75,7 +69,6 @@ Die Pipeline-Services kommunizieren über gemeinsame Dateisystem-Volumes; der Da
 * [Microservice-Architektur & Setup](docs/microservice-architecture.md)
 * [Dashboard Service (UI & Control Hub)](docs/dashboard-service.md)
 * [Sequenzdiagramm: Microservice-Pipeline](docs/microservice-sequence-diagram.md)
-* [Sequenzdiagramm: Jupyter-Pipeline](docs/jupyter-sequence-diagram.md)
 * [API Endpoints & Routen](docs/fastapi-endpoints.md)
 
 > Da alle Services auf FastAPI basieren, steht nach dem Start (via `docker-compose up`) für jeden Service auch eine interaktive **Swagger UI** zur Verfügung:
@@ -105,10 +98,10 @@ Die Pipeline-Services kommunizieren über gemeinsame Dateisystem-Volumes; der Da
 Hinter der Pipeline stehen fortgeschrittene Konzepte der Software-Entwicklung und Finanzmathematik, um die Validität der Ergebnisse sicherzustellen:
 
 ### Daten-Persistierung & Entkopplung
-Um Notebooks voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist. Die Datenablage folgt einem **[Medallion-Modell](./docs/data-architecture.md)** (Bronze → Silver → Gold) zur klaren Trennung von Rohdaten, bereinigten Zwischenergebnissen und finalen Analyseergebnissen.
+Um die Pipeline-Schritte voneinander zu entkoppeln und den Arbeitsspeicher effizient zu nutzen, werden Zwischenergebnisse im **Apache Parquet-Format** gespeichert. Parquet bietet gegenüber CSV eine höhere Performance und erhält die Integrität der Datentypen (insb. Zeitstempel), was für die Zeitreihenanalyse essentiell ist. Die Datenablage folgt einem **[Medallion-Modell](./docs/data-architecture.md)** (Bronze → Silver → Gold) zur klaren Trennung von Rohdaten, bereinigten Zwischenergebnissen und finalen Analyseergebnissen.
 
 ### Shared Business Logic
-Die gesamte Fachlogik ist in wiederverwendbaren Python-Modulen unter `src/` gekapselt. Sowohl die Jupyter Notebooks als auch die FastAPI-Services importieren aus denselben Modulen, was Konsistenz zwischen beiden Ausführungswegen garantiert.
+Die gesamte Fachlogik ist in wiederverwendbaren Python-Modulen unter `src/` gekapselt. Alle FastAPI-Services importieren aus denselben Modulen, was Konsistenz über die gesamte Pipeline garantiert.
 
 ### Modell-Persistierung & Caching
 Trainierte Modelle (MSM, HMM, LSTM, Transformer) werden im Ordner `models/` zwischengespeichert. Dies ermöglicht es, das rechenintensive Training zu überspringen und stattdessen vortrainierte Modelle zu laden. Das Verhalten wird über `model_persistence.enabled` in der `config.yaml` gesteuert. Ist die Option aktiviert und existieren die Modelldateien, wird das Training automatisch übersprungen. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert.
@@ -138,31 +131,11 @@ Der **Dashboard Service** (`:8004`) stellt ein modernes Zero-Build-Frontend (Tai
 
 ---
 
-## Quickstart
-
-### Option A: Jupyter Notebooks (Forschung)
+## Quickstart: Docker Compose (ein Befehl)
 
 ```bash
-git clone https://github.com/Torim98/regime-switching-daa.git
-cd regime-switching-daa
-
-# Virtuelle Umgebung erstellen und aktivieren:
-python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-# .venv\Scripts\activate         # Windows
-
-# Abhängigkeiten installieren:
-pip install -e .
-
-# Master-Notebook ausführen:
-jupyter notebook jupyter/regime-switching-daa.ipynb
-```
-
-### Option B: Docker Compose (ein Befehl)
-
-```bash
-git clone https://github.com/Torim98/regime-switching-daa.git
-cd regime-switching-daa
+git clone https://github.com/Torim98/regime-switching-daa-paper.git
+cd regime-switching-daa-paper
 docker-compose up --build -d
 
 # Variante 1 — Pipeline per curl ausführen:
@@ -183,17 +156,14 @@ curl -X POST http://localhost:8003/backtest/evaluate
 
 ## Die Research-Pipeline (Modularer Aufbau)
 
-Das Projekt ist als vollautomatisierte Pipeline konzipiert. Jedes Modul baut auf den persistierten Daten des Vorgängers auf:
+Die Pipeline ist als Abfolge von Service-Endpoints konzipiert. Jeder Schritt baut auf den persistierten Daten (Parquet, Medallion-Architektur) des Vorgängers auf:
 
-1.  **`00_dependencies`**: Initialisierung der Forschungsumgebung.
-2.  **`01_data_preprocessing`**: Download (YFinance) und Bereinigung von Multi-Asset-Daten (Aktien, Bonds, Cash).
-3.  **`01a_label_analysis`** *(manuell, optional)*: Vergleich alternativer Regime-Labeler (Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) gegen MSM/HMM. Erzeugt Konkordanz-Matrix und Switch-Statistiken. Dient als Begründung der Label-Wahl (Pagan-Sossounov) für LSTM und Transformer. Nicht Teil der automatischen Pipeline.
-4.  **`02_feature_engineering`**: Berechnung technischer und makroökonomischer Indikatoren.
-5.  **`03a_hyperparameter_optimization`** *(manuell)*: Bayessche Hyperparameter-Optimierung via Optuna. Nutzt Walk-Forward als innere CV. Nicht Teil der automatischen Pipeline. Wird einmalig vor dem finalen Durchlauf ausgeführt.
-6.  **`03_regime_switching_models`**: Training der Regime-Switching-Modelle. Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung. Bei `walk_forward.enabled: true` rollierende Walk-Forward-Validierung über alle Folds mit OOS-Caching.
-7.  **`04_backtesting`**: Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
-8.  **`05_evaluation`**: Stress-Tests mittels Block-Bootstrap zur statistischen Validierung der Ergebnisse.
-9.  **`99_statistics_md`**: Automatisierte Zusammenführung aller Ergebnisse in die Dokumentation.
+1.  **Data Service** (`POST /data/ingest`): Download (YFinance) und Bereinigung der Multi-Asset-Daten (Aktien, Bonds, Cash), Feature Engineering (technische und makroökonomische Indikatoren) und EDA.
+2.  **Data Service** (`POST /data/label-analysis`) *(optional)*: Vergleich alternativer Regime-Labeler (Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) gegen MSM/HMM. Erzeugt Konkordanz-Matrix und Switch-Statistiken; begründet die Label-Wahl (Pagan-Sossounov) für LSTM und Transformer.
+3.  **Model Service** (`POST /models/optimize-all`) *(optional)*: Bayessche Hyperparameter-Optimierung via Optuna mit Walk-Forward als innerer CV. Wird einmalig vor dem finalen Durchlauf ausgeführt.
+4.  **Model Service** (`POST /models/train-all`): Training der Regime-Switching-Modelle (MSM, HMM, LSTM, Transformer). Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung, bei `true` rollierende Walk-Forward-Validierung mit OOS-Caching.
+5.  **Backtest Service** (`POST /backtest/run`): Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
+6.  **Backtest Service** (`POST /backtest/evaluate`): Stress-Tests mittels Block-Bootstrap (Monte-Carlo-Simulation), Hypothesentests und automatisierte Zusammenführung aller Ergebnisse in `docs/statistics.md`.
 
 ---
 
@@ -246,8 +216,8 @@ regime-switching-daa/
 ├── config/          Zentrale Konfiguration (config.yaml, config_loader.py)
 ├── data/            Medallion-Architektur (bronze/ silver/ gold/)
 ├── docs/            Projektdokumentation
-├── jupyter/         Jupyter Notebooks (Pipeline 00–99)
-├── logs/            Log-Dateien (Notebook-Pipeline + Services)
+├── jupyter/		 Explorative Notebooks (zusätzliche Thesis-Auswertungen)
+├── logs/            Log-Dateien der Services
 ├── models/          Persistierte Modelldateien (.pkl, .keras, .pt) + Optuna DB
 ├── services/        FastAPI Microservices
 │   ├── data_service/
@@ -274,7 +244,6 @@ regime-switching-daa/
 | [Microservice Architecture](docs/microservice-architecture.md) | Services, Endpunkte, Volumes, Logging |
 | [Dashboard Service](docs/dashboard-service.md) | UI-Seitenstruktur, Control Hub, Config-Editor, WebSocket-Log-Streaming, Security |
 | [Sequence Diagram: Microservices](docs/microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
-| [Sequence Diagram: Jupyter](docs/jupyter-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Notebook-Pipeline |
 | [How to Add a ML Model](docs/how-to-add-ml-model.md) | Integrations-Anleitung für neue Modelle |
 | [Statistics (Live)](docs/statistics.md) | Auto-generierte Ergebnisse und Tabellen |
 | [FastAPI Endpoints](docs/fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
@@ -283,7 +252,7 @@ regime-switching-daa/
 
 ## Reproduzierbarkeit
 
-Beide Pipelines (Notebook und Docker) erzeugen identische Ergebnisse für deterministische Modelle (MSM, HMM). LSTM und Transformer weichen durch nicht-deterministisches Training (zufällige Gewichtsinitialisierung, Batch-Shuffling) zwischen Läufen leicht ab — die Abweichungen kaskadieren in Backtesting, SORR und Monte Carlo Simulation.
+Deterministische Modelle (MSM, HMM) erzeugen bei identischer Konfiguration reproduzierbare Ergebnisse. LSTM und Transformer weichen durch nicht-deterministisches Training (zufällige Gewichtsinitialisierung, Batch-Shuffling) zwischen Läufen leicht ab. Die Abweichungen kaskadieren in Backtesting, SORR und Monte Carlo Simulation.
 
 ---
 

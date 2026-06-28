@@ -86,7 +86,6 @@ class PipelineConfig:
         self.evaluation = ns.evaluation
         self.paths = ns.paths
         self.plotting = ns.plotting
-        self.pipeline = ns.pipeline
         self.fast_mode = ns.fast_mode
         self.model_persistence = ns.model_persistence
         self.labels = ns.labels
