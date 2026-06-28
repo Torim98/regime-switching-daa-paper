@@ -1,7 +1,7 @@
 """
 Central Configuration Loader for the Regime-Switching DAA Pipeline.
 
-Usage in notebooks:
+Usage in services:
     import sys; sys.path.insert(0, "../config")
     from config_loader import cfg
 
@@ -68,7 +68,7 @@ class PipelineConfig:
             self._raw = yaml.safe_load(f)
 
         # base_dir = project root for resolving data/assets/models paths
-        # Default: parent of config/ directory (works for notebooks and local runs)
+        # Default: parent of config/ directory (works for services and local runs)
         # Override: set explicitly for Docker (e.g. base_dir="/app")
         if base_dir is not None:
             self._base_dir = Path(base_dir)
@@ -76,7 +76,6 @@ class PipelineConfig:
             self._base_dir = self._path.parent.parent
 
         ns = _dict_to_namespace(self._raw.copy())
-        self.dependencies = ns.dependencies
         self.data = ns.data
         self.features = ns.features
         self.portfolio = ns.portfolio

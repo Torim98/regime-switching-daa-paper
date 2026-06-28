@@ -1,7 +1,7 @@
 [project]
 name = "regime-switching-daa"
 version = "0.1.0"
-description = "Regime-Switching Dynamic Asset Allocation – Master Thesis"
+description = "Regime-Switching Dynamic Asset Allocation"
 requires-python = ">=3.11"
 
 dependencies = [
@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Schwere ML-Frameworks + HPO — nur wo wirklich gebraucht (model_service + lokale Notebooks)
+# Schwere ML-Frameworks + HPO — nur wo wirklich gebraucht (model_service)
 ml = [
     "tensorflow==2.20.0",
     "keras==3.14.0",
@@ -43,10 +43,6 @@ dashboard = [
     "watchfiles==1.1.0",
     "websockets==14.2",
     "optuna==4.8.0",  # für /api/optuna/best-params (read-only Zugriff auf Studies-DB)
-]
-# Notebook-Orchestrierung (nur lokal)
-notebooks = [
-    "papermill==2.7.0",
 ]
 dev = [
     "nbstripout>=0.8.0",
