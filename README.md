@@ -3,6 +3,8 @@
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+> **Hinweis:** Die vorliegende Arbeit führt die Master-Thesis von Tom Maurer hin zu einer wissenschaftlichen Publikation fort. Ursprüngliches Thesis-Repository: [Torim98/regime-switching-daa](https://github.com/Torim98/regime-switching-daa).
+
 Dieses Repository enthält den Code und die Analysen meiner Master-Thesis zum Thema: 
 **"Dynamische Asset-Allokation mittels Regime-Switching-Modellen: Ein Vergleich ökonometrischer Modelle und moderner Machine-Learning-Verfahren zur Reduktion von Maximum Drawdowns"**.
 
@@ -266,6 +268,5 @@ Bestimmte Einflussfaktoren wurden bewusst aus dem Scope der Thesis ausgegrenzt. 
 
 Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Details findest du in der Datei [LICENSE](./LICENSE).
 
-**Autor:** Tom Maurer B.Sc.<br>
-**Betreuer:** Prof. Dr. Christian Müller-Kett<br>
-**Akademischer Kontext:** Master-Thesis Projekt im Bereich Quantitative Finance / Data Science.
+**Autoren:** Tom Maurer M.Sc.; Prof. Dr. Christian Müller-Kett; Prof. Dr. Thomas Zöller<br>
+**Akademischer Kontext:** Fortgeführtes [Master-Thesis-Projekt](https://github.com/Torim98/regime-switching-daa) im Bereich Quantitative Finance / Data Science zu Publikationszwecken.
