@@ -92,7 +92,7 @@ function btPage() {
     ],
     mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '',
     async init() {
-      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr =
+      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr] =
         await Promise.all([
           fetchMd('performance_summary.md'),
           fetchMd('annualized_metrics.md'),

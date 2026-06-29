@@ -148,7 +148,7 @@ def assert_no_leakage(
     Sanity-Check: verifiziert, dass kein Train-Fenster in den zugehörigen
     Test-Bereich hineinreicht. Wirft AssertionError bei Verletzung.
 
-    Aufrufen direkt nach walk_forward_splits() im Notebook, bevor irgendein
+    Aufrufen direkt nach walk_forward_splits() im Code, bevor irgendein
     Training startet — schützt vor subtilen Off-by-One-Bugs in der
     Datums-Logik.
     """

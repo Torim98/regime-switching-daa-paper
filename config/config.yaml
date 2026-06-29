@@ -5,7 +5,7 @@
 # Changes here propagate to all services via config_loader.py.
 # ============================================================================
 
-# --- Data Ingestion (01_data_preprocessing) ---
+# --- Data Ingestion (Data Service) ---
 data:
   tickers:
     - "^GSPC"       # S&P 500
@@ -19,7 +19,7 @@ data:
   #   - "YYYY-MM-DD"                  -> fester Cutoff (thesis-freeze mode, inklusiv)
   end_date: "2026-04-17"
 
-# --- Feature Engineering (02_feature_engineering) ---
+# --- Feature Engineering (Data Service) ---
 features:
   sma_window: 200
   volatility_window: 20
@@ -37,7 +37,7 @@ portfolio:
   weight_equity: 0.6    # S&P 500
   weight_bonds: 0.4     # VUSTX
 
-# --- Model Hyperparameters (03_regime_switching_models) ---
+# --- Model Hyperparameters (Model Service) ---
 models:
   msm:
     k_regimes: 2
@@ -93,7 +93,7 @@ models:
      # --- Class Balancing ---
     pos_weight_auto: true        # Automatische Gewichtung für Bear-Klasse
 
-# --- Walk-Forward-Validierung (03_regime_switching_models) ---
+# --- Walk-Forward-Validierung (Model Service) ---
 walk_forward:
   enabled: true                   # false = Fallback auf alten 80/20-Split
   mode: "rolling"                  # "rolling" oder "expanding"
@@ -108,7 +108,7 @@ walk_forward:
   dl_warm_start: true
   dl_warm_start_epochs: 10
 
-# --- Backtesting (04_backtesting) ---
+# --- Backtesting (Backtest Service) ---
 ## --- Hyperparameter-Optimierung (Optuna) ---
 optimization:
   enabled: false                    # Setze enabled: true wenn du Optuna laufen lassen willst, false wenn du die gefundenen Params bereits in der Config hast und nur noch den finalen WF-Lauf machst.
@@ -150,7 +150,7 @@ backtesting:
         annual_withdrawal_rate: 0.08     # 2000€/Monat ÷ 300000€ × 12 = 0.08
         liquidity_fee: 0.001
 
-# --- Evaluation / MCS (05_evaluation) ---
+# --- Evaluation / MCS (Backtest Service) ---
 evaluation:
   mcs:
     n_paths: 10000

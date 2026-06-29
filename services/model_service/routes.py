@@ -467,7 +467,7 @@ async def optimize_all_models():
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
 
-    # Best-Params unter assets/ persistieren (1:1 zum Notebook 03a)
+    # Best-Params unter assets/ persistieren
     save_optuna_best_params(studies, cfg)
 
     return {

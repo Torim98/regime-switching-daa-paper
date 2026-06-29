@@ -2,7 +2,7 @@
 
 Port 8004. Greift read-only auf data/, assets/, logs/ zu und erlaubt
 Write-Access auf config/config.yaml (mit .bak-Backup).
-Die bestehende Pipeline (Notebooks + data/model/backtest-Services) bleibt
+Die bestehende Pipeline (data/model/backtest-Services) bleibt
 unangetastet.
 """
 from services.warnings_config import configure_warnings

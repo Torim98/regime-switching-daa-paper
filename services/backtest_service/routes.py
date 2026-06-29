@@ -143,7 +143,7 @@ def evaluate():
     backtesting_costs = pd.read_parquet(cfg.data_path("backtesting_costs"))
     test_df = pd.read_parquet(cfg.data_path("test_data"))
 
-    # Signal-Zuordnung (dynamisch wie im Notebook)
+    # Signal-Zuordnung (dynamisch)
     signals_to_count = pd.DataFrame(index=test_df.index)
     for sig_col in [c for c in test_df.columns if c.endswith("_Signal")]:
         model_name = sig_col.rsplit("_", 1)[0]
@@ -310,7 +310,7 @@ def evaluate():
 
     logger.info("Issue #13 extended evaluation done")
 
-    # Statistics Report generieren (wie Notebook 99)
+    # Statistics Report generieren
     generate_report()
 
     elapsed = time.time() - start
@@ -324,7 +324,7 @@ def evaluate():
 
 @router.post("/report")
 def generate_report():
-    """docs/statistics.md generieren (wie Notebook 99)."""
+    """docs/statistics.md generieren."""
     cfg = get_cfg()
     logger.info("Generating statistics report...")
 

@@ -138,5 +138,5 @@ class PipelineConfig:
         return f"PipelineConfig(source='{self._path}', base_dir='{self._base_dir}')"
 
 
-# Singleton — importable from any notebook
+# Singleton — importable from any service
 cfg = PipelineConfig()
