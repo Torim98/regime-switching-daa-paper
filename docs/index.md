@@ -18,7 +18,6 @@ Navigations-Hub für das Repository: kategorisierte Auflistung aller versioniert
 | [docs/data-architecture.md](./data-architecture.md) | Medallion-Datenarchitektur (Bronze / Silver / Gold) |
 | [docs/microservice-architecture.md](./microservice-architecture.md) | FastAPI-Services, Volumes, Logging, Deployment |
 | [docs/microservice-sequence-diagram.md](./microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
-| [docs/jupyter-sequence-diagram.md](./jupyter-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Notebook-Pipeline |
 | [docs/dashboard-service.md](./dashboard-service.md) | Dashboard: Seitenstruktur, Control Hub, Config-Editor, WebSocket-Logs |
 | [docs/fastapi-endpoints.md](./fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
 | [docs/how-to-add-ml-model.md](./how-to-add-ml-model.md) | Schritt-für-Schritt-Integration eines neuen Modells |
@@ -53,7 +52,7 @@ Navigations-Hub für das Repository: kategorisierte Auflistung aller versioniert
 
 ## 3. Shared Business Logic (`src/`)
 
-Projekt-weit geteilter Python-Code. Sowohl die Notebook-Pipeline als auch die Microservices importieren aus `src/`.
+Projekt-weit geteilter Python-Code. Die Microservices importieren aus `src/`.
 
 | Datei | Beschreibung |
 |-------|-------------|
@@ -189,31 +188,14 @@ Interaktives UI, Control Hub, Config-Editor, Live-Log-Streaming.
 
 ---
 
-## 5. Jupyter Notebooks (`jupyter/`)
-
-### 5.1 Hauptpipeline (00–99)
+## 5. Explorative Jupyter Notebooks (`jupyter/`)
 
 | Notebook | Beschreibung |
 |----------|-------------|
-| [jupyter/regime-switching-daa.ipynb](../jupyter/regime-switching-daa.ipynb) | Master-Notebook; orchestriert 00–99 via Papermill |
-| [jupyter/00_dependencies.ipynb](../jupyter/00_dependencies.ipynb) | Dependency-Check und Environment-Validierung |
-| [jupyter/01_data_preprocessing.ipynb](../jupyter/01_data_preprocessing.ipynb) | Rohdaten-Download + Preprocessing (Bronze → Silver) |
-| [jupyter/01a_label_analysis.ipynb](../jupyter/01a_label_analysis.ipynb) | Label-Schema-Vergleich (Concordance, Cohen's κ) |
-| [jupyter/02_feature_engineering.ipynb](../jupyter/02_feature_engineering.ipynb) | Rolling-Window-Features für Regime-Modelle |
-| [jupyter/03_regime_switching_models.ipynb](../jupyter/03_regime_switching_models.ipynb) | Training & Prediction: MSM, HMM, LSTM, Transformer |
-| [jupyter/03a_hyperparameter_optimization.ipynb](../jupyter/03a_hyperparameter_optimization.ipynb) | Optuna Bayes-Opt mit Walk-Forward-CV |
-| [jupyter/04_backtesting.ipynb](../jupyter/04_backtesting.ipynb) | Backtest + SORR + Monte Carlo Simulation |
-| [jupyter/05_evaluation.ipynb](../jupyter/05_evaluation.ipynb) | Gesamtauswertung, Confusion-Matrizen, H1/H2-Tests, MCS |
-| [jupyter/99_statistics_md.ipynb](../jupyter/99_statistics_md.ipynb) | Generierung des `docs/statistics.md` Master-Reports |
-
-### 5.2 Sonstige / Explorativ (`jupyter/`)
-
-| Notebook | Beschreibung |
-|----------|-------------|
-| [jupyter/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/others/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetrische Korrelation nach Ang & Chen |
-| [jupyter/Concept_matrix_venn.ipynb](../jupyter/others/Concept_matrix_venn.ipynb) | Konzept-Venn-Diagramm für die Thesis |
-| [jupyter/S&P500_NBER-recessions.ipynb](../jupyter/others/S&P500_NBER-recessions.ipynb) | S&P-500-Verlauf mit NBER-Rezessionsperioden |
-| [jupyter/SORR.ipynb](../jupyter/others/SORR.ipynb) | Explorative SORR-Illustration |
+| [jupyter/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetrische Korrelation nach Ang & Chen |
+| [jupyter/Concept_matrix_venn.ipynb](../jupyter/Concept_matrix_venn.ipynb) | Konzept-Venn-Diagramm für die Thesis |
+| [jupyter/S&P500_NBER-recessions.ipynb](../jupyter/S&P500_NBER-recessions.ipynb) | S&P-500-Verlauf mit NBER-Rezessionsperioden |
+| [jupyter/SORR.ipynb](../jupyter/SORR.ipynb) | Explorative SORR-Illustration |
 
 ---
 
@@ -252,7 +234,6 @@ Laufzeit-Logs; werden bei jeder Pipeline-/Service-Ausführung neu geschrieben.
 
 | Datei-Pattern | Quelle |
 |---------------|--------|
-| `logs/00_dependencies.log` – `logs/99_statistics_md.log` | Notebook-Pipeline (pro Stage) |
 | `logs/data_service.log` | FastAPI Data Service |
 | `logs/model_service.log` | FastAPI Model Service |
 | `logs/backtest_service.log` | FastAPI Backtest Service |
@@ -336,7 +317,6 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | [assets/crisis_performance.md](../assets/crisis_performance.md) | Performance während Krisenphasen |
 | [assets/break_even_costs.md](../assets/break_even_costs.md) | Break-Even-Transaktionskosten (Tabelle) |
 | [assets/break_even_costs.png](../assets/break_even_costs.png) | Break-Even-Transaktionskosten (Plot) |
-| [assets/pipeline_timing.md](../assets/pipeline_timing.md) | Laufzeit-Messungen der Pipeline-Stages |
 
 ### 9.6 Evaluation & Klassifikation
 

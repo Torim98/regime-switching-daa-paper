@@ -78,12 +78,6 @@
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdSorr"></div>
   </section>
 
-  <!-- Pipeline-Timing -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Pipeline-Laufzeit</h2>
-    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdTiming"></div>
-  </section>
-
 </div>
 
 <script>
@@ -96,15 +90,14 @@ function btPage() {
       { key: 'Aggressive',  label: 'Aggressiv' },
       { key: 'Low_Capital', label: 'Geringes Kapital' },
     ],
-    mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '', mdTiming: '',
+    mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '',
     async init() {
-      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr, this.mdTiming] =
+      [this.mdPerfSummary, this.mdAnnualized, this.mdCrisis, this.mdSorr =
         await Promise.all([
           fetchMd('performance_summary.md'),
           fetchMd('annualized_metrics.md'),
           fetchMd('crisis_performance.md'),
           fetchMd('sorr_summary.md'),
-          fetchMd('pipeline_timing.md'),
         ]);
       await Promise.all([
         renderChart('chart-equity',             '/api/chart/equity-curves'),

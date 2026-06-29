@@ -68,10 +68,6 @@ def generate_statistics_report(cfg) -> str:
         os.path.join(ASSETS_DIR, cfg.asset_path("mcs_summary"))
     )
     feature_corr_table_md = load_markdown_asset(cfg.asset_path("feature_correlation_table"))
-    pipeline_timing_md = load_markdown_asset(
-        os.path.join(ASSETS_DIR, cfg.asset_path("pipeline_timing")),
-        fallback="*Keine Timing-Daten verfügbar.*",
-    )
     annualized_metrics_md = load_markdown_asset(
         cfg.asset_path("annualized_metrics"),
         fallback="*Keine annualisierten Metriken verfügbar.*",
@@ -415,14 +411,6 @@ Robustheit der SORR-Ergebnisse bei variierenden jährlichen Entnahmen.
 
 ---
 
-## Pipeline-Laufzeiten
-
-Ausführungszeiten der einzelnen Pipeline-Notebooks (monolithischer Notebook-Ansatz).
-
-{pipeline_timing_md}
-
----
-
 ## Modell-Persistierung
 
 Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
@@ -441,7 +429,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 **Fast Mode Status zur Laufzeit:** {fast_mode_status}<br>
 **Walk-Forward-Validierung:** {wf_status}<br>
 **Modell-Persistierung:** {persist_status_text}<br>
-*Generiert durch die automatisierte ETL-Pipeline (Notebook 99).*
+*Generiert durch den Backtest-Service (Reporting).*
 """
 
     return stats_md_content

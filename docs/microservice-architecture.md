@@ -1,6 +1,6 @@
 # Microservice-Architektur
 
-Die Pipeline kann neben der Jupyter-Notebook-Ausführung auch über containerisierte FastAPI-Services betrieben werden. Drei Services bilden die Pipeline ab, ein vierter stellt das interaktive Dashboard bereit. Alle Wege nutzen dieselbe Business Logic unter `src/` und dieselbe Konfiguration unter `config/config.yaml`.
+Drei Services bilden die Pipeline ab, ein vierter stellt das interaktive Dashboard bereit. Alle Services nutzen die Business Logic unter `src/` und die Konfiguration unter `config/config.yaml`.
 
 ## Services
 
@@ -159,7 +159,7 @@ regime-switching-daa/
 ├── docker-compose.yml
 ├── pyproject.toml
 ├── config/                           # config.yaml + config_loader.py
-├── jupyter/                          # Notebook-Pipeline (01–99)
+├── jupyter/                          # Explorative Notebooks
 ├── data/                             # Medallion-Architektur (bronze/silver/gold)
 ├── models/                           # Persistierte Modelldateien
 ├── assets/                           # Generierte Plots und Tabellen
@@ -167,17 +167,17 @@ regime-switching-daa/
 └── logs/                             # Service-Logdateien
 ```
 
-## Vergleich: Notebook vs. Microservices vs. Dashboard
+## Vergleich: Microservices vs. Dashboard
 
-| Aspekt | Notebook-Pipeline | Microservice-Pipeline | Dashboard-UI |
-|--------|------------------|----------------------|--------------|
-| Ausführung | Jupyter / Papermill | Docker + curl/HTTP | Browser-Klick (Control Hub) |
-| Interaktivität | Inline-Plots, Zellen-Output | Swagger UI, JSON-Responses | Plotly-Charts, Forms, Live-Logs |
-| Reproduzierbarkeit | `regime-switching-daa.ipynb` | `docker-compose up --build` | `http://localhost:8004/` |
-| Business Logic | `src/` (import) | `src/` (identisch) | konsumiert Artefakte, proxy't Services |
-| Konfiguration | `config/config.yaml` | `config/config.yaml` (identisch) | In-UI-Editor mit Validation + Rollback |
-| Plot-Erzeugung | `src/*/plots.py` + `IPython.display` | `src/*/plots.py` + `matplotlib.use("Agg")` | Plotly.js (clientseitig, interaktiv) |
-| Daten-Persistierung | Parquet (Medallion) | Parquet (Medallion, identisch) | read-only Konsum |
-| Timing-Report | `pipeline_timing.md` (Papermill) | Logs pro Service | Live-Log-Stream via WebSocket |
+| Aspekt | Microservice-Pipeline | Dashboard-UI |
+|--------|----------------------|--------------|
+| Ausführung | Docker + curl/HTTP | Browser-Klick (Control Hub) |
+| Interaktivität | Swagger UI, JSON-Responses | Plotly-Charts, Forms, Live-Logs |
+| Reproduzierbarkeit | `docker-compose up --build` | `http://localhost:8004/` |
+| Business Logic | `src/` (identisch) | konsumiert Artefakte, proxy't Services |
+| Konfiguration | `config/config.yaml` (identisch) | In-UI-Editor mit Validation + Rollback |
+| Plot-Erzeugung | `src/*/plots.py` + `matplotlib.use("Agg")` | Plotly.js (clientseitig, interaktiv) |
+| Daten-Persistierung | Parquet (Medallion) | read-only Konsum |
+| Timing-Report | Logs pro Service | Live-Log-Stream via WebSocket |
 
 Siehe auch: [Sequenzdiagramm: Microservice-Pipeline](microservice-sequence-diagram.md) für den detaillierten Ablauf eines Pipeline-Durchlaufs und [Dashboard Service](dashboard-service.md) für Architektur und Seitenstruktur des Frontends.
