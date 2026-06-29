@@ -1,6 +1,6 @@
 # How to Add a New ML Model to the Research Pipeline
 
-> **Ziel:** Schritt-für-Schritt-Anleitung zur Integration eines neuen Regime-Switching-Modells in die bestehende Research-Pipeline. Der Guide nutzt die **Signal-Schnittstelle**, den **Dynamic-Matching-Mechanismus** und das **zentrale Konfigurationsmanagement** des Frameworks, sodass ein neues Modell automatisch in Backtesting, Evaluation und Reporting erscheint, ohne dass downstream Code angepasst werden muss.
+> **Ziel:** Schritt-für-Schritt-Anleitung zur Integration eines neuen Regime-Switching-Modells in die bestehende Microservice-Pipeline. Der Guide nutzt die **Signal-Schnittstelle**, den **Dynamic-Matching-Mechanismus** und das **zentrale Konfigurationsmanagement** des Frameworks, sodass ein neues Modell automatisch in Backtesting, Evaluation und Reporting erscheint, ohne dass downstream Code angepasst werden muss.
 
 ---
 
@@ -11,12 +11,12 @@
 3. [Hyperparameter in der zentralen Config registrieren](#3-hyperparameter-in-der-zentralen-config-registrieren)
 4. [Schritt-für-Schritt-Anleitung](#4-schritt-für-schritt-anleitung)
    - [Schritt 1: Config-Eintrag erstellen](#schritt-1-config-eintrag-erstellen)
-   - [Schritt 2: Daten laden und Features vorbereiten](#schritt-2-daten-laden-und-features-vorbereiten)
-   - [Schritt 3: Modell implementieren und trainieren (mit Config)](#schritt-3-modell-implementieren-und-trainieren-mit-config)
-   - [Schritt 4: Wahrscheinlichkeiten und Signale erzeugen](#schritt-4-wahrscheinlichkeiten-und-signale-erzeugen)
-   - [Schritt 5: Signale in den DataFrame schreiben](#schritt-5-signale-in-den-dataframe-schreiben)
-   - [Schritt 6: DataFrame speichern](#schritt-6-dataframe-speichern)
-   - [Schritt 7 (optional): Modell-Persistierung aktivieren](#schritt-7-optional-modell-persistierung-aktivieren)
+   - [Schritt 2: Trainingslogik in src/models/ implementieren](#schritt-2-trainingslogik-in-srcmodels-implementieren)
+   - [Schritt 3: Plot-Funktion in src/models/plots.py](#schritt-3-plot-funktion)
+   - [Schritt 4: Route im Model Service registrieren](#schritt-4-route-im-model-service-registrieren)
+   - [Schritt 5: In /train-all aufnehmen](#schritt-5-in-train-all-aufnehmen)
+   - [Schritt 6: Modell-Persistierung (optional)](#schritt-6-modell-persistierung-optional)
+   - [Schritt 7: Docker-Rebuild & Test](#schritt-7-docker-rebuild--test)
 5. [Warum das funktioniert: Dynamic Matching](#5-warum-das-funktioniert-dynamic-matching)
 6. [Look-Ahead Bias Prevention (T+1 Shift)](#6-look-ahead-bias-prevention-t1-shift)
 7. [Dokumentation aktualisieren](#7-dokumentation-aktualisieren)
@@ -24,7 +24,6 @@
 9. [Validierungs-Checkliste](#9-validierungs-checkliste)
 10. [Referenz-Implementierungen](#10-referenz-implementierungen)
 11. [FAQ & Troubleshooting](#11-faq--troubleshooting)
-12. [Microservice-Integration](#12-microservice-integration)
 
 ---
 
@@ -32,10 +31,9 @@
 
 Bevor du ein neues Modell integrierst, stelle sicher, dass:
 
-- [ ] Die Pipeline-Module `00_dependencies`, `01_data_preprocessing` und `02_feature_engineering` erfolgreich durchgelaufen sind
-- [ ] Die Datei `data/silver/03_feature_engineered_data.parquet` existiert und aktuell ist
-- [ ] Die benötigten Python-Pakete für dein Modell installiert sind (ggf. in `00_dependencies.ipynb` ergänzen)
-- [ ] Du den Aufbau von `jupyter/03_regime_switching_models.ipynb` grundlegend verstanden hast
+- [ ] Der Data Service erfolgreich gelaufen ist (`POST /data/ingest`) und `data/silver/03_feature_engineered_data.parquet` existiert und aktuell ist
+- [ ] Die benötigten Python-Pakete für dein Modell in `pyproject.toml` ergänzt sind (`ml`-Extra für schwere Frameworks)
+- [ ] Du den Aufbau von `services/model_service/routes.py` und der Module unter `src/models/` grundlegend verstanden hast
 
 ---
 
@@ -89,7 +87,7 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 
 ## 3. Hyperparameter in der zentralen Config registrieren
 
-> **Wichtig:** Seit [Issue #3](https://github.com/Torim98/regime-switching-daa/issues/3) werden **alle Pipeline-Parameter zentral** in [`config/config.yaml`](../config/config.yaml) verwaltet. Hardcoded Hyperparameter in Notebooks sind nicht mehr erlaubt.
+> **Wichtig:** Seit [Issue #3](https://github.com/Torim98/regime-switching-daa/issues/3) werden **alle Pipeline-Parameter zentral** in [`config/config.yaml`](../config/config.yaml) verwaltet. Hardcoded Hyperparameter im Code sind nicht mehr erlaubt.
 
 > **Hyperparameter-Optimierung:** Optuna kann `config.yaml`-Parameter programmatisch
 > überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)).
@@ -123,21 +121,17 @@ models:
     ...
 ```
 
-### So lädst du die Config in einem Notebook
+### So lädst du die Config in Code
 
 ```python
-# Am Anfang jedes Notebooks — Config laden
-import sys; sys.path.insert(0, "../config")
-from config_loader import cfg
+# In src/ oder services/ — Config laden
+from config.config_loader import cfg
 
 # Zugriff per Dot-Notation:
 cfg.models.hmm.n_components          # → 2
-cfg.models.lstm.epochs               # → 30
 cfg.features.model_features          # → ['Returns', 'Vol_20', ...]
-cfg.data_path("test_data")           # → "../data/04_test_df_data.parquet"
-cfg.asset_path("equity_curves")      # → "../assets/equity_curves.png"
-cfg.transaction_cost_rate             # → 0.001 (convenience property)
-cfg.model_path("lstm")               # → "../models/lstm_regime_model.keras"
+cfg.asset_path("equity_curves")      # → ".../assets/equity_curves.png"
+cfg.model_path("lstm")               # → ".../models/lstm_regime_model.keras"
 cfg.model_persistence.enabled        # → true/false
 ```
 
@@ -174,12 +168,12 @@ plotting:
 
 > **Hinweis:** Dieser Schritt ist optional. Modelle ohne Eintrag erhalten 
 > automatisch eine Farbe aus dem matplotlib Default-Cycle. Die Farbe wird 
-> über `cfg.color_map` in allen Notebooks (03, 04, 05) konsistent verwendet.
+> über `cfg.color_map` in allen Services konsistent verwendet.
 
 Verfügbare Farbnamen: Alle [matplotlib Named Colors](https://matplotlib.org/stable/gallery/color/named_colors.html) 
 und `tab:`-Palette (z.B. `tab:blue`, `tab:red`, `tab:cyan`).
 
-**Schritt B:** Greife im Notebook auf die Parameter zu:
+**Schritt B:** Greife im Code auf die Parameter zu:
 
 ```python
 # Statt hardcoded: window_size = 20
@@ -192,12 +186,12 @@ threshold   = my_cfg.threshold        # → 0.5
 
 ### Vorteile der zentralen Konfiguration
 
-| Aspekt                         | Vorher (Hardcoded)                            | Nachher (Config)                                                                                                              |
-| :----------------------------- | :-------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| **Änderung eines Parameters**  | Notebook öffnen, Zelle suchen, manuell ändern | `config.yaml` editieren, propagiert automatisch                                                                               |
-| **Reproduzierbarkeit**         | Parameter über Notebooks verstreut            | Alles an einer Stelle, versioniert in Git                                                                                     |
-| **Hyperparameter-Optimierung** | Manuell im Code anpassen                      | Optuna kann `config.yaml` programmatisch überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)) |
-| **Fast Mode (Entwicklung)**    | Jedes Modell einzeln anpassen                 | `fast_mode.enabled: true` reduziert Epochs/MCS-Paths automatisch                                                              |
+| Aspekt                         | Vorher (Hardcoded)                | Nachher (Config)                                                                                                              |
+| :----------------------------- | :-------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| **Änderung eines Parameters**  | Code suchen, manuell ändern       | `config.yaml` editieren, propagiert automatisch                                                                               |
+| **Reproduzierbarkeit**         | Parameter über Module verstreut   | Alles an einer Stelle, versioniert in Git                                                                                     |
+| **Hyperparameter-Optimierung** | Manuell im Code anpassen          | Optuna kann `config.yaml` programmatisch überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)) |
+| **Fast Mode (Entwicklung)**    | Jedes Modell einzeln anpassen     | `fast_mode.enabled: true` reduziert Epochs/MCS-Paths automatisch                                                              |
 
 ### Fast Mode für neue Modelle (optional)
 
@@ -224,7 +218,9 @@ if self.fast_mode.enabled:
 
 ## 4. Schritt-für-Schritt-Anleitung
 
-Alle Änderungen erfolgen in **zwei Dateien**: `config/config.yaml` (Hyperparameter) und `jupyter/03_regime_switching_models.ipynb` (Modell-Code). Füge die neue Zelle **nach den bestehenden Modellen und vor der finalen Speicher-Zelle** ein.
+Alle Änderungen erfolgen in **vier Stellen**: `config/config.yaml` (Hyperparameter), `src/models/<name>.py` (Trainingslogik), `src/models/plots.py` (Regime-Plot) und `services/model_service/routes.py` (Service-Route).
+
+> **Prinzip — Shared Business Logic:** Die Fachlogik lebt in `src/`, die Service-Route ruft sie nur auf. Dupliziere niemals Trainingslogik in der Route selbst.
 
 ### Schritt 1: Config-Eintrag erstellen
 
@@ -244,103 +240,105 @@ models:
     # ... weitere modellspezifische Parameter ...
 ```
 
-### Schritt 2: Daten laden und Features vorbereiten
+### Schritt 2: Trainingslogik in src/models/ implementieren
 
-Der DataFrame `df` ist zum Zeitpunkt deiner Zelle bereits geladen. Die verfügbaren Features sind ebenfalls in der Config definiert:
-
-```python
-# Features aus der zentralen Config laden
-feature_cols = cfg.features.model_features
-# → ['Returns', 'Vol_20', 'Distance_SMA', 'Momentum', 'VIX', 'Yield_Spread']
-```
-
-> **Hinweis:** Du kannst eine Teilmenge dieser Features nutzen oder, falls erforderlich, im Feature-Engineering-Notebook (`02_feature_engineering.ipynb`) zusätzliche Features berechnen und die Feature-Liste in `config.yaml` erweitern.
-
-### Schritt 3: Modell implementieren und trainieren (mit Config)
-
-Implementiere dein Modell in der neuen Zelle. **Alle Hyperparameter kommen aus der Config**. Kein Hardcoding!
+Lege ein neues Modul `src/models/my_model.py` an. Die Funktion lädt alle Hyperparameter aus der Config (**kein Hardcoding!**), trainiert das Modell und schreibt die beiden Signal-Spalten in den DataFrame:
 
 ```python
+# src/models/my_model.py
 from my_model_library import MyModel
 
-# Hyperparameter aus der zentralen Config laden
-my_cfg = cfg.models.my_model
+def train_my_model(df, feature_cols, cfg):
+    """Trainiert MyModel und schreibt MyModel_Prob / MyModel_Signal in df."""
+    my_cfg = cfg.models.my_model
 
-# Feature-Matrix vorbereiten
-feature_cols = cfg.features.model_features
-X = df[feature_cols].dropna()
+    # Feature-Matrix vorbereiten
+    X = df[feature_cols].dropna()
 
-# Modell initialisieren — alle Parameter aus config.yaml
-model = MyModel(
-    window_size=my_cfg.window_size,
-    epochs=my_cfg.epochs,
-    batch_size=my_cfg.batch_size,
-    learning_rate=my_cfg.learning_rate,
-    dropout=my_cfg.dropout,
-)
-model.fit(X)
+    # Modell initialisieren — alle Parameter aus config.yaml
+    model = MyModel(
+        window_size=my_cfg.window_size,
+        epochs=my_cfg.epochs,
+        batch_size=my_cfg.batch_size,
+        learning_rate=my_cfg.learning_rate,
+        dropout=my_cfg.dropout,
+    )
+    model.fit(X)
 
-# Regime-Wahrscheinlichkeiten berechnen (Bear-Wahrscheinlichkeit)
-bear_probabilities = model.predict_proba(X)  # Array mit Werten 0.0 - 1.0
-```
-
-### Schritt 4: Wahrscheinlichkeiten und Signale erzeugen
-
-Leite aus den Bear-Wahrscheinlichkeiten das binäre Signal ab. Der Threshold kommt ebenfalls aus der Config:
-
-```python
-import numpy as np
-
-# Modellname definieren (WICHTIG: Einheitlich für _Prob und _Signal verwenden!)
-MODEL_NAME = "MyModel"
-
-# Threshold aus Config (oder Default 0.5)
-threshold = my_cfg.threshold
-
-# Wahrscheinlichkeiten in den DataFrame schreiben
-df[f'{MODEL_NAME}_Prob'] = bear_probabilities
-
-# Binäres Signal ableiten
-df[f'{MODEL_NAME}_Signal'] = (df[f'{MODEL_NAME}_Prob'] >= threshold).astype(int)
+    # Bear-Wahrscheinlichkeit (hohe Werte = Krise) + binäres Signal ableiten
+    df["MyModel_Prob"] = model.predict_proba(X)
+    df["MyModel_Signal"] = (df["MyModel_Prob"] >= my_cfg.threshold).astype(int)
+    return df, model
 ```
 
 > **Wichtig:** Stelle sicher, dass `_Prob` die **Bear-Wahrscheinlichkeit** enthält (hohe Werte = Krise). Falls dein Modell die Bull-Wahrscheinlichkeit ausgibt, invertiere sie: `bear_prob = 1 - bull_prob`.
 
-### Schritt 5: Signale in den DataFrame schreiben
+> **Features:** `feature_cols` stammt aus `cfg.features.model_features` (`['Returns', 'Vol_20', 'Distance_SMA', 'Momentum', 'VIX', 'Yield_Spread']`). Du kannst eine Teilmenge nutzen oder im Data Service zusätzliche Features berechnen und die Liste in `config.yaml` erweitern.
 
-Deine Spalten `MyModel_Prob` und `MyModel_Signal` sind jetzt Teil von `df`. 
-Die Pipeline stellt eine Helper-Funktion bereit, die Statistiken ausgibt, 
-Plausibilität prüft (mit automatischer Label-Inversion) und formale Assertions durchführt:
+### Schritt 3: Plot-Funktion in src/models/plots.py
 
-```python
-# Sanity Check + Validierung (definiert in der Helper-Cell am Anfang des Notebooks)
-validate_regime_signal(df, MODEL_NAME)
-validate_regime_signal(df, MODEL_NAME) # Alternative nach Einschränkung des Testzeitraums
-```
-
-> **Was passiert intern?**
-> - Regime-Statistik (Returns, VIX, Yield_Spread pro Signal)
-> - Signal-Verteilung (`value_counts()`)
-> - Plausibilitäts-Check: Bear-Regime (1) muss niedrigere Returns haben als Bull (0)
-> - Falls invertiert → automatische Label-Korrektur (`auto_invert=True`)
-> - Formale Assertions: Spaltenexistenz, Wertebereich `[0,1]`, keine NaN
-
-### Schritt 6: DataFrame speichern
-
-Die **letzte Zelle** des Notebooks speichert den `test_df` DataFrame automatisch — unter Verwendung des in der Config definierten Pfads:
+Ergänze eine `matplotlib.use("Agg")`-kompatible Plot-Funktion (kein `plt.show()`, stattdessen `plt.savefig()` + `plt.close(fig)`):
 
 ```python
-# Diese Zelle existiert bereits am Ende von 03_regime_switching_models.ipynb
-# Deine neuen Spalten werden automatisch mit persistiert!
-test_df.to_parquet(cfg.data_path("test_data"))
-# → speichert nach "../data/04_test_df_data.parquet"
+# In src/models/plots.py ergänzen:
+
+def plot_my_model(df, model_name, color, save_path):
+    """Regime-Plot für MyModel."""
+    fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+    # ... Plotting-Logik ...
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 ```
 
-> Du musst an der Speicher-Zelle **nichts ändern**, solange deine neuen Spalten korrekt im `df` / `test_df` DataFrame enthalten sind.
+### Schritt 4: Route im Model Service registrieren
 
-### Schritt 7 (optional): Modell-Persistierung aktivieren
+Öffne `services/model_service/routes.py`, importiere deine Funktionen und ergänze im `train_model()`-Endpoint (`POST /train/{model_name}`) einen `elif`-Block — analog zu den bestehenden Modellen (`if model_name == "msm": ... elif ...`):
 
-Seit der Einführung der **Modell-Persistierung** können trainierte Modelle im Ordner `models/` zwischengespeichert werden. Dies ist besonders nützlich, wenn das Training rechenintensiv ist (z.B. LSTM, Transformer).
+```python
+from src.models.my_model import train_my_model
+from src.models.plots import plot_my_model
+from src.models.common import validate_regime_signal
+
+@router.post("/train/{model_name}")
+def train_model(model_name: str):
+    cfg = get_cfg()
+    df = pd.read_parquet(cfg.data_path("feature_engineered"))
+    feature_cols = cfg.features.model_features
+    # ... if model_name == "msm": ... elif "hmm" / "lstm" / "transformer" ...
+
+    elif model_name == "my_model":
+        df, model = train_my_model(df, feature_cols, cfg)
+        validate_regime_signal(df, "MyModel")
+        df.to_parquet(cfg.data_path("feature_engineered"))
+        plot_my_model(
+            df, "MyModel",
+            cfg.color_map.get("MyModel", "tab:cyan"),
+            cfg.asset_path("my_model"),
+        )
+```
+
+> **`validate_regime_signal`** (aus `src/models/common.py`) gibt Regime-Statistiken aus (Returns, VIX, Yield_Spread pro Signal), prüft Plausibilität (Bear-Regime `1` muss niedrigere Returns haben als Bull `0`) mit automatischer Label-Inversion (`auto_invert=True`) und führt formale Assertions durch (Spaltenexistenz, Wertebereich `[0,1]`, keine NaN).
+
+> **Persistierung der Signale:** Die bestehenden Modelle schreiben ihre Signal-Spalten zurück in `feature_engineered` (`df.to_parquet(cfg.data_path("feature_engineered"))`). Der Backtest Service liest dieselbe Datei und erkennt deine `_Signal`-Spalte per Dynamic Matching automatisch — du musst nichts downstream anpassen.
+
+### Schritt 5: In /train-all aufnehmen
+
+Damit dein Modell bei `POST /models/train-all` mitläuft, nimm es in die Trainingsreihenfolge auf:
+
+```python
+@router.post("/train-all")
+def train_all():
+    results = []
+    for model in ["msm", "hmm", "lstm", "transformer", "my_model"]:
+        results.append(train_model(model))
+    return results
+```
+
+> **Beachte die Reihenfolge:** Falls dein Modell auf vordefinierten Labels angewiesen ist (wie LSTM und Transformer auf Pagan-Sossounov), müssen diese Labels bereits im `feature_engineered_data` verfügbar sein (wird vom Data Service erzeugt).
+
+### Schritt 6: Modell-Persistierung (optional)
+
+Trainierte Modelle können im Ordner `models/` zwischengespeichert werden. Dies ist besonders nützlich, wenn das Training rechenintensiv ist (z.B. LSTM, Transformer).
 
 #### Voraussetzung
 
@@ -371,9 +369,9 @@ model_persistence:
     scaler_my_model: "my_model_scaler.pkl"  # ← Falls ein Scaler nötig ist
 ```
 
-**2.** Nutze im Notebook `cfg.model_path("my_model")` um den vollständigen Pfad zu erhalten.
+**2.** Nutze in `src/models/my_model.py` `cfg.model_path("my_model")`, um den vollständigen Pfad zu erhalten.
 
-**3.** Umschließe Training und Laden mit einem `if/else`-Block:
+**3.** Umschließe Training und Laden in deiner Trainingsfunktion mit einem `if/else`-Block:
 
 ```python
 import os
@@ -384,16 +382,13 @@ model_file = cfg.model_path("my_model")
 
 if persist.enabled and os.path.exists(model_file):
     # MODUS A: Gespeichertes Modell laden
-    print(f"⏩ {MODEL_NAME}: Lade persistiertes Modell aus {model_file}")
     model = load_my_model(model_file)
 else:
     # MODUS B: Normal trainieren + speichern
-    print(f"🏋️ {MODEL_NAME}: Starte Training...")
-    model = train_my_model(...)
-    
+    model = train_my_model_impl(...)
+
     Path(persist.models_dir).mkdir(parents=True, exist_ok=True)
     save_my_model(model, model_file)
-    print(f"💾 {MODEL_NAME}: Modell gespeichert unter {model_file}")
 ```
 
 **4.** Falls dein Modell einen Scaler benötigt (z.B. `StandardScaler`, `MinMaxScaler`), persistiere diesen ebenfalls. Beim Laden **unbedingt** `transform()` statt `fit_transform()` verwenden!
@@ -409,20 +404,37 @@ else:
 
 > **Hinweis:** Der Ordner `models/` ist in `.gitignore` eingetragen und wird beim ersten Speichern automatisch via `Path(...).mkdir(parents=True, exist_ok=True)` angelegt.
 
+### Schritt 7: Docker-Rebuild & Test
+
+```bash
+docker-compose build model-service     # src/ wird via COPY src/ src/ ins Image übernommen
+docker-compose up -d model-service
+
+# Einzelnes Modell trainieren:
+curl -X POST http://localhost:8002/models/train/my_model
+
+# Oder alle Modelle:
+curl -X POST http://localhost:8002/models/train-all
+```
+
+> Da die Trainingslogik in `src/` liegt und `src/` bereits im Dockerfile kopiert wird (`COPY src/ src/`), sind **keine Änderungen am Dockerfile nötig**.
+
 ---
 
 ## 5. Warum das funktioniert: Dynamic Matching
 
-Die nachfolgenden Pipeline-Module (`04_backtesting`, `05_evaluation`, `99_statistics_md`) nutzen einen **dynamischen Such-Algorithmus**, der alle Modell-Signale automatisch erkennt:
+Die nachgelagerten Schritte (Backtest Service, Evaluation, Reporting) nutzen einen **dynamischen Such-Algorithmus**, der alle Modell-Signale automatisch erkennt:
 
 ```python
-# Aus 04_backtesting.ipynb — Kernlogik des Dynamic Matching:
-signal_cols = [col for col in test_df.columns if col.endswith('_Signal')]
+# Aus src/backtest/engine.py (run_all_backtests) — Kernlogik des Dynamic Matching:
+signal_cols = [col for col in test_df.columns if col.endswith("_Signal")]
 
 for sig_col in signal_cols:
-    model_name = sig_col.rsplit('_', 1)[0]  # Extrahiert "HMM" aus "HMM_Signal"
-    print(f"Berechne Backtest für {model_name}...")
-    backtesting_results[model_name] = backtest(test_df, sig_col, fee=cfg.transaction_cost_rate)
+    model_name = sig_col.rsplit("_", 1)[0]  # Extrahiert "HMM" aus "HMM_Signal"
+    backtesting_results[model_name] = backtest(
+        test_df, sig_col, signal_shift=cfg.backtesting.signal_shift,
+        fee=cfg.transaction_cost_rate,
+    )
 ```
 
 **Das bedeutet:**
@@ -430,7 +442,7 @@ for sig_col in signal_cols:
 2. **Evaluation** berechnet für jedes erkannte Modell automatisch alle Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown etc.)
 3. **Reporting** generiert Equity Curves, Statistik-Tabellen und SORR-Simulationen für alle Modelle
 
-**Du musst keinen Code in `04_backtesting.ipynb`, `05_evaluation.ipynb` oder `99_statistics_md.ipynb` anpassen.** Es genügt, die Signal-Schnittstelle korrekt zu implementieren und die Hyperparameter in der Config zu registrieren.
+**Du musst keinen Code im Backtest Service, in der Evaluation oder im Reporting (`src/backtest/`) anpassen.** Es genügt, die Signal-Schnittstelle korrekt zu implementieren und die Hyperparameter in der Config zu registrieren.
 
 ---
 
@@ -439,8 +451,8 @@ for sig_col in signal_cols:
 Ein kritisches Konzept, das das Backtesting-Modul automatisch handhabt:
 
 ```python
-# Aus 04_backtesting.ipynb — Automatischer T+1 Shift:
-trading_signal = df[signal_col].shift(cfg.backtesting.signal_shift).fillna(0)
+# Aus src/backtest/engine.py — Automatischer T+1 Shift:
+trading_signal = df[signal_col].shift(signal_shift).fillna(0)
 # signal_shift ist in config.yaml definiert (Standard: 1)
 ```
 
@@ -452,20 +464,20 @@ trading_signal = df[signal_col].shift(cfg.backtesting.signal_shift).fillna(0)
 
 **Das bedeutet für dich:**
 - Du musst den Shift **NICHT** selbst implementieren, das Backtesting erledigt das
-- Du darfst den Shift **NICHT** doppelt anwenden (also nicht schon in `03_regime_switching_models.ipynb`)
+- Du darfst den Shift **NICHT** doppelt anwenden (also nicht schon in `src/models/<name>.py`)
 - Die Spalten `_Prob` und `_Signal` enthalten die Werte **zum Zeitpunkt der Berechnung** (Tag `T`)
 
 ---
 
 ## 7. Dokumentation aktualisieren
 
-Nach der erfolgreichen Integration des Modells in die Pipeline (Schritte 1–6) müssen **drei Dokumentationsebenen** aktualisiert werden, damit das neue Modell korrekt in der Projektdokumentation erscheint.
+Nach der erfolgreichen Integration des Modells in die Pipeline (Schritte 1–7) müssen **drei Dokumentationsebenen** aktualisiert werden, damit das neue Modell korrekt in der Projektdokumentation erscheint.
 
 > **Hinweis:** Die quantitativen Tabellen (Performance Summary, Evaluation-Matrix, SORR-Summary, MCS-Summary) und die meisten Plots (Equity Curves, Regime Comparison, MCS-Boxplots) werden dank Dynamic Matching **automatisch** generiert. Die folgenden Schritte betreffen ausschließlich die **manuellen** Dokumentationsanpassungen.
 
 ### Schritt A: Asset-Pfad in `config.yaml` registrieren
 
-Damit Notebook 99 den Modell-Plot referenzieren kann, muss unter `paths.assets` ein Eintrag hinzugefügt werden:
+Damit das Reporting den Modell-Plot referenzieren kann, muss unter `paths.assets` ein Eintrag hinzugefügt werden:
 
 ```yaml
 paths:
@@ -474,23 +486,23 @@ paths:
     my_model: "my_model.png"           # ← Dateiname des Regime-Plots
 ```
 
-> Der Plot selbst wird in Notebook `03_regime_switching_models.ipynb` erzeugt und unter `assets/` gespeichert. Die Config definiert lediglich den Dateinamen, über den Notebook 99 den Plot einbettet.
+> Der Plot selbst wird in `src/models/plots.py` erzeugt und unter `assets/` gespeichert. Die Config definiert lediglich den Dateinamen, über den `src/backtest/reporting.py` den Plot einbettet.
 
-### Schritt B: Modell-Abschnitt in Notebook 99 ergänzen (`statistics.md`)
+### Schritt B: Modell-Abschnitt im Reporting ergänzen (`statistics.md`)
 
-Die Datei `docs/statistics.md` wird **vollständig automatisch** durch `jupyter/99_statistics_md.ipynb` generiert. Die **Sektion 3 ("Regime-Erkennung der Einzelmodelle")** enthält jedoch für jedes Modell einen manuell gepflegten Absatz mit Beschreibung und Bildverweis im f-String-Template.
+Die Datei `docs/statistics.md` wird **vollständig automatisch** durch `src/backtest/reporting.py` generiert. Die Sektion **"Regime-Erkennung der Einzelmodelle"** enthält jedoch für jedes Modell einen manuell gepflegten Absatz mit Beschreibung und Bildverweis im f-String-Template.
 
-Öffne `jupyter/99_statistics_md.ipynb` und füge innerhalb des f-Strings (`stats_md_content`) an der passenden Stelle in Sektion 3 einen neuen Unterabschnitt ein:
+Öffne `src/backtest/reporting.py` und füge innerhalb des f-Strings (`stats_md_content`) an der passenden Stelle einen neuen Unterabschnitt ein:
 
 ```python
 ### G. <Modellname> (<Paradigma>)
 <Kurzbeschreibung des Modells: Ansatz, Besonderheit, Trainings-Setting.>
-![<Modellname> Model](../assets/{{cfg.paths.assets.my_model}})
+![<Modellname> Model](../assets/{cfg.paths.assets.my_model})
 ```
 
-**Orientierung:** Die bestehenden Abschnitte A–D folgen der Reihenfolge Ökonometrie → ML (Supervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
+**Orientierung:** Die bestehenden Abschnitte folgen der Reihenfolge Ökonometrie → ML (Supervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
 
-> **Wichtig:** Bearbeite **niemals** `docs/statistics.md` direkt. Die Datei wird beim nächsten Pipeline-Durchlauf überschrieben. Alle Änderungen müssen im Notebook 99 im f-String-Template erfolgen.
+> **Wichtig:** Bearbeite **niemals** `docs/statistics.md` direkt. Die Datei wird beim nächsten `POST /backtest/evaluate` überschrieben. Alle Änderungen müssen in `src/backtest/reporting.py` im f-String-Template erfolgen.
 
 ### Schritt C: README.md aktualisieren
 
@@ -525,13 +537,9 @@ dargestellt wird.
 
 ### A. Config-Eintrag (`config/config.yaml`)
 
-Füge unter `models:` hinzu:
-
 ```yaml
-  plotting:
-    colors:
-      # ... bestehende Modelle ...
-      my_model: "tab:cyan"       # ← Plot-Farbe (optional)
+models:
+  # ... bestehende Modelle ...
   my_model:                       # ← snake_case Schlüsselname
     # --- Architektur ---
     window_size: 20               # Input-Sequenzlänge
@@ -544,17 +552,36 @@ Füge unter `models:` hinzu:
     validation_split: 0.1
     # --- Signal ---
     threshold: 0.5                # Bear-Signal wenn Prob >= threshold
+
+plotting:
+  colors:
+    # ... bestehende Modelle ...
+    MyModel: "tab:cyan"           # ← Plot-Farbe (optional)
 ```
 
-### B. Notebook-Zelle (`jupyter/03_regime_switching_models.ipynb`)
+### B. Service-Modul (`src/models/my_model.py`)
 
-Füge die folgende Vorlage als **neue Zelle** ein (vor der finalen Speicher-Zelle):
+Lege das Trainingsmodul an (Signatur analog zu den bestehenden Modellen):
 
 ```python
-# --- 5. Sanity Check ---
-validate_regime_signal(df, MODEL_NAME)
-# validate_regime_signal(df, MODEL_NAME) # Alternative nach Einschränkung des Testzeitraums
+from my_model_library import MyModel
+
+def train_my_model(df, feature_cols, cfg):
+    """Trainiert MyModel und schreibt MyModel_Prob / MyModel_Signal in df."""
+    my_cfg = cfg.models.my_model
+    X = df[feature_cols].dropna()
+    model = MyModel(
+        window_size=my_cfg.window_size, epochs=my_cfg.epochs,
+        batch_size=my_cfg.batch_size, learning_rate=my_cfg.learning_rate,
+        dropout=my_cfg.dropout,
+    )
+    model.fit(X)
+    df["MyModel_Prob"] = model.predict_proba(X)
+    df["MyModel_Signal"] = (df["MyModel_Prob"] >= my_cfg.threshold).astype(int)
+    return df, model
 ```
+
+Die Registrierung im Model Service (`elif`-Block + `validate_regime_signal` + Plot) erfolgt wie in [Abschnitt 4, Schritt 4](#schritt-4-route-im-model-service-registrieren).
 
 ---
 
@@ -563,20 +590,20 @@ validate_regime_signal(df, MODEL_NAME)
 Führe nach der Integration folgende Prüfungen durch:
 
 ### Formale Prüfungen
-- [ ] Die Spalte `<Modell>_Prob` existiert in `test_df` und enthält `float`-Werte zwischen `0.0` und `1.0`
-- [ ] Die Spalte `<Modell>_Signal` existiert in `test_df` und enthält ausschließlich `0` oder `1`
+- [ ] Die Spalte `<Modell>_Prob` existiert im DataFrame und enthält `float`-Werte zwischen `0.0` und `1.0`
+- [ ] Die Spalte `<Modell>_Signal` existiert im DataFrame und enthält ausschließlich `0` oder `1`
 - [ ] Keine `NaN`-Werte in `<Modell>_Signal` (im Testzeitraum)
 - [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`MSM`, `HMM`, `LSTM`, `Transformer`)
 
 ### Config-Prüfungen
 - [ ] Neuer Eintrag unter `models:` in `config/config.yaml` angelegt
-- [ ] **Keine** Hyperparameter hardcoded im Notebook, alles kommt aus `cfg.models.<name>`
-- [ ] Config-Key stimmt mit dem Zugriff im Notebook überein (z.B. `cfg.models.my_model`)
+- [ ] **Keine** Hyperparameter hardcoded im Code, alles kommt aus `cfg.models.<name>`
+- [ ] Config-Key stimmt mit dem Zugriff im Code überein (z.B. `cfg.models.my_model`)
 - [ ] Falls Fast-Mode-Override gewünscht: Eintrag in `fast_mode.overrides` und `config_loader.py` ergänzt
 
 ### Persistierungs-Prüfungen (optional)
 - [ ] Eintrag unter `model_persistence.files` in `config.yaml` angelegt (falls Persistierung gewünscht)
-- [ ] `if/else`-Block für Load/Train im Notebook implementiert
+- [ ] `if/else`-Block für Load/Train in `src/models/<name>.py` implementiert
 - [ ] Scaler wird bei Laden mit `transform()` statt `fit_transform()` verwendet
 - [ ] `Path(persist.models_dir).mkdir(parents=True, exist_ok=True)` vor dem ersten Speichern aufgerufen
 
@@ -588,43 +615,40 @@ Führe nach der Integration folgende Prüfungen durch:
 ### Dokumentations-Prüfungen
 - [ ] Asset-Pfad für den Modell-Plot in `config.yaml` unter `paths.assets` registriert
 - [ ] (Optional) Plot-Farbe unter `plotting.colors` in `config.yaml` registriert
-- [ ] Neuer Abschnitt in Notebook 99 (f-String-Template, Sektion 3) eingefügt
+- [ ] Neuer Abschnitt im Reporting (`src/backtest/reporting.py`, f-String-Template) eingefügt
 - [ ] `README.md` — Modell in "Methodik & Modelle" beschrieben
 - [ ] (Optional) Architektur-Dokumentation unter `docs/` angelegt
 - [ ] `docs/statistics.md` enthält nach Pipeline-Durchlauf den neuen Modell-Abschnitt mit korrektem Bild
 
-### Microservice-Prüfungen
-- [ ] Trainingslogik in `src/models/` als wiederverwendbares Modul implementiert (nicht nur im Notebook)
-- [ ] Plot-Funktion in `src/models/plots.py` vorhanden
+### Implementierungs-Prüfungen (Model Service)
+- [ ] Trainingslogik in `src/models/` als wiederverwendbares Modul implementiert (nicht inline in der Service-Route)
+- [ ] Plot-Funktion in `src/models/plots.py` mit `plt.close(fig)` (kein `plt.show()`)
 - [ ] `elif model_name == "my_model":` Block in `services/model_service/routes.py` ergänzt
 - [ ] Modell in der `train_all()`-Funktion des Model Service registriert
 - [ ] Docker-Image neu gebaut (`docker-compose build model-service`)
 - [ ] Endpunkt `POST /models/train/my_model` liefert HTTP 200
 
 ### Pipeline-Integration
-- [ ] `jupyter/03_regime_switching_models.ipynb` läuft fehlerfrei durch
-- [ ] Die Datei `data/04_test_df_data.parquet` wird erfolgreich aktualisiert
-- [ ] `jupyter/04_backtesting.ipynb` erkennt das neue Modell automatisch und berechnet Equity Curves
-- [ ] `jupyter/05_evaluation.ipynb` berechnet Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown) für das neue Modell
-- [ ] `jupyter/99_statistics_md.ipynb` generiert die aktualisierte `statistics.md` mit dem neuen Modell
+- [ ] `POST /models/train/my_model` (bzw. `/train-all`) aktualisiert `data/silver/03_feature_engineered_data.parquet` mit `MyModel_Prob`/`MyModel_Signal`
+- [ ] `POST /backtest/run` erkennt das neue Modell automatisch (Dynamic Matching) und berechnet Equity Curves
+- [ ] `POST /backtest/evaluate` berechnet Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown) und generiert `statistics.md` mit dem neuen Modell
 - [ ] Die Grafiken in `assets/` (Equity Curves, Regime Comparison, MCS Boxplots etc.) enthalten das neue Modell
 
 ### End-to-End Test (empfohlen)
 ```bash
-# Vollständigen Pipeline-Durchlauf starten:
-# Öffne jupyter/regime-switching-daa.ipynb und führe alle Zellen aus.
-# Oder via Microservices:
-# docker-compose up --build
-# curl -X POST http://localhost:8001/data/ingest
-# curl -X POST http://localhost:8002/models/train/my_model
-# curl -X POST http://localhost:8003/backtest/run
+# Vollständigen Pipeline-Durchlauf via Microservices:
+docker-compose up --build -d
+curl -X POST http://localhost:8001/data/ingest
+curl -X POST http://localhost:8002/models/train-all
+curl -X POST http://localhost:8003/backtest/run
+curl -X POST http://localhost:8003/backtest/evaluate
 ```
 
 ---
 
 ## 10. Referenz-Implementierungen
 
-Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` dienen als Referenz. Alle laden ihre Hyperparameter aus der zentralen `config.yaml`:
+Die folgenden bestehenden Modelle in `src/models/` (`msm.py`, `hmm.py`, `lstm.py`, `transformer.py`) dienen als Referenz. Alle laden ihre Hyperparameter aus der zentralen `config.yaml`:
 
 ### A. Markov-Switching (MSM) — Ökonometrie
 - **Bibliothek:** `statsmodels` (MarkovRegression)
@@ -644,7 +668,7 @@ Die folgenden bestehenden Modelle in `jupyter/03_regime_switching_models.ipynb` 
 - **Ansatz:** Supervised Learning auf Pagan-Sossounov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
 - **Config-Key:** `models.lstm` (window_size, units_l1, units_l2, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `labels.supervised_label_source`; Vergleich der Label-Quellen in Notebook `01a_label_analysis`)
+- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `labels.supervised_label_source`; Vergleich der Label-Quellen via `POST /data/label-analysis`)
 
 ### D. Transformer (Supervised, Attention-basiert) — Machine Learning
 - **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
@@ -693,13 +717,13 @@ validate_regime_signal(df, MODEL_NAME, auto_invert=False)
 
 ### Config-Fehler: `AttributeError: 'SimpleNamespace' object has no attribute 'my_model'`
 **Ursache:** Der Config-Eintrag in `config.yaml` fehlt oder der Key-Name stimmt nicht überein.
-**Lösung:** Prüfe, dass unter `models:` ein Eintrag `my_model:` existiert (snake_case, korrekte Einrückung mit 2 Spaces). Starte ggf. den Kernel neu, damit `cfg` neu geladen wird.
+**Lösung:** Prüfe, dass unter `models:` ein Eintrag `my_model:` existiert (snake_case, korrekte Einrückung mit 2 Spaces). Starte ggf. den Service neu (`docker-compose restart model-service`), damit `cfg` neu geladen wird.
 
 ### Wie ändere ich einen Hyperparameter für einen erneuten Lauf?
-**Lösung:** Editiere **nur** `config/config.yaml` — z.B. `models.my_model.epochs: 100`. Starte dann die Pipeline neu. Die Änderung propagiert automatisch über `cfg` in alle Notebooks.
+**Lösung:** Editiere **nur** `config/config.yaml` — z.B. `models.my_model.epochs: 100`. Starte dann die Pipeline neu. Die Änderung propagiert automatisch über `cfg` in alle Services.
 
 ### Mein Modell braucht zusätzliche Features, die noch nicht existieren
-**Lösung:** Erweitere `jupyter/02_feature_engineering.ipynb` um die neuen Features und ergänze sie in `config.yaml` unter `features.model_features`. Stelle sicher, dass die Features im `df` DataFrame persistiert werden (via `02_feature_engineered_data.parquet`).
+**Lösung:** Erweitere das Feature-Engineering im Data Service (`src/data/feature_engineering.py`) um die neuen Features und ergänze sie in `config.yaml` unter `features.model_features`. Stelle sicher, dass die Features im `feature_engineered_data` persistiert werden.
 
 ### Wie viele Modelle kann die Pipeline verarbeiten?
 **Antwort:** Es gibt kein technisches Limit. Der Dynamic-Matching-Algorithmus erkennt beliebig viele `_Signal`-Spalten. Beachte jedoch, dass mehr Modelle die Laufzeit der Evaluation (insb. Monte-Carlo-Simulation mit `evaluation.mcs.n_paths` Pfaden) verlängern. Nutze `fast_mode.enabled: true` in der Config für schnellere Entwicklungszyklen.
@@ -721,132 +745,3 @@ Dies reduziert Training-Epochs und MCS-Pfade automatisch. Vergiss nicht, vor dem
 
 ### Wie kann ich ein einzelnes Modell neu trainieren, ohne alle zu löschen?
 **Lösung:** Lösche nur die spezifische Datei (z.B. `models/lstm_regime_model.keras`). Beim nächsten Pipeline-Run wird nur dieses Modell neu trainiert, alle anderen werden weiterhin aus dem Cache geladen.
-
-### Mein Modell funktioniert im Notebook, aber nicht im Microservice
-**Ursache:** Die Trainingslogik liegt nur im Notebook, nicht in einem wiederverwendbaren `src/`-Modul.
-**Lösung:** Extrahiere die Trainingslogik in `src/models/my_model.py` und importiere sie sowohl im Notebook als auch im Service. Siehe [Abschnitt 12: Microservice-Integration](#12-microservice-integration).
-
----
-
-## 12. Microservice-Integration
-
-Seit [Issue #12](https://github.com/Torim98/regime-switching-daa/issues/12) kann die gesamte Pipeline auch als **Docker-basierte Microservice-Architektur** ausgeführt werden. Damit dein neues Modell auch über den Model Service (`localhost:8002`) trainiert werden kann, sind folgende zusätzliche Schritte nötig.
-
-> **Voraussetzung:** Die Schritte 1–7 (Notebook-Integration) sind abgeschlossen und das Modell funktioniert im Jupyter-Workflow.
-
-### Architektur-Überblick
-
-```
-Notebooks (jupyter/)              Microservices (services/)
-       │                                  │
-       └──── beide importieren ───────────┤
-                                          ▼
-                               src/models/my_model.py    ← Shared Business Logic
-                               src/models/plots.py       ← Shared Plot-Funktionen
-```
-
-Das Prinzip: **Shared Business Logic** in `src/` wird sowohl von Notebooks als auch von Services importiert. Dupliziere niemals Trainingslogik in den Service-Routen.
-
-### Schritt 1: Trainingslogik in `src/models/` extrahieren
-
-Falls dein Modell bisher nur inline im Notebook existiert, extrahiere die Kernlogik in ein eigenes Modul:
-
-```python
-# src/models/my_model.py
-
-def train_my_model(df, feature_cols, cfg):
-    """Trainiert MyModel und gibt den DataFrame mit _Prob/_Signal zurück."""
-    my_cfg = cfg.models.my_model
-    # ... Training ...
-    df[f'MyModel_Prob'] = bear_probabilities
-    df[f'MyModel_Signal'] = (df['MyModel_Prob'] >= my_cfg.threshold).astype(int)
-    return df, model
-```
-
-Im Notebook importierst du dann:
-```python
-from src.models.my_model import train_my_model
-df, model = train_my_model(df, feature_cols, cfg)
-```
-
-### Schritt 2: Plot-Funktion in `src/models/plots.py` ergänzen
-
-Füge eine Plot-Funktion hinzu, die `matplotlib.use("Agg")` kompatibel ist (kein `plt.show()`, stattdessen `plt.savefig()` + `plt.close(fig)`):
-
-```python
-# In src/models/plots.py ergänzen:
-
-def plot_my_model(df, model_name, color, save_path):
-    """Regime-Plot für MyModel."""
-    fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
-    # ... Plotting-Logik ...
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close(fig)
-```
-
-### Schritt 3: Route im Model Service registrieren
-
-Öffne `services/model_service/routes.py` und ergänze im `train()`-Endpoint einen neuen `elif`-Block:
-
-```python
-from src.models.my_model import train_my_model
-from src.models.plots import plot_my_model
-
-@router.post("/train/{model_name}")
-def train(model_name: str):
-    # ... bestehende Modelle (msm, hmm, lstm, transformer) ...
-
-    elif model_name == "my_model":
-        df, model = train_my_model(df, feature_cols, cfg)
-        plot_my_model(
-            df, "MyModel",
-            cfg.color_map.get("MyModel", "tab:cyan"),
-            cfg.asset_path("my_model"),
-        )
-```
-
-### Schritt 4: Modell in `train_all()` aufnehmen
-
-Falls der Model Service eine `train_all()`-Funktion hat, die alle Modelle sequenziell trainiert, ergänze dein Modell in der Trainingsreihenfolge:
-
-```python
-@router.post("/train-all")
-def train_all():
-    results = []
-    for model in ["msm", "hmm", "lstm", "transformer", "my_model"]:
-        result = train(model)
-        results.append(result)
-    return results
-```
-
-> **Beachte die Reihenfolge:** Falls dein Modell auf vordefinierten Labels angewiesen ist (wie LSTM und Transformer auf Pagan-Sossounov), müssen diese Labels bereits im `feature_engineered_data` verfügbar sein (wird im Data Service bzw. Notebook `02_feature_engineering` erzeugt).
-
-### Schritt 5: Docker-Image neu bauen
-
-```bash
-docker-compose build model-service
-# Oder für alle Services:
-docker-compose build
-```
-
-Da die Trainingslogik in `src/` liegt und `src/` bereits im Dockerfile kopiert wird (`COPY src/ src/`), sind **keine Änderungen am Dockerfile nötig**.
-
-### Schritt 6: Testen
-
-```bash
-# Einzelnes Modell trainieren:
-curl -X POST http://localhost:8002/models/train/my_model
-
-# Oder alle Modelle:
-curl -X POST http://localhost:8002/models/train-all
-```
-
-### Checkliste Microservice-Integration
-
-- [ ] Trainingslogik als Funktion in `src/models/my_model.py` (nicht inline im Notebook)
-- [ ] Plot-Funktion in `src/models/plots.py` mit `plt.close(fig)` (kein `plt.show()`)
-- [ ] `elif`-Block in `services/model_service/routes.py`
-- [ ] Modell in `train_all()`-Liste aufgenommen
-- [ ] `docker-compose build model-service` erfolgreich
-- [ ] `POST /models/train/my_model` liefert HTTP 200
-- [ ] Assets werden unter `assets/` generiert (über Volume-Mount sichtbar)
