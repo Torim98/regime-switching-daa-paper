@@ -17,7 +17,7 @@ data:
   # end_date:
   #   - null (oder Feld leer lassen)  -> dynamisch = heute (rolling mode)
   #   - "YYYY-MM-DD"                  -> fester Cutoff (thesis-freeze mode, inklusiv)
-  end_date: "2026-04-17"
+  end_date:
 
 # --- Feature Engineering (Data Service) ---
 features:

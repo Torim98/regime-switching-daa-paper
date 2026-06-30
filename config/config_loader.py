@@ -112,17 +112,23 @@ class PipelineConfig:
     def data_path(self, key: str) -> str:
         """Full path to a data file: cfg.data_path("preprocessed")"""
         filename = getattr(self.paths.files, key)
-        return str(self._base_dir / "data" / filename)
+        path = self._base_dir / "data" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     def asset_path(self, key: str) -> str:
         """Full path to an asset file: cfg.asset_path("equity_curves")"""
         filename = getattr(self.paths.assets, key)
-        return str(self._base_dir / "assets" / filename)
+        path = self._base_dir / "assets" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     def model_path(self, key: str) -> str:
         """Full path to a model file: cfg.model_path("lstm")"""
         filename = getattr(self.model_persistence.files, key)
-        return str(self._base_dir / "models" / filename)
+        path = self._base_dir / "models" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     @property
     def transaction_cost_rate(self) -> float:
