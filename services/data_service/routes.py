@@ -4,6 +4,7 @@ from src.data.ingestion import download_market_data, save_raw_data
 from src.data.preprocessing import preprocess_pipeline
 from src.data.feature_engineering import engineer_features
 from src.data.eda import calculate_descriptive_stats, run_adf_test
+from src.data.quality import build_data_quality_report
 from src.data.plots import (
     plot_volatility_clusters, plot_historical_drawdowns,
     plot_capital_curve, plot_feature_correlation,
@@ -12,6 +13,7 @@ from src.data.labels import run_label_analysis
 import pandas as pd
 import time
 import logging
+from pathlib import Path
 
 logger = logging.getLogger("data_service")
 
@@ -42,6 +44,17 @@ def ingest():
         weight_bonds=cfg.portfolio.weight_bonds,
     )
     df.to_parquet(cfg.data_path("preprocessed"))
+    
+    # 2b. Data Quality Report (Issue #2) — raw = Bronze, df = Silver/preprocessed
+    report_md = build_data_quality_report(
+        raw_data,
+        df,
+        freeze_date=cfg.data.end_date,
+        is_frozen=cfg.data.end_date_is_frozen,
+    )
+    Path(cfg.asset_path("data_quality_report")).write_text(
+        report_md, encoding="utf-8"
+    )
 
     # 3. EDA — Deskriptive Statistik + ADF-Tests
     cols_to_analyze = ["Returns_GSPC", "Returns_VUSTX", "Returns", "VIX", "TNX_10Y", "IRX_3M"]

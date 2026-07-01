@@ -208,6 +208,8 @@ paths:
     eda_adf_tests: "eda_adf_tests.md"
     eda_volatility_clusters: "eda_volatility_clusters.png"
     eda_historical_drawdowns: "eda_historical_drawdowns.png"
+    # Issue #2: Data Quality
+    data_quality_report: "data_quality_report.md"
     equity_curves: "equity_curves.png"
     capital_curve: "capital_curve.png"
     feature_correlation_matrix: "feature_correlation_matrix.png"
