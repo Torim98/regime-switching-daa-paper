@@ -5,6 +5,14 @@
 {% block content %}
 <div class="space-y-6" x-data="edaPage()" x-init="init()">
 
+  <!-- Data-Quality-Report (aus assets/data_quality_report.md) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <details>
+      <summary class="text-lg font-semibold cursor-pointer select-none">Data-Quality-Report</summary>
+      <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mt-4" x-html="mdQuality"></div>
+    </details>
+  </section>
+
   <!-- Deskriptive Statistik (aus assets/eda_descriptive_stats.md) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Deskriptive Statistik</h2>
@@ -79,8 +87,9 @@
 function edaPage() {
   return {
     col: 'Returns', smoothing: 0,
-    mdDescriptive: '', mdAdf: '',
+    mdDescriptive: '', mdAdf: '', mdQuality: '',
     async init() {
+      this.mdQuality = await fetchMd('data_quality_report.md');
       this.mdDescriptive = await fetchMd('eda_descriptive_stats.md');
       this.mdAdf = await fetchMd('eda_adf_tests.md');
       await Promise.all([

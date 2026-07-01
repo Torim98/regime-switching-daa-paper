@@ -259,6 +259,7 @@ Jedes Artefakt wird in `docs/statistics.md` und/oder im Dashboard eingebettet.
 | [assets/feature_correlation_table.md](../assets/feature_correlation_table.md) | Feature-Korrelationsmatrix (Tabelle) |
 | [assets/concept_matrix_venn.png](../assets/concept_matrix_venn.png) | Konzept-Venn-Diagramm (Thesis) |
 | [assets/asymmetric_correlation_ang_chen.png](../assets/asymmetric_correlation_ang_chen.png) | Asymmetrische Korrelation (Ang & Chen) |
+| [assets/data_quality_report.md](../assets/data_quality_report.md) | Data-Quality-Report |
 
 ### 9.2 Label-Analyse
 

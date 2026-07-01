@@ -136,8 +136,8 @@ def adjustment_jump_report(
         z = _robust_z(logret)
         rows.append({
             "Ticker": col,
-            "Max |Tagesrendite|": f"{logret.abs().max():.4f}",
-            f"Tage |z|>{z_thresh:g}": int((z.abs() > z_thresh).sum()),
+            "Max. abs. Tagesrendite": f"{logret.abs().max():.4f}",
+            f"Ausreißertage (z>{z_thresh:g})": int((z.abs() > z_thresh).sum()),
             "Größter Sprung (Datum)": _fmt_date(logret.abs().idxmax()),
         })
     return pd.DataFrame(rows).set_index("Ticker")
@@ -169,7 +169,7 @@ def worst_moves_report(
                 "Datum": _fmt_date(date),
                 "Log-Rendite": f"{val:+.4f}",
             })
-    return pd.DataFrame(rows).set_index(["Ticker", "Rang"])
+    return pd.DataFrame(rows).set_index("Ticker")
 
 
 def cleaning_impact_report(
@@ -218,9 +218,20 @@ def build_data_quality_report(
     idx = raw_df.index
     span = f"{_fmt_date(idx.min())} – {_fmt_date(idx.max())}" if len(idx) else "n/a"
 
+    # Teil-Reports einmal berechnen (für Verdict UND Sektionen wiederverwendet)
+    cov = coverage_report(raw_df)
+    miss = missing_value_report(raw_df)
+    cov_min = pd.to_numeric(cov["Coverage %"], errors="coerce").min()
+    gap_max = int(miss["Längste Lücke (Tage)"].max()) if len(miss) else 0
+    verdict = (
+        f"Coverage ≥ {cov_min:.1f} % · max. Lücke {gap_max} Tage"
+        if pd.notna(cov_min) else "n/a"
+    )
+
     parts: list[str] = []
     parts.append("# Data Quality Report")
     parts.append("")
+    parts.append(f"- **Status:** {verdict}")
     parts.append(f"- **Zeitraum (roh):** {span}")
     parts.append(f"- **End-Datum-Modus:** {mode}")
     parts.append(f"- **Aufgelöstes Enddatum:** `{freeze_date}`")
@@ -229,10 +240,15 @@ def build_data_quality_report(
     parts.append(f"- **Erzeugt am:** {ts}")
     parts.append("")
     parts.append("## 1. Coverage (beobachtete vs. erwartete Handelstage)")
-    parts.append(coverage_report(raw_df).to_markdown())
+    parts.append(cov.to_markdown())
+    parts.append("")
+    parts.append(
+        "_Hinweis: Erwartete Handelstage aus `bdate_range` (Mo–Fr inkl. Feiertage). "
+        "~96–97 % sind die feiertagsbedingte Untergrenze, kein Datenverlust._"
+    )
     parts.append("")
     parts.append("## 2. Fehlende Werte (Roh-Frame, vor ffill/dropna)")
-    parts.append(missing_value_report(raw_df).to_markdown())
+    parts.append(miss.to_markdown())
     parts.append("")
     parts.append("## 3. Adjustment-Plausibilität (Tagessprünge Preis-Serien)")
     parts.append(adjustment_jump_report(raw_df, price_tickers).to_markdown())
