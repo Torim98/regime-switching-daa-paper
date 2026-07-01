@@ -75,6 +75,13 @@ Yahoo Finance bietet kostenfreien Zugang zu adjustierten historischen Kursdaten 
 
 Für produktive Anwendungen wären institutionelle Datenanbieter (Bloomberg, Refinitiv) vorzuziehen.
 
+### Automatisierte Qualitätssicherung
+
+Seit Issue #2 erzeugt die Ingestion bei jedem Lauf einen Data-Quality-Report
+(`assets/data_quality_report.md`): Coverage gegen erwartete Handelstage, Missing-Value-Zählung
+auf den Rohdaten, Adjustment-Plausibilität (Tagessprünge gegen bekannte Krisentage) und den
+Zeilenverlust der Bereinigung. Dieser Report soll pot. Schwächen der Datenbasis sichtbar machen.
+
 ---
 
 ## 4. Asset-Universum

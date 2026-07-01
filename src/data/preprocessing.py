@@ -3,20 +3,20 @@
 import pandas as pd
 import numpy as np
 
-
 def fill_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     """
     Fehlende Werte behandeln.
-    IRX und VIX: Forward-Fill, da Zinsen/Volatilität sich nur an Handelstagen
-    aktualisieren und Feiertags-Lücken den letzten bekannten Wert fortschreiben.
+    Level-Serien (VIX, IRX, TNX): Forward-Fill, da Volatilität/Zinsen sich nur
+    an Handelstagen aktualisieren und Feiertags-/Meldelücken den letzten bekannten
+    Wert fortschreiben. Preis-Serien (GSPC, VUSTX) werden bewusst NICHT ge-ffillt,
+    da ein fortgeschriebener Kurs eine künstliche 0-Rendite erzeugen würde.
     Verbleibende NaNs am Anfang der Serie entfernen (kein ffill-Anker vorhanden).
     """
     data = data.copy()
-    data["^IRX"] = data["^IRX"].ffill()
-    data["^VIX"] = data["^VIX"].ffill()
+    level_tickers = ["^VIX", "^IRX", "^TNX"]
+    data[level_tickers] = data[level_tickers].ffill()
     data = data.dropna()
     return data
-
 
 def calculate_log_returns(
     data: pd.DataFrame,

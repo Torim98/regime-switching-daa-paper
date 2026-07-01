@@ -54,6 +54,10 @@ Enthält alle Original-NaNs und Lücken.
 |---|---|---|
 | `01_raw_data.parquet` | Data Service | Tägliche Schlusskurse aller Ticker (^GSPC, VUSTX, ^VIX, ^IRX, ^TNX) |
 
+> Über den Bronze-Layer wird bei jedem `POST /data/ingest` ein Data-Quality-Report
+> (`assets/data_quality_report.md`) erzeugt, der Coverage, fehlende Werte (vor der
+> Bereinigung), Adjustment-Plausibilität und den Zeilenverlust Bronze → Silver dokumentiert.
+
 ### Silver – Bereinigte und transformierte Daten
 
 Forward-Fill, Dropna, Log-Renditen, Feature-Engineering und

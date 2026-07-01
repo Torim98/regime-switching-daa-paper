@@ -5,7 +5,7 @@
 - **Aufgelöstes Enddatum:** `2026-07-01`
 - **yfinance-Version:** `1.5.1`
 - **Ticker:** ^GSPC, VUSTX, ^VIX, ^IRX, ^TNX
-- **Erzeugt am:** 2026-07-01 17:10
+- **Erzeugt am:** 2026-07-01 17:18
 
 ## 1. Coverage (beobachtete vs. erwartete Handelstage)
 | Ticker   | Von        | Bis        |   Beob. Tage |   Erw. Bd (Mo–Fr) |   Coverage % |
@@ -49,6 +49,6 @@
 | Kennzahl                         |     Wert |
 |:---------------------------------|---------:|
 | Zeilen roh (Bronze)              | 9192     |
-| Zeilen bereinigt (Silver)        | 9156     |
-| Entfernt (dropna + Return-Shift) |   36     |
-| Entfernt %                       |    0.392 |
+| Zeilen bereinigt (Silver)        | 9189     |
+| Entfernt (dropna + Return-Shift) |    3     |
+| Entfernt %                       |    0.033 |
