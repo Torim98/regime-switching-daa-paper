@@ -55,6 +55,14 @@ models:
     random_state: 42
     threshold: 0.35             # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
+  hmm_uni:
+    features:
+      - "Returns"               # identischer Input-Raum wie MSM (Vergleichsachse)
+    n_components: 2
+    covariance_type: "full"     # univariat sind full/diag/tied/spherical äquivalent
+    n_iter: 1000
+    random_state: 42
+    threshold: 0.5              # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
   lstm:
     window_size: 120            # Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
@@ -161,11 +169,12 @@ evaluation:
   # --- Issue #13: Extended Evaluation (Kap. 4.1–4.4) ---
   extended:
     nber_source: "fred_csv"         # "fred_csv" | "local"
-    f1_models: ["MSM", "HMM", "LSTM", "Transformer"]
+    f1_models: ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
     whipsaw_min_phase_days: 5
     threshold_grid:
       MSM:         [0.25, 0.30, 0.35, 0.40, 0.50]
       HMM:         [0.40, 0.45, 0.50, 0.55, 0.60]
+      HMM_Uni:     [0.40, 0.45, 0.50, 0.55, 0.60]
       LSTM:        [0.20, 0.30, 0.40, 0.50]
       Transformer: [0.30, 0.40, 0.45, 0.50, 0.60]
     fee_grid_bps: [0, 5, 10, 20, 30, 50, 75, 100, 150, 200]
@@ -183,6 +192,7 @@ plotting:
   colors:
     MSM: "tab:blue"
     HMM: "tab:purple"
+    HMM_Uni: "tab:pink"
     LSTM: "tab:green"
     Transformer: "darkorange"
     Buy_Hold: "gray"
@@ -235,6 +245,7 @@ paths:
     mcs_quantiles: "mcs_quantiles.png"
     markov_model: "msm_regimes.png"
     hmm_regimes: "hmm_regimes.png"
+    hmm_uni_regimes: "hmm_uni_regimes.png"
     lstm_model: "lstm_model.png"
     transformer_model: "transformer_model.png"
     regime_comparison: "regime_comparison.png"

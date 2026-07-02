@@ -4,9 +4,22 @@ import pandas as pd
 import numpy as np
 from hmmlearn.hmm import GaussianHMM
 from sklearn.preprocessing import RobustScaler
+from scipy.special import logsumexp
 import joblib
 from pathlib import Path
 
+def _filtered_probs(model: GaussianHMM, X: np.ndarray) -> np.ndarray:
+    """P(state_t | x_1..t) via reinem Forward-Pass — kein Backward-Pass,
+    daher kein Look-Ahead (Gegenstueck zu predict_proba = smoothed)."""
+    framelogprob = model._compute_log_likelihood(X)          # (T, n_states)
+    log_alpha = np.empty_like(framelogprob)
+    log_alpha[0] = np.log(model.startprob_ + 1e-300) + framelogprob[0]
+    log_trans = np.log(model.transmat_ + 1e-300)
+    for t in range(1, len(X)):
+        log_alpha[t] = framelogprob[t] + logsumexp(
+            log_alpha[t - 1][:, None] + log_trans, axis=0
+        )
+    return np.exp(log_alpha - logsumexp(log_alpha, axis=1, keepdims=True))
 
 def train_hmm(
     features_df_train: pd.DataFrame,
@@ -131,10 +144,11 @@ def train_hmm_fold(
 
     bear_state = 1 if state_1_vol > state_0_vol else 0
 
-    # --- 5. predict_proba auf Test ---
-    test_probs_raw = model.predict_proba(X_test_scaled)
-    bear_probs = test_probs_raw[:, bear_state]
-
+    # --- 5. FILTERED probs auf Test (Train als Kontext, kein Look-Ahead) ---
+    X_all = np.vstack([X_train_scaled, X_test_scaled])
+    filtered = _filtered_probs(model, X_all)
+    bear_probs = filtered[len(X_train_scaled):, bear_state]
+    
     probs = pd.Series(bear_probs, index=features_df_test.index)
     signal = (probs >= threshold).astype(int)
 
@@ -180,14 +194,15 @@ def predict_hmm(
     state_1_vol = returns_train[train_states == 1].std()
     bear_state = 1 if state_1_vol > state_0_vol else 0
 
-    # --- Train-Probs ---
-    train_probs_raw = model.predict_proba(X_train_scaled)
-    probs_train = pd.Series(train_probs_raw[:, bear_state], index=features_df_train.index)
+    # --- Train-Probs (filtered, nur Train-Information) ---
+    filtered_train = _filtered_probs(model, X_train_scaled)
+    probs_train = pd.Series(filtered_train[:, bear_state], index=features_df_train.index)
     signal_train = (probs_train >= threshold).astype(int)
 
-    # --- Test-Probs ---
-    test_probs_raw = model.predict_proba(X_test_scaled)
-    probs_test = pd.Series(test_probs_raw[:, bear_state], index=features_df_test.index)
+    # --- Test-Probs (filtered, Train als Burn-in-Kontext, kein Look-Ahead) ---
+    X_all = np.vstack([X_train_scaled, X_test_scaled])
+    filtered = _filtered_probs(model, X_all)
+    probs_test = pd.Series(filtered[len(X_train_scaled):, bear_state], index=features_df_test.index)
     signal_test = (probs_test >= threshold).astype(int)
 
     return probs_train, signal_train, probs_test, signal_test

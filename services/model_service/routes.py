@@ -316,7 +316,7 @@ def train_all():
                 df=df,
                 splits=splits,
                 cfg=cfg,
-                models_to_run=["MSM", "HMM", "LSTM", "Transformer"],
+                models_to_run=["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"],
             )
 
             # Train-only-Zeilen verwerfen
@@ -330,17 +330,19 @@ def train_all():
         asset_key_map = {
             "MSM": "markov_model",
             "HMM": "hmm_regimes",
+            "HMM_Uni": "hmm_uni_regimes",
             "LSTM": "lstm_model",
             "Transformer": "transformer_model",
         }
         color_defaults = {
             "MSM": "tab:blue",
             "HMM": "tab:purple",
+            "HMM_Uni": "tab:pink",
             "LSTM": "tab:green",
             "Transformer": "darkorange",
         }
 
-        for model_name in ["MSM", "HMM", "LSTM", "Transformer"]:
+        for model_name in ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]:
             sig_col = f"{model_name}_Signal"
             if sig_col not in test_df.columns or not test_df[sig_col].notna().any():
                 logger.warning(f"{model_name}: Keine OOS-Vorhersagen!")
@@ -357,6 +359,8 @@ def train_all():
             if model_name == "MSM":
                 plot_msm_regimes(sub, model_name, color, plot_path)
             elif model_name == "HMM":
+                plot_hmm_regimes(sub, model_name, color, plot_path)
+            elif model_name == "HMM_Uni":
                 plot_hmm_regimes(sub, model_name, color, plot_path)
             else:  # LSTM / Transformer
                 plot_dl_model(sub, model_name, color, plot_path, cfg=cfg)

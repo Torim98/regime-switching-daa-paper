@@ -202,12 +202,13 @@ def run_walk_forward(
     # 2. CPU-Modelle parallel ueber alle Folds
     logger.info(
         f"Walk-Forward CPU-Phase start: n_jobs={n_jobs}, folds={len(splits)}, "
-        f"models={[m for m in models_to_run if m in ('MSM', 'HMM')]}"
+        f"models={[m for m in models_to_run if m in ('MSM', 'HMM', 'HMM_Uni')]}"
     )
     parallel_results = run_folds_parallel(
         df, splits,
         msm_cfg=cfg.models.msm if "MSM" in models_to_run else None,
         hmm_cfg=cfg.models.hmm if "HMM" in models_to_run else None,
+        hmm_uni_cfg=cfg.models.hmm_uni if "HMM_Uni" in models_to_run else None,
         n_jobs=n_jobs,
     )
     for model_name, fold_results in parallel_results.items():
@@ -327,7 +328,13 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "msm_k": cfg.models.msm.k_regimes,
         "msm_threshold": cfg.models.msm.threshold,
         "hmm_n_components": cfg.models.hmm.n_components,
+        "hmm_n_covariance_type": cfg.models.hmm.covariance_type,
         "hmm_n_iter": cfg.models.hmm.n_iter,
+        "hmm_n_threshold": cfg.models.hmm.threshold,
+        "hmm_uni_n_components": cfg.models.hmm_uni.n_components,
+        "hmm_uni_n_covariance_type": cfg.models.hmm_uni.covariance_type,
+        "hmm_uni_n_iter": cfg.models.hmm_uni.n_iter,
+        "hmm_uni_threshold": cfg.models.hmm_uni.threshold,
         "lstm_window": cfg.models.lstm.window_size,
         "lstm_epochs": cfg.models.lstm.epochs,
         "lstm_units_l1": cfg.models.lstm.units_l1,

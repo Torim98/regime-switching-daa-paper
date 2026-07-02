@@ -42,7 +42,7 @@ def _run_hmm_fold(df, train_idx, test_idx, hmm_cfg):
         return {"ok": False, "test_idx": test_idx, "error": repr(e)}
 
 
-def run_folds_parallel(df, splits, msm_cfg=None, hmm_cfg=None, n_jobs=-1):
+def run_folds_parallel(df, splits, msm_cfg=None, hmm_cfg=None, hmm_uni_cfg=None, n_jobs=-1):
     """MSM und HMM parallel ueber alle Folds (loky-Backend, windows-safe)."""
     results = {}
     if msm_cfg is not None:
@@ -52,5 +52,9 @@ def run_folds_parallel(df, splits, msm_cfg=None, hmm_cfg=None, n_jobs=-1):
     if hmm_cfg is not None:
         results["HMM"] = Parallel(n_jobs=n_jobs, backend="loky", verbose=5)(
             delayed(_run_hmm_fold)(df, tr, te, hmm_cfg) for (tr, te) in splits
+        )
+    if hmm_uni_cfg is not None:
+        results["HMM_Uni"] = Parallel(n_jobs=n_jobs, backend="loky", verbose=5)(
+            delayed(_run_hmm_fold)(df, tr, te, hmm_uni_cfg) for (tr, te) in splits
         )
     return results
