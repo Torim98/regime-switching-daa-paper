@@ -1,4 +1,4 @@
-"""Yahoo Finance Datendownload und Rohdaten-Persistierung."""
+"""Yahoo Finance data download and raw-data persistence."""
 
 import time
 import yfinance as yf
@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 
 def _extract_close_frame(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
     """
-    Schema-robuste Extraktion der (Adj-)Close-Spalten aus dem yfinance-Rohframe.
+    Schema-robust extraction of the (Adj) Close columns from the raw yfinance frame.
 
-    Seit yfinance 0.2.40+ kann der MultiIndex je nach Aufruf/Version variieren
-    ("Field"/"Ticker" vs. "Ticker"/"Field", mit/ohne "Adj Close"). Diese Funktion
-    deckt alle bekannten Layouts ab und gibt eine flache DataFrame zurück,
-    in der die Spalten den Ticker-Namen entsprechen.
+    Since yfinance 0.2.40+, the MultiIndex can vary depending on call/version
+    ("Field"/"Ticker" vs. "Ticker"/"Field", with/without "Adj Close"). This function
+    covers all known layouts and returns a flat DataFrame in which the columns
+    correspond to the ticker names.
     """
     if isinstance(raw.columns, pd.MultiIndex):
         lvl0 = raw.columns.get_level_values(0)
@@ -29,16 +29,16 @@ def _extract_close_frame(raw: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
             return raw.xs("Close", axis=1, level=1).copy()
         raise RuntimeError(f"No Close/Adj Close in columns: {raw.columns}")
 
-    # Flache Spalten (Single-Ticker-Fall)
+    # Flat columns (single-ticker case)
     col = "Adj Close" if "Adj Close" in raw.columns else "Close"
     return raw[[col]].rename(columns={col: tickers[0]})
 
 
 def _resolve_end_exclusive(end_date):
     """
-    yfinance behandelt `end` exklusiv. Wir addieren +1 Tag, damit
-    `end_date` aus Nutzersicht inklusiv ist (wichtig im Thesis-Freeze-Mode).
-    None/empty/whitespace -> None (yfinance-Standard: bis heute).
+    yfinance treats `end` as exclusive. We add +1 day so that
+    `end_date` is inclusive from the user's perspective (important in thesis freeze mode).
+    None/empty/whitespace -> None (yfinance default: up to today).
     """
     if end_date is None:
         return None
@@ -55,14 +55,14 @@ def _download_once(
     end_exclusive,
     threads: bool = True,
 ) -> pd.DataFrame:
-    """Einzel-Download mit erzwungenem klassischem Schema."""
+    """Single download with an enforced classic schema."""
     raw = yf.download(
         tickers,
         start=start_date,
         end=end_exclusive,
-        auto_adjust=False,       # erzwingt klassisches Schema mit "Adj Close"
+        auto_adjust=False,       # enforces the classic schema with "Adj Close"
         progress=False,
-        group_by="column",       # (Field, Ticker) Reihenfolge
+        group_by="column",       # (Field, Ticker) order
         threads=threads,
     )
     if raw is None or raw.empty:
@@ -79,21 +79,21 @@ def download_market_data(
     max_retries: int = 3,
 ) -> pd.DataFrame:
     """
-    Marktdaten von Yahoo Finance herunterladen (robust gegen yfinance-Schema-
-    Wechsel und gelegentliche Yahoo-Ausfaelle bei Mutual-Fund-Tickern wie VUSTX).
+    Download market data from Yahoo Finance (robust against yfinance schema
+    changes and occasional Yahoo outages for mutual-fund tickers such as VUSTX).
 
-    Strategie:
-    1. Bulk-Download aller Ticker in einem Rutsch (threads=True).
-    2. Fehlen/leere Spalten werden einzeln (threads=False, sequenziell)
-       nachgeladen — entschaerft Yahoo-Ratelimits bei einzelnen Tickern.
-    3. Der gesamte Prozess wird bis zu `max_retries` wiederholt, wenn am
-       Ende noch Ticker fehlen.
+    Strategy:
+    1. Bulk download of all tickers in one go (threads=True).
+    2. Missing/empty columns are reloaded individually (threads=False,
+       sequentially), which mitigates Yahoo rate limits for single tickers.
+    3. The whole process is repeated up to `max_retries` times if tickers
+       are still missing at the end.
 
-    Hinweis: yfinance behandelt `end` exklusiv. Wir addieren +1 Tag, damit
-    `end_date` aus Nutzersicht inklusiv ist (wichtig im Thesis-Freeze-Mode).
+    Note: yfinance treats `end` as exclusive. We add +1 day so that
+    `end_date` is inclusive from the user's perspective (important in thesis freeze mode).
 
-    ^GSPC = S&P 500 | VUSTX = Long Bonds | ^VIX = Volatilitaet
-    ^IRX  = 3-Monats-Zins | ^TNX = 10-Jahres-Zins
+    ^GSPC = S&P 500 | VUSTX = long bonds | ^VIX = volatility
+    ^IRX  = 3-month rate | ^TNX = 10-year rate
     """
     end_exclusive = _resolve_end_exclusive(end_date)
     last_err: Exception | None = None
@@ -104,13 +104,13 @@ def download_market_data(
                 tickers, start_date, end_exclusive, threads=True,
             )
 
-            # Fehlende oder komplett leere Ticker identifizieren
+            # Identify missing or completely empty tickers
             missing = [
                 t for t in tickers
                 if t not in data.columns or data[t].dropna().empty
             ]
 
-            # Einzel-Nachladen fuer fehlende Ticker (z.B. VUSTX bei Yahoo-Ausfall)
+            # Individual reload for missing tickers (e.g. VUSTX during a Yahoo outage)
             for t in missing:
                 try:
                     single = _download_once(
@@ -122,7 +122,7 @@ def download_market_data(
                     last_err = e
                     continue
 
-            # Finale Pruefung nach Bulk + Einzel-Retry
+            # Final check after bulk + single retry
             still_missing = [
                 t for t in tickers
                 if t not in data.columns or data[t].dropna().empty
@@ -134,7 +134,7 @@ def download_market_data(
                     f"tickers are temporarily unavailable."
                 )
 
-            # Spalten in Input-Reihenfolge bringen (wichtig fuer downstream)
+            # Order columns as in the input (important downstream)
             return data[tickers].copy()
 
         except Exception as e:
@@ -149,7 +149,7 @@ def download_market_data(
 
 
 def save_raw_data(data: pd.DataFrame, output_path: str) -> None:
-    """Rohdaten im Bronze-Layer sichern (vor jeglicher Bereinigung)."""
+    """Persist raw data in the Bronze layer (before any cleaning)."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     data.to_parquet(path)

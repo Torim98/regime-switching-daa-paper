@@ -1,4 +1,4 @@
-"""Parallele Fold-Ausfuehrung fuer CPU-bound Modelle (MSM, HMM)."""
+"""Parallel fold execution for CPU-bound models (MSM, HMM)."""
 from joblib import Parallel, delayed
 from services.warnings_config import configure_warnings
 configure_warnings()
@@ -43,7 +43,7 @@ def _run_hmm_fold(df, train_idx, test_idx, hmm_cfg):
 
 
 def run_folds_parallel(df, splits, msm_cfg=None, hmm_cfg=None, hmm_uni_cfg=None, n_jobs=-1):
-    """MSM und HMM parallel ueber alle Folds (loky-Backend, windows-safe)."""
+    """MSM and HMM in parallel over all folds (loky backend, Windows-safe)."""
     results = {}
     if msm_cfg is not None:
         results["MSM"] = Parallel(n_jobs=n_jobs, backend="loky", verbose=5)(

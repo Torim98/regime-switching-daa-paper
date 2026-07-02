@@ -1,17 +1,17 @@
 """
-NBER-Rezessions-Dates ueber FRED (Serie USREC).
+NBER recession dates via FRED (USREC series).
 
-Referenz
---------
+Reference
+---------
 Burns & Mitchell (1946); NBER Business Cycle Dating Committee.
 https://www.nber.org/research/data/us-business-cycle-expansions-and-contractions
 
-Hinweis
--------
-USREC ist monatlich (0/1). Wir resamplen auf Tagesfrequenz via forward-fill
-und schneiden auf den uebergebenen Index zu.
+Note
+----
+USREC is monthly (0/1). We resample to daily frequency via forward fill
+and trim to the provided index.
 
-Fallback ohne `fredapi`: statische URL der FRED-CSV-Exports.
+Fallback without `fredapi`: static URL of the FRED CSV export.
 """
 
 from __future__ import annotations
@@ -27,15 +27,15 @@ def load_nber_recession(
     source: str = "fred_csv",
 ) -> pd.Series:
     """
-    Laedt NBER-Rezessionsflagge und projiziert sie auf `index`.
+    Loads the NBER recession flag and projects it onto `index`.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     index : pd.DatetimeIndex
-        Ziel-Index (Handelstage), auf den die monatliche Serie gemappt wird.
+        Target index (trading days) onto which the monthly series is mapped.
     source : {"fred_csv", "local"}
-        "fred_csv" laedt via CSV-URL (kein API-Key noetig).
-        "local" liest aus data/bronze/usrec.csv (falls offline benoetigt).
+        "fred_csv" loads via CSV URL (no API key required).
+        "local" reads from data/bronze/usrec.csv (if needed offline).
     """
     if source == "fred_csv":
         df = pd.read_csv(FRED_USREC_URL, parse_dates=["observation_date"])
@@ -43,10 +43,10 @@ def load_nber_recession(
     elif source == "local":
         df = pd.read_csv("data/bronze/usrec.csv", parse_dates=["date"])
     else:
-        raise ValueError(f"Unbekannte source: {source}")
+        raise ValueError(f"Unknown source: {source}")
 
     df = df.set_index("date").sort_index()
-    # Monatlich -> taeglich per forward-fill, dann auf Ziel-Index
+    # Monthly -> daily via forward fill, then onto the target index
     daily = df["recession"].resample("D").ffill()
     aligned = daily.reindex(index, method="ffill").fillna(0).astype("int8")
     aligned.name = "NBER_Signal"

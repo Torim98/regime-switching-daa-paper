@@ -1,16 +1,16 @@
 """
-Lunde & Timmermann (2004): Duration-Dependence-basiertes Regime-Labeling.
+Lunde & Timmermann (2004): duration-dependence-based regime labeling.
 
-Referenz
---------
+Reference
+---------
 Lunde, A. & Timmermann, A. (2004). "Duration Dependence in Stock Prices."
 JBES, 22(3), 253-273. DOI: 10.1198/073500104000000136
 
-Algorithmus (vereinfachte Variante)
------------------------------------
-Asymmetrischer Schwellwert: lambda_bull fuer Aufwaertsbewegungen, lambda_bear
-fuer Abwaertsbewegungen. Uebergang ausgeloest, sobald der kumulierte
-Gegentrend seit dem letzten Extrempunkt den jeweiligen Schwellwert ueberschreitet.
+Algorithm (simplified variant)
+------------------------------
+Asymmetric threshold: lambda_bull for upward moves, lambda_bear for
+downward moves. A transition is triggered once the cumulative
+counter-trend since the last extremum exceeds the respective threshold.
 """
 
 from __future__ import annotations
@@ -25,21 +25,21 @@ def label_lunde_timmermann(
     lambda_bear: float = 0.15,
 ) -> pd.Series:
     """
-    0/1-Label (1 = Bear) nach Lunde-Timmermann.
+    0/1 label (1 = bear) per Lunde-Timmermann.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     prices : pd.Series
-        Close-Preise mit DatetimeIndex.
+        Close prices with a DatetimeIndex.
     lambda_bull : float, default 0.20
-        Schwellwert: Drawdown vom Hoch aus, der einen Bull -> Bear-Wechsel auslöst.
+        Threshold: drawdown from the high that triggers a bull -> bear switch.
     lambda_bear : float, default 0.15
-        Schwellwert: Anstieg vom Tief aus, der einen Bear -> Bull-Wechsel auslöst.
+        Threshold: rise from the low that triggers a bear -> bull switch.
     """
     if not isinstance(prices, pd.Series):
-        raise TypeError("prices muss pd.Series sein.")
+        raise TypeError("prices must be a pd.Series.")
     if prices.isna().any():
-        raise ValueError("prices enthält NaN-Werte.")
+        raise ValueError("prices contains NaN values.")
 
     n = len(prices)
     values = prices.values

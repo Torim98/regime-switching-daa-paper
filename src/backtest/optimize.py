@@ -1,16 +1,16 @@
 """
-Optuna Hyperparameter-Optimierung — Bayessche Suche mit Walk-Forward-CV.
+Optuna hyperparameter optimization: Bayesian search with walk-forward CV.
 
-Jede Objective-Funktion:
-1. Sampelt Hyperparameter via trial.suggest_*()
-2. Iteriert über (subsampled) Walk-Forward-Folds
-3. Trainiert das Modell pro Fold auf dem Train-Window
-4. Berechnet annualisierten OOS-Sharpe aus den Portfolio-Returns
-5. Gibt den medianen OOS-Sharpe über alle Folds zurück (Optuna maximiert)
+Each objective function:
+1. Samples hyperparameters via trial.suggest_*()
+2. Iterates over the (subsampled) walk-forward folds
+3. Trains the model per fold on the train window
+4. Computes the annualized OOS Sharpe from the portfolio returns
+5. Returns the median OOS Sharpe over all folds (Optuna maximizes)
 
-Kein Look-Ahead-Bias: Optuna sieht ausschließlich OOS-Metriken.
-Jeder Fold trainiert unabhängig. Die Fold-Splits sind identisch zu
-denen im finalen Walk-Forward-Lauf (walk_forward.py).
+No look-ahead bias: Optuna only observes OOS metrics.
+Each fold trains independently. The fold splits are identical to
+those in the final walk-forward run (walk_forward.py).
 """
 
 import warnings
@@ -23,14 +23,14 @@ from src.data.labels.resolver import compute_supervised_labels, resolve_label_co
 from src.backtest.walk_forward import walk_forward_splits
 
 # ============================================================================
-# Helper-Funktionen
+# Helper functions
 # ============================================================================
 
 def _compute_oos_sharpe(
     daily_returns: np.ndarray,
     trading_days_per_year: int = 252,
 ) -> float:
-    """Annualisierter Sharpe Ratio aus täglichen Netto-Returns."""
+    """Annualized Sharpe ratio from daily net returns."""
     if len(daily_returns) < 20:
         return -999.0
     std = np.std(daily_returns)
@@ -46,12 +46,12 @@ def _fold_portfolio_returns(
     fee: float = 0.001,
 ) -> np.ndarray:
     """
-    Berechnet tägliche Netto-Portfolio-Returns für einen OOS-Fold.
+    Computes daily net portfolio returns for an OOS fold.
 
-    Repliziert die Logik aus engine.backtest():
-    - Signal um signal_shift Tage verschieben (Look-Ahead-Vermeidung)
-    - Signal=0 → Portfolio-Return, Signal=1 → Cash-Return
-    - Transaktionskosten bei Signalwechseln abziehen
+    Replicates the logic from engine.backtest():
+    - Shift the signal by signal_shift days (look-ahead prevention)
+    - Signal=0 → portfolio return, signal=1 → cash return
+    - Subtract transaction costs on signal switches
     """
     trading_signal = signal.shift(signal_shift).fillna(0)
     trades = trading_signal.diff().fillna(0).abs()
@@ -68,7 +68,7 @@ def _subsample_splits(
     splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]],
     every_nth: int | None,
 ) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
-    """Jede n-te Fold auswählen für schnellere Optimierung."""
+    """Select every n-th fold for faster optimization."""
     if every_nth is None or every_nth <= 1:
         return splits
     return splits[::every_nth]
@@ -97,7 +97,7 @@ def _generate_hmm_labels(df_train, df_test, cfg):
 
 
 # ============================================================================
-# Objective-Funktionen pro Modell
+# Objective functions per model
 # ============================================================================
 
 def objective_msm(
@@ -107,7 +107,7 @@ def objective_msm(
     fee: float,
     signal_shift: int,
 ) -> float:
-    """MSM: k_regimes und Threshold optimieren."""
+    """MSM: optimize k_regimes and threshold."""
     from src.models.msm import train_msm_fold
 
     k_regimes = 2
@@ -130,10 +130,10 @@ def objective_msm(
             oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
             fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
-            warnings.warn(f"MSM Trial {trial.number}, Fold {fold_id}: {e}")
+            warnings.warn(f"MSM trial {trial.number}, fold {fold_id}: {e}")
             fold_sharpes.append(-999.0)
 
-        # Pruning: Zwischenergebnis melden
+        # Pruning: report the intermediate result
         trial.report(np.median(fold_sharpes), fold_id)
         if trial.should_prune():
             raise optuna.TrialPruned()
@@ -149,7 +149,7 @@ def objective_hmm(
     fee: float,
     signal_shift: int,
 ) -> float:
-    """HMM: n_components, covariance_type und Threshold optimieren."""
+    """HMM: optimize n_components, covariance_type, and threshold."""
     from src.models.hmm import train_hmm_fold
 
     n_components = 2
@@ -180,7 +180,7 @@ def objective_hmm(
             oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
             fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
-            warnings.warn(f"HMM Trial {trial.number}, Fold {fold_id}: {e}")
+            warnings.warn(f"HMM trial {trial.number}, fold {fold_id}: {e}")
             fold_sharpes.append(-999.0)
 
         trial.report(np.median(fold_sharpes), fold_id)
@@ -198,12 +198,12 @@ def objective_hmm_uni(
     signal_shift: int,
 ) -> float:
     """
-    HMM_Uni: nur Threshold optimieren.
+    HMM_Uni: optimize the threshold only.
 
-    covariance_type wird NICHT getunt: bei univariatem Input (nur Returns)
-    sind full/diag/tied identisch (1x1-Kovarianz). Damit ist der Suchraum
-    deckungsgleich mit dem MSM-Objective; faire Basis für den
-    Architekturvergleich (Issue #3).
+    covariance_type is NOT tuned: with univariate input (returns only),
+    full/diag/tied are identical (1x1 covariance). The search space is
+    therefore congruent with the MSM objective; a fair basis for the
+    architecture comparison (Issue #3).
     """
     from src.models.hmm import train_hmm_fold
 
@@ -231,7 +231,7 @@ def objective_hmm_uni(
             oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
             fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
-            warnings.warn(f"HMM_Uni Trial {trial.number}, Fold {fold_id}: {e}")
+            warnings.warn(f"HMM_Uni trial {trial.number}, fold {fold_id}: {e}")
             fold_sharpes.append(-999.0)
 
         trial.report(np.median(fold_sharpes), fold_id)
@@ -249,11 +249,11 @@ def objective_lstm(
     signal_shift: int,
 ) -> float:
     """
-    LSTM: window_size, units, learning_rate, dropout, epochs optimieren.
+    LSTM: optimize window_size, units, learning_rate, dropout, epochs.
 
-    Hinweis: learning_rate wird über ein Keras-Optimizer-Objekt an
-    train_lstm_fold übergeben. Keras model.compile() akzeptiert sowohl
-    Strings ("adam") als auch Optimizer-Instanzen.
+    Note: learning_rate is passed to train_lstm_fold via a Keras optimizer
+    object. Keras model.compile() accepts both strings ("adam") and
+    optimizer instances.
     """
     from src.models.lstm import train_lstm_fold
     from tensorflow.keras.optimizers import Adam
@@ -270,8 +270,9 @@ def objective_lstm(
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
 
-    # Supervised-Labels einmal global vorberechnen (analog Transformer-Objective).
-    # Ohne diesen Block fehlt die Spalte im Fold und jeder Trial wirft KeyError.
+    # Precompute the supervised labels once globally (analogous to the
+    # Transformer objective). Without this block, the column is missing in
+    # the fold and every trial raises a KeyError.
     if cfg.labels.supervised_label_source != "hmm":
         df = df.copy()
         if "Supervised_Label" not in df.columns:
@@ -283,12 +284,12 @@ def objective_lstm(
             df_train = df.loc[train_idx]
             df_test = df.loc[test_idx]
 
-            # HMM-Labels für diesen Fold generieren
+            # Generate HMM labels for this fold
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            # train_lstm_fold returniert (probs, pred_idx, weights) — weights
-            # wird für Warm-Starts gebraucht, im HPO-Kontext uninteressant.
+            # train_lstm_fold returns (probs, pred_idx, weights); weights is
+            # needed for warm starts, irrelevant in the HPO context.
             probs_raw, pred_idx, _ = train_lstm_fold(
                 df_train=df_train,
                 df_test=df_test,
@@ -317,7 +318,7 @@ def objective_lstm(
             )
             fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
-            warnings.warn(f"LSTM Trial {trial.number}, Fold {fold_id}: {e}")
+            warnings.warn(f"LSTM trial {trial.number}, fold {fold_id}: {e}")
             fold_sharpes.append(-999.0)
 
         trial.report(np.median(fold_sharpes), fold_id)
@@ -338,7 +339,7 @@ def objective_transformer(
     """
     Transformer: d_model, n_heads, n_layers, learning_rate, dropout, epochs.
 
-    Constraint: d_model muss durch n_heads teilbar sein.
+    Constraint: d_model must be divisible by n_heads.
     """
     from src.models.transformer import train_transformer_fold
 
@@ -359,7 +360,7 @@ def objective_transformer(
     t_cfg = cfg.models.transformer
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
-    
+
     if cfg.labels.supervised_label_source != "hmm":
         df = df.copy()
         if "Supervised_Label" not in df.columns:
@@ -371,11 +372,11 @@ def objective_transformer(
             df_train = df.loc[train_idx]
             df_test = df.loc[test_idx]
 
-            # HMM-Labels für diesen Fold generieren
+            # Generate HMM labels for this fold
             df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            # train_transformer_fold returniert (probs, pred_idx, state_dict)
-            # — state_dict ist für Warm-Starts; im HPO-Kontext irrelevant.
+            # train_transformer_fold returns (probs, pred_idx, state_dict);
+            # state_dict is for warm starts, irrelevant in the HPO context.
             probs_raw, pred_idx, _ = train_transformer_fold(
                 df_train=df_train,
                 df_test=df_test,
@@ -402,14 +403,14 @@ def objective_transformer(
             )
             fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
-            warnings.warn(f"Transformer Trial {trial.number}, Fold {fold_id}: {e}")
+            warnings.warn(f"Transformer trial {trial.number}, fold {fold_id}: {e}")
             fold_sharpes.append(-999.0)
 
         trial.report(np.median(fold_sharpes), fold_id)
         if trial.should_prune():
             raise optuna.TrialPruned()
 
-        # GPU-Speicher freigeben nach jedem Fold
+        # Free GPU memory after each fold
         try:
             import torch
             if torch.cuda.is_available():
@@ -421,7 +422,7 @@ def objective_transformer(
 
 
 # ============================================================================
-# Orchestrierung
+# Orchestration
 # ============================================================================
 
 _OBJECTIVE_MAP = {
@@ -435,11 +436,11 @@ _OBJECTIVE_MAP = {
 
 def _resolve_from_cfg(cfg, attr: str, model_name: str) -> int | None:
     """
-    Liest einen pro-Modell-Wert aus cfg.optimization.<attr>.
+    Reads a per-model value from cfg.optimization.<attr>.
 
-    Erwartet die neue Struktur mit cfg.optimization.n_trials_per_model bzw.
-    cfg.optimization.every_nth_fold_per_model, die im Config-Loader als
-    SimpleNamespace geladen werden. Rückgabe None, falls der Eintrag fehlt.
+    Expects the new structure with cfg.optimization.n_trials_per_model and
+    cfg.optimization.every_nth_fold_per_model, which are loaded as
+    SimpleNamespace in the config loader. Returns None if the entry is missing.
     """
     container = getattr(cfg.optimization, attr, None)
     if container is None:
@@ -456,54 +457,54 @@ def run_optimization(
     storage: str | None = None,
 ) -> optuna.Study:
     """
-    Optuna-Study für ein einzelnes Modell ausführen.
+    Run an Optuna study for a single model.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     model_name : str
-        "MSM", "HMM", "LSTM" oder "Transformer".
+        "MSM", "HMM", "LSTM", or "Transformer".
     df : pd.DataFrame
-        Feature-engineerter DataFrame (Silver-Schicht) mit DatetimeIndex.
+        Feature-engineered DataFrame (Silver layer) with a DatetimeIndex.
     cfg : PipelineConfig
-        Zentrale Konfiguration.
+        Central configuration.
     n_trials : int | None
-        Anzahl Optuna-Trials. None = aus
-        cfg.optimization.n_trials_per_model[model_name] lesen.
+        Number of Optuna trials. None = read from
+        cfg.optimization.n_trials_per_model[model_name].
     every_nth_fold : int | None
-        Nur jeden n-ten Fold verwenden (Speed). None = aus
-        cfg.optimization.every_nth_fold_per_model[model_name] lesen
-        (Fallback: alle Folds, wenn nicht konfiguriert).
+        Use only every n-th fold (speed). None = read from
+        cfg.optimization.every_nth_fold_per_model[model_name]
+        (fallback: all folds if not configured).
     storage : str | None
-        Optuna Storage-URL (z.B. "sqlite:///optuna.db").
-        None = In-Memory.
+        Optuna storage URL (e.g. "sqlite:///optuna.db").
+        None = in-memory.
 
-    Rückgabe
-    --------
-    optuna.Study mit .best_params und .best_value.
+    Returns
+    -------
+    optuna.Study with .best_params and .best_value.
     """
     if model_name not in _OBJECTIVE_MAP:
         raise ValueError(
-            f"Unbekanntes Modell '{model_name}'. "
-            f"Verfügbar: {list(_OBJECTIVE_MAP.keys())}"
+            f"Unknown model '{model_name}'. "
+            f"Available: {list(_OBJECTIVE_MAP.keys())}"
         )
 
-    # Defaults aus Config auflösen, wenn nicht explizit übergeben
+    # Resolve defaults from the config if not passed explicitly
     if n_trials is None:
         n_trials = _resolve_from_cfg(cfg, "n_trials_per_model", model_name)
         if n_trials is None:
             raise ValueError(
-                f"n_trials nicht übergeben und cfg.optimization."
-                f"n_trials_per_model.{model_name} fehlt."
+                f"n_trials not passed and cfg.optimization."
+                f"n_trials_per_model.{model_name} is missing."
             )
     if every_nth_fold is None:
         every_nth_fold = _resolve_from_cfg(
             cfg, "every_nth_fold_per_model", model_name,
         )
 
-    # Optuna-Logging auf Warnungen reduzieren
+    # Reduce Optuna logging to warnings
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    # Walk-Forward-Splits generieren (identisch zum finalen Lauf)
+    # Generate the walk-forward splits (identical to the final run)
     wf = cfg.walk_forward
     splits = walk_forward_splits(
         index=df.index,
@@ -515,10 +516,10 @@ def run_optimization(
     )
     splits = _subsample_splits(splits, every_nth_fold)
     print(f"\n{'='*60}")
-    print(f"Optimierung: {model_name} | {n_trials} Trials | {len(splits)} Folds")
+    print(f"Optimization: {model_name} | {n_trials} trials | {len(splits)} folds")
     print(f"{'='*60}")
 
-    # Storage-Pfad relativ zum Projekt-Root auflösen
+    # Resolve the storage path relative to the project root
     if storage and storage.startswith("sqlite:///") and not os.path.isabs(storage[10:]):
         from pathlib import Path
         project_root = Path(cfg.paths.data_dir).resolve().parent
@@ -526,9 +527,9 @@ def run_optimization(
         db_path.parent.mkdir(parents=True, exist_ok=True)
         storage = f"sqlite:///{db_path}"
 
-    # SQLite auf Docker-Bind-Mounts ist unter Schreibdruck fragil
-    # (intermittente "disk I/O error"). WAL + busy_timeout + NORMAL synchronous
-    # entschärft das; Pre-Ping gegen stale-pool Issues.
+    # SQLite on Docker bind mounts is fragile under write pressure
+    # (intermittent "disk I/O error"). WAL + busy_timeout + NORMAL synchronous
+    # mitigates this; pre-ping against stale-pool issues.
     storage_arg = storage
     if isinstance(storage, str) and storage.startswith("sqlite:///"):
         from sqlalchemy import event
@@ -543,8 +544,8 @@ def run_optimization(
             },
         )
 
-        # PRAGMAs nur auf den Optuna-Engine, nicht global (vermeidet
-        # Mehrfach-Registrierung bei optimize_all über 4 Modelle).
+        # PRAGMAs only on the Optuna engine, not globally (avoids
+        # multiple registration with optimize_all over 4 models).
         def _set_sqlite_pragma(dbapi_conn, _):
             cur = dbapi_conn.cursor()
             try:
@@ -556,7 +557,7 @@ def run_optimization(
                 cur.close()
 
         event.listen(rdb_storage.engine, "connect", _set_sqlite_pragma)
-        # Bereits offene Connection aus dem Pool nachziehen
+        # Also apply to the already open connection from the pool
         with rdb_storage.engine.connect() as _conn:
             _conn.exec_driver_sql("PRAGMA journal_mode=WAL")
             _conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
@@ -564,7 +565,7 @@ def run_optimization(
 
         storage_arg = rdb_storage
 
-    # Study erstellen
+    # Create the study
     study = optuna.create_study(
         direction="maximize",
         study_name=f"opt_{model_name}",
@@ -576,11 +577,11 @@ def run_optimization(
         ),
     )
 
-    # Transaktionskosten aus Config
+    # Transaction costs from the config
     fee = cfg.backtesting.transaction_cost_bps / 10_000
     signal_shift = cfg.backtesting.signal_shift
 
-    # Objective-Funktion mit gebundenen Parametern
+    # Objective function with bound parameters
     if model_name in ("MSM",):
         objective = lambda trial: _OBJECTIVE_MAP[model_name](
             trial, df, splits, fee, signal_shift,
@@ -590,37 +591,37 @@ def run_optimization(
             trial, df, splits, cfg, fee, signal_shift,
         )
 
-    # Default-Parameter als ersten Trial einspeisen (Baseline)
+    # Enqueue the default parameters as the first trial (baseline)
     default_params = _get_default_params(model_name, cfg)
     if default_params:
         study.enqueue_trial(default_params)
 
-    # Bereits abgeschlossene + geprunte Trials zählen
+    # Count already completed + pruned trials
     done = len([t for t in study.trials
                 if t.state in (optuna.trial.TrialState.COMPLETE,
                                optuna.trial.TrialState.PRUNED)])
     remaining = max(0, n_trials - done)
 
     if remaining == 0:
-        print(f"  ➜ {model_name}: Bereits {done}/{n_trials} Trials vorhanden — überspringe.")
+        print(f"  ➜ {model_name}: {done}/{n_trials} trials already present, skipping.")
     else:
-        print(f"  ➜ {done} Trials vorhanden, starte {remaining} weitere.")
+        print(f"  ➜ {done} trials present, starting {remaining} more.")
         study.optimize(objective, n_trials=remaining, show_progress_bar=True)
 
-    # Ergebnis ausgeben
-    print(f"\n--- {model_name}: Beste Parameter ---")
-    print(f"  Sharpe (Median OOS): {study.best_value:.4f}")
+    # Print the result
+    print(f"\n--- {model_name}: best parameters ---")
+    print(f"  Sharpe (median OOS): {study.best_value:.4f}")
     for k, v in study.best_params.items():
         print(f"  {k}: {v}")
     print(f"  Trials: {len(study.trials)} "
-          f"(davon {len(study.get_trials(states=[optuna.trial.TrialState.PRUNED]))} gepruned)")
+          f"(of which {len(study.get_trials(states=[optuna.trial.TrialState.PRUNED]))} pruned)")
 
-    # Visualisierungen speichern (immer — auch bei Skip)
+    # Save the visualizations (always, even on skip)
     try:
         from src.backtest.plots import save_optuna_plots
         save_optuna_plots(study, model_name, cfg)
     except ImportError:
-        warnings.warn("Plotly/Kaleido nicht installiert — Optuna-Plots übersprungen.")
+        warnings.warn("Plotly/Kaleido not installed, skipping Optuna plots.")
 
     return study
 
@@ -633,25 +634,25 @@ def optimize_all(
     storage: str | None = None,
 ) -> dict[str, optuna.Study]:
     """
-    Alle (oder ausgewählte) Modelle sequenziell optimieren.
+    Optimize all (or selected) models sequentially.
 
-    Reihenfolge: MSM → HMM → LSTM → Transformer
+    Order: MSM → HMM → LSTM → Transformer
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     models : list[str] | None
-        Zu optimierende Modelle. None = alle vier.
+        Models to optimize. None = all four.
     n_trials : int | None
-        Expliziter Override für ALLE Modelle. None = pro Modell aus
-        cfg.optimization.n_trials_per_model lesen (Thesis-Default:
-        50 für MSM/HMM, 30 für LSTM/Transformer).
+        Explicit override for ALL models. None = read per model from
+        cfg.optimization.n_trials_per_model (thesis default:
+        50 for MSM/HMM, 30 for LSTM/Transformer).
     every_nth_fold : int | None
-        Expliziter Override für ALLE Modelle. None = pro Modell aus
-        cfg.optimization.every_nth_fold_per_model lesen.
-    Übrige Parameter : siehe run_optimization.
+        Explicit override for ALL models. None = read per model from
+        cfg.optimization.every_nth_fold_per_model.
+    Remaining parameters : see run_optimization.
 
-    Rückgabe
-    --------
+    Returns
+    -------
     Dict[model_name → optuna.Study].
     """
     if models is None:
@@ -663,14 +664,14 @@ def optimize_all(
             model_name=model_name,
             df=df,
             cfg=cfg,
-            n_trials=n_trials,            # None → run_optimization liest aus Config
-            every_nth_fold=every_nth_fold,  # None → run_optimization liest aus Config
+            n_trials=n_trials,            # None → run_optimization reads from the config
+            every_nth_fold=every_nth_fold,  # None → run_optimization reads from the config
             storage=storage,
         )
 
-    # Zusammenfassung
+    # Summary
     print(f"\n{'='*60}")
-    print("Optimierung abgeschlossen — Zusammenfassung")
+    print("Optimization complete: summary")
     print(f"{'='*60}")
     for name, study in studies.items():
         print(f"\n{name}:")
@@ -681,16 +682,16 @@ def optimize_all(
     return studies
 
 def _format_param_value(v) -> str:
-    """Hyperparameter-Wert für Markdown-Tabellen lesbar formatieren."""
+    """Format a hyperparameter value readably for Markdown tables."""
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):
-        return f"{v:,}".replace(",", "\u202f")  # narrow no-break space
+        return f"{v:,}".replace(",", " ")  # narrow no-break space
     if isinstance(v, float):
         a = abs(v)
         if a > 0 and (a < 1e-3 or a >= 1e6):
             return f"{v:.3e}"
-        # 4 signifikante Stellen, ohne überflüssige Nullen
+        # 4 significant digits, without superfluous zeros
         return f"{float(f'{v:.4g}')}"
     return str(v)
 
@@ -754,7 +755,7 @@ def save_optuna_best_params(
 
 
 def _get_default_params(model_name: str, cfg) -> dict | None:
-    """Aktuelle Config-Werte als Optuna-Trial-Dict."""
+    """Current config values as an Optuna trial dict."""
     if model_name == "MSM":
         return {
             "threshold": cfg.models.msm.threshold,          # 0.5

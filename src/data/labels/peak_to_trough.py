@@ -1,12 +1,12 @@
 """
-Peak-to-Trough-Rule: klassische 20%-Definition eines Bärenmarktes.
+Peak-to-trough rule: classic 20% definition of a bear market.
 
-Referenz
---------
-Industriekonvention (S&P Global, Ned Davis Research). Ein Bärenmarkt
-beginnt, sobald der Index vom letzten Hoch um >= `threshold` (default 20%)
-gefallen ist, und endet, sobald er vom letzten Tief um >= `threshold`
-gestiegen ist.
+Reference
+---------
+Industry convention (S&P Global, Ned Davis Research). A bear market
+begins once the index has fallen by >= `threshold` (default 20%) from
+its last high and ends once it has risen by >= `threshold` from its
+last low.
 """
 
 from __future__ import annotations
@@ -20,18 +20,18 @@ def label_peak_to_trough(
     threshold: float = 0.20,
 ) -> pd.Series:
     """
-    Erzeugt 0/1-Label (1 = Bear) nach Peak-to-Trough-Regel.
+    Produces a 0/1 label (1 = bear) per the peak-to-trough rule.
 
-    Zustandsautomat:
-    - State "Bull": track running max. Wenn Preis <= (1 - threshold) * max
-      -> Bear-Start, Rückdatierung bis zum Max.
-    - State "Bear": track running min. Wenn Preis >= (1 + threshold) * min
-      -> Bull-Start, Rückdatierung bis zum Min.
+    State machine:
+    - State "bull": track the running max. If price <= (1 - threshold) * max
+      -> bear start, backdated to the max.
+    - State "bear": track the running min. If price >= (1 + threshold) * min
+      -> bull start, backdated to the min.
     """
     if not isinstance(prices, pd.Series):
-        raise TypeError("prices muss pd.Series sein.")
+        raise TypeError("prices must be a pd.Series.")
     if prices.isna().any():
-        raise ValueError("prices enthält NaN-Werte.")
+        raise ValueError("prices contains NaN values.")
 
     n = len(prices)
     values = prices.values
@@ -49,7 +49,7 @@ def label_peak_to_trough(
                 extreme_price = p
                 extreme_idx = i
             elif p <= (1 - threshold) * extreme_price:
-                # Bear-Signal: Rückdatierung ab letztem Peak
+                # Bear signal: backdate from the last peak
                 labels[extreme_idx + 1:i + 1] = 1
                 state = "bear"
                 extreme_price = p

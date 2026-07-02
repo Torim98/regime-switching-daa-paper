@@ -1,4 +1,4 @@
-"""Markov-Switching-Modell (MS Univariate) — statsmodels."""
+"""Markov-switching model (MS univariate), statsmodels."""
 
 import statsmodels.api as sm
 import pandas as pd
@@ -21,7 +21,7 @@ def train_msm(
 
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     ms_results.save(model_file)
-    print(f"MSM: Modell gespeichert unter {model_file}")
+    print(f"MSM: model saved at {model_file}")
 
     return ms_results
 
@@ -33,48 +33,48 @@ def train_msm_fold(
     threshold: float,
 ) -> tuple[pd.Series, pd.Series]:
     """
-    Markov-Switching-Modell auf einem Walk-Forward-Fold trainieren.
+    Train the Markov-switching model on a walk-forward fold.
 
-    Logik:
-    1. MarkovRegression auf returns_train fitten (Parameter-Schätzung).
-    2. Neues Modell-Objekt auf der KOMBINIERTEN Serie (train + test) instanziieren.
-    3. smooth(params) anwenden; wendet die TRAIN-Parameter auf den
-       Gesamtbereich an, OHNE neuen Fit. Damit hat der Test-Bereich keinen
-       Einfluss auf die Modellschätzung (kein Leakage).
-    4. FILTERED marginal probabilities verwenden; diese nutzen pro Zeitpunkt t
-       nur Information bis t (Forward-Pass), im Gegensatz zu smoothed, das
-       auch zukünftige Beobachtungen einbezieht. Methodisch konsistent mit dem
-       Walk-Forward-Argument der look-ahead-Vermeidung.
-    5. Bear-Regime-Identifikation auf Basis der TRAIN-Parameter (sigma2-Vergleich).
-    6. Test-Slice extrahieren, Threshold anwenden.
+    Logic:
+    1. Fit MarkovRegression on returns_train (parameter estimation).
+    2. Instantiate a new model object on the COMBINED series (train + test).
+    3. Apply smooth(params); applies the TRAIN parameters to the full
+       range WITHOUT refitting. The test range therefore has no influence
+       on the model estimation (no leakage).
+    4. Use FILTERED marginal probabilities; at each time t these use only
+       information up to t (forward pass), in contrast to smoothed, which
+       also incorporates future observations. Methodologically consistent
+       with the walk-forward argument of look-ahead prevention.
+    5. Bear-regime identification based on the TRAIN parameters (sigma2 comparison).
+    6. Extract the test slice, apply the threshold.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     returns_train : pd.Series
-        Returns-Serie für das Trainingsfenster (DatetimeIndex).
+        Return series for the training window (DatetimeIndex).
     returns_test : pd.Series
-        Returns-Serie für das Testfenster (DatetimeIndex), zeitlich strikt
-        nach returns_train.
+        Return series for the test window (DatetimeIndex), strictly after
+        returns_train in time.
     k_regimes, switching_variance, threshold :
-        Identische Bedeutung wie in train_msm / predict_msm.
+        Same meaning as in train_msm / predict_msm.
 
-    Rückgabe
-    --------
+    Returns
+    -------
     tuple[pd.Series, pd.Series]
-        (probs, signal), beide indexiert auf returns_test.index.
-        probs : Bear-Wahrscheinlichkeit (filtered) für jeden Test-Tag.
-        signal : Binäres Signal (0=Bull, 1=Bear) via Threshold.
+        (probs, signal), both indexed on returns_test.index.
+        probs : bear probability (filtered) for each test day.
+        signal : binary signal (0=bull, 1=bear) via threshold.
     """
-    # --- 1. Sanity-Checks ---
+    # --- 1. Sanity checks ---
     if len(returns_train) == 0 or len(returns_test) == 0:
-        raise ValueError("returns_train und returns_test dürfen nicht leer sein.")
+        raise ValueError("returns_train and returns_test must not be empty.")
     if returns_train.index.max() >= returns_test.index.min():
         raise ValueError(
-            f"returns_train endet ({returns_train.index.max()}) nicht strikt vor "
-            f"returns_test ({returns_test.index.min()}) — Look-Ahead-Verdacht!"
+            f"returns_train does not end ({returns_train.index.max()}) strictly before "
+            f"returns_test ({returns_test.index.min()}): possible look-ahead!"
         )
 
-    # --- 2. Auf Train-Bereich fitten ---
+    # --- 2. Fit on the train range ---
     ms_train = sm.tsa.MarkovRegression(
         returns_train,
         k_regimes=k_regimes,
@@ -82,22 +82,22 @@ def train_msm_fold(
     )
     ms_train_results = ms_train.fit()
 
-    # --- 3. Bear-Regime-Identifikation aus TRAIN-Parametern ---
-    # (NICHT aus der kombinierten Serie, sonst hätte der Test-Bereich
-    # indirekten Einfluss auf das Label-Mapping.)
+    # --- 3. Bear-regime identification from the TRAIN parameters ---
+    # (NOT from the combined series, otherwise the test range would have
+    # an indirect influence on the label mapping.)
     if ms_train_results.params["sigma2[1]"] > ms_train_results.params["sigma2[0]"]:
         bear_state = 1
     else:
         bear_state = 0
-    
-    # --- 3b. Train-Signal für DL-Labels (LSTM/Transformer) ---
-    # Filtered probs auf den TRAIN-Daten; nutzt nur Train-Information.
-    # Wird vom Orchestrator als labels_col in df_train injiziert.
+
+    # --- 3b. Train signal for DL labels (LSTM/Transformer) ---
+    # Filtered probs on the TRAIN data; uses train information only.
+    # Injected by the orchestrator as labels_col into df_train.
     filtered_bear_train = ms_train_results.filtered_marginal_probabilities[bear_state]
     signal_train = (filtered_bear_train.clip(0, 1) >= threshold).astype(int)
     signal_train.index = returns_train.index
 
-    # --- 4. Train-Parameter auf kombinierten Bereich anwenden (ohne Re-Fit) ---
+    # --- 4. Apply the train parameters to the combined range (no refit) ---
     returns_combined = pd.concat([returns_train, returns_test])
     ms_combined = sm.tsa.MarkovRegression(
         returns_combined,
@@ -106,10 +106,10 @@ def train_msm_fold(
     )
     combined_results = ms_combined.smooth(ms_train_results.params)
 
-    # --- 5. FILTERED Probabilities verwenden (kein Look-Ahead innerhalb des Folds) ---
+    # --- 5. Use FILTERED probabilities (no look-ahead within the fold) ---
     filtered_bear = combined_results.filtered_marginal_probabilities[bear_state]
 
-    # --- 6. Test-Slice extrahieren ---
+    # --- 6. Extract the test slice ---
     probs = filtered_bear.loc[returns_test.index].clip(0, 1)
     signal = (probs >= threshold).astype(int)
 
@@ -122,17 +122,17 @@ def load_msm(
     switching_variance: bool = None,
 ) -> object:
     """
-    Persistiertes MSM-Modell laden (Training überspringen).
-    Prüft ob die Daten noch zum Modell passen.
-    Falls der Index abweicht, wird das Modell auf die neuen Daten angewendet (smooth).
+    Load a persisted MSM model (skip training).
+    Checks whether the data still matches the model.
+    If the index differs, the model is applied to the new data (smooth).
     """
     ms_results = sm.load(model_file)
 
-    # Prüfe ob die Daten noch zum Modell passen
+    # Check whether the data still matches the model
     if returns is not None:
         stored_probs = ms_results.smoothed_marginal_probabilities[1]
         if not returns.index.equals(stored_probs.index):
-            print("MSM: Daten haben sich geändert, wende Modell auf neue Daten an...")
+            print("MSM: data has changed, applying the model to the new data...")
             ms_model = sm.tsa.MarkovRegression(
                 returns,
                 k_regimes=k_regimes,
@@ -152,28 +152,28 @@ def predict_msm(
     threshold: float,
 ) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Regime-Wahrscheinlichkeiten und binäres Signal bias-frei ableiten.
+    Derive regime probabilities and the binary signal bias-free.
 
-    1. Bear-Regime aus TRAIN-Parametern identifizieren (sigma2-Vergleich).
-    2. Train-Signal via filtered probs auf Train-Daten.
-    3. smooth(train_params) auf kombinierter Serie (kein Re-Fit).
-    4. Filtered marginal probabilities für Test extrahieren.
+    1. Identify the bear regime from the TRAIN parameters (sigma2 comparison).
+    2. Train signal via filtered probs on the train data.
+    3. smooth(train_params) on the combined series (no refit).
+    4. Extract the filtered marginal probabilities for the test range.
 
-    Gibt (probs_train, signal_train, probs_test, signal_test) zurück.
+    Returns (probs_train, signal_train, probs_test, signal_test).
     """
-    # --- Bear-Regime aus Train-Parametern ---
+    # --- Bear regime from the train parameters ---
     if ms_results.params["sigma2[1]"] > ms_results.params["sigma2[0]"]:
         bear_state = 1
     else:
         bear_state = 0
 
-    # --- Train-Probs (filtered, nur Train-Information) ---
+    # --- Train probs (filtered, train information only) ---
     filtered_bear_train = ms_results.filtered_marginal_probabilities[bear_state]
     probs_train = filtered_bear_train.clip(0, 1)
     probs_train.index = returns_train.index
     signal_train = (probs_train >= threshold).astype(int)
 
-    # --- Train-Parameter auf kombinierten Bereich anwenden (ohne Re-Fit) ---
+    # --- Apply the train parameters to the combined range (no refit) ---
     returns_combined = pd.concat([returns_train, returns_test])
     ms_combined = sm.tsa.MarkovRegression(
         returns_combined,
@@ -182,7 +182,7 @@ def predict_msm(
     )
     combined_results = ms_combined.smooth(ms_results.params)
 
-    # --- Filtered Probabilities für Test (kein Look-Ahead) ---
+    # --- Filtered probabilities for the test range (no look-ahead) ---
     filtered_bear = combined_results.filtered_marginal_probabilities[bear_state]
     probs_test = filtered_bear.loc[returns_test.index].clip(0, 1)
     signal_test = (probs_test >= threshold).astype(int)

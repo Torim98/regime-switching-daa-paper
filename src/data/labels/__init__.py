@@ -1,4 +1,4 @@
-"""Regime-Labeling-Methoden (preisbasiert + makroökonomisch)."""
+"""Regime labeling methods (price-based + macroeconomic)."""
 
 from src.data.labels.pagan_sossounov import label_pagan_sossounov
 from src.data.labels.peak_to_trough import label_peak_to_trough

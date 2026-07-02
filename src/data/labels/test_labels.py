@@ -1,4 +1,4 @@
-"""Unit-Tests fuer Label-Methoden. Aufruf: pytest src/data/labels/test_labels.py"""
+"""Unit tests for label methods. Run: pytest src/data/labels/test_labels.py"""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from src.data.labels.lunde_timmermann import label_lunde_timmermann
 
 @pytest.fixture(scope="module")
 def sp500_prices() -> pd.Series:
-    """Laedt S&P-500-Close-Preise 1995-2024 via yfinance (wird gecached)."""
+    """Loads S&P 500 close prices 1995-2024 via yfinance (cached)."""
     import yfinance as yf
     data = yf.download("^GSPC", start="1995-01-01", end="2024-12-31",
                        auto_adjust=True, progress=False)
@@ -41,12 +41,12 @@ class TestPaganSossounov:
 
     def test_identifies_known_bear_markets(self, sp500_prices):
         labels = label_pagan_sossounov(sp500_prices)
-        # Bekannte Baerenmaerkte: mind. ein markanter Tag pro Phase muss Bear sein
+        # Known bear markets: at least one salient day per phase must be labeled bear
         known_bear_dates = ["2001-09-17", "2008-11-20", "2020-03-23", "2022-06-16"]
         for d in known_bear_dates:
             ts = pd.Timestamp(d)
             nearest = labels.index[labels.index.get_indexer([ts], method="nearest")[0]]
-            assert labels.loc[nearest] == 1, f"{d} (naechster: {nearest}) nicht als Bear erkannt"
+            assert labels.loc[nearest] == 1, f"{d} (nearest: {nearest}) not detected as bear"
 
     def test_deterministic(self, sp500_prices):
         a = label_pagan_sossounov(sp500_prices)

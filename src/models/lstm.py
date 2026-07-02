@@ -1,4 +1,4 @@
-"""LSTM-Netzwerk — Supervised Regime Classification (TensorFlow/Keras)."""
+"""LSTM network: supervised regime classification (TensorFlow/Keras)."""
 
 import numpy as np
 import pandas as pd
@@ -15,10 +15,10 @@ from .common import create_sequences
 
 def weighted_bce(pos_weight: float):
     """
-    Binary Cross-Entropy mit positiver Klassengewichtung.
-    Entspricht dem pos_weight-Mechanismus von torch.nn.BCEWithLogitsLoss
-    und stellt sicher, dass LSTM und Transformer dieselbe Verlustfunktion
-    (inkl. identischer Gewichtungsformel sqrt(n_neg/n_pos)) verwenden.
+    Binary cross-entropy with positive class weighting.
+    Corresponds to the pos_weight mechanism of torch.nn.BCEWithLogitsLoss
+    and ensures that LSTM and Transformer use the same loss function
+    (incl. the identical weighting formula sqrt(n_neg/n_pos)).
     """
     pw = tf.constant(pos_weight, dtype=tf.float32)
 
@@ -47,9 +47,9 @@ def build_lstm(
     metrics: str,
 ) -> Sequential:
     """
-    LSTM-Architektur gemäß Config aufbauen.
-    input_shape passt sich automatisch an die Anzahl der Features an.
-    Binäre Klassifikation (Dense 1, Sigmoid).
+    Build the LSTM architecture per the config.
+    input_shape adapts automatically to the number of features.
+    Binary classification (Dense 1, sigmoid).
     """
     model = Sequential([
         LSTM(units_l1,
@@ -58,8 +58,8 @@ def build_lstm(
         Dropout(dropout),
         LSTM(units_l2),
         Dropout(dropout),
-        # dtype="float32" zwingt die Output-Schicht in FP32, auch wenn
-        # Keras-global auf mixed_float16 steht — numerisch stabil fuer BCE.
+        # dtype="float32" forces the output layer into FP32, even if
+        # Keras is globally set to mixed_float16; numerically stable for BCE.
         Dense(dense, activation=activation, dtype="float32"),
     ])
     model.compile(optimizer=optimizer, loss=loss, metrics=[metrics])
@@ -88,43 +88,43 @@ def train_lstm(
     scaler_file: str,
 ) -> tuple[Sequential, RobustScaler, np.ndarray, int]:
     """
-    LSTM-Netzwerk trainieren.
-    Typ: Supervised (Labels von MS_Univariate).
-    LSTM-Netzwerk mit rollendem Fenster für zeitreihenbasierte Regime-Klassifikation.
+    Train the LSTM network.
+    Type: supervised (labels from MS_Univariate).
+    LSTM network with a rolling window for time-series-based regime classification.
 
-    Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden).
-    Gewichtung Bear/Bull via pos_weight = sqrt(n_neg/n_pos) in weighted BCE.
-    Modell + Scaler werden persistiert.
+    Scaling: fit ONLY on the training data (avoid data leakage).
+    Bear/bull weighting via pos_weight = sqrt(n_neg/n_pos) in the weighted BCE.
+    Model + scaler are persisted.
 
-    Gibt (model, scaler, test_probs, split_index) zurück.
+    Returns (model, scaler, test_probs, split_index).
     """
     n_features = len(features)
 
-    # Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden)
+    # Scaling: fit ONLY on the training data (avoid data leakage)
     split_point = int(len(df) * train_test_split)
     scaler = RobustScaler()
-    scaler.fit(df[features].iloc[:split_point])          # fit nur auf Train
-    scaled_data = scaler.transform(df[features])          # transform auf alles
+    scaler.fit(df[features].iloc[:split_point])          # fit on train only
+    scaled_data = scaler.transform(df[features])          # transform on everything
 
-    # Labels und Sequenzen
-    # Wahl der passenden Labels (in config-file)
+    # Labels and sequences
+    # Choice of the appropriate labels (in the config file)
     X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
 
-    # Split (Train/Test) - 80% Training, 20% Test
+    # Split (train/test): 80% training, 20% test
     split = int(len(X) * train_test_split)
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
-    
-    # pos_weight identisch zum Transformer bestimmen
+
+    # Determine pos_weight identically to the Transformer
     n_neg = int((y_train == 0).sum())
     n_pos = int((y_train == 1).sum())
     raw_weight = n_neg / n_pos
     pos_weight = math.sqrt(raw_weight)
-    print(f"Class Balance — Bull: {n_neg}, Bear: {n_pos}, "
+    print(f"Class balance: bull: {n_neg}, bear: {n_pos}, "
           f"raw_weight: {raw_weight:.2f}, pos_weight (sqrt): {pos_weight:.2f}")
-    # Erwartet: raw_weight: 3.31, pos_weight (sqrt): ~1.82
+    # Expected: raw_weight: 3.31, pos_weight (sqrt): ~1.82
 
-    # LSTM Architektur
+    # LSTM architecture
     model = build_lstm(
         window_size=window_size,
         n_features=n_features,
@@ -140,7 +140,7 @@ def train_lstm(
     )
 
     # Training
-    print("Starte LSTM Training...")
+    print("Starting LSTM training...")
     history = model.fit(
         X_train, y_train,
         epochs=epochs,
@@ -149,15 +149,15 @@ def train_lstm(
         verbose=verbose,
     )
 
-    # Vorhersagen generieren
+    # Generate predictions
     lstm_probs_raw = model.predict(X_test)
 
-    # Modell + Scaler persistieren
+    # Persist model + scaler
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     model.save(model_file)
     joblib.dump(scaler, scaler_file)
-    print(f"LSTM: Modell gespeichert unter {model_file}")
-    print(f"Finale Test-Genauigkeit: {history.history['val_accuracy'][-1]:.2%}")
+    print(f"LSTM: model saved at {model_file}")
+    print(f"Final test accuracy: {history.history['val_accuracy'][-1]:.2%}")
 
     return model, scaler, lstm_probs_raw, split
 
@@ -183,88 +183,87 @@ def train_lstm_fold(
     epochs_warm: int | None = None,
 ) -> tuple[np.ndarray, pd.DatetimeIndex, list | None]:
     """
-    LSTM-Netzwerk auf einem Walk-Forward-Fold trainieren.
+    Train the LSTM network on a walk-forward fold.
 
-    Im Gegensatz zu train_lstm:
-    - Erhält Train- und Test-Slices explizit (kein interner Quoten-Split).
-    - Fittet den Scaler ausschließlich auf df_train (kein Leakage).
-    - Persistiert NICHTS (jeder Fold erzeugt ein eigenes Modell).
-    - Gibt OOS-Probabilities samt zugehörigem DatetimeIndex zurück, sodass
-      der Walk-Forward-Orchestrator (run_walk_forward) die Vorhersagen per
-      Index-Alignment in eine durchgehende Serie einsetzen kann.
+    In contrast to train_lstm:
+    - Receives train and test slices explicitly (no internal ratio split).
+    - Fits the scaler exclusively on df_train (no leakage).
+    - Persists NOTHING (each fold produces its own model).
+    - Returns the OOS probabilities together with the corresponding
+      DatetimeIndex, so that the walk-forward orchestrator (run_walk_forward)
+      can insert the predictions into a continuous series via index alignment.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     df_train : pd.DataFrame
-        Trainings-Slice (DatetimeIndex). Muss mindestens window_size+1 Zeilen
-        enthalten, sonst kann keine einzige Trainingssequenz gebildet werden.
+        Training slice (DatetimeIndex). Must contain at least window_size+1
+        rows, otherwise not a single training sequence can be formed.
     df_test : pd.DataFrame
-        Test-Slice (DatetimeIndex). Muss strikt zeitlich nach df_train liegen.
-        Die ersten window_size Zeilen können wegen der Sequenzbildung NICHT
-        prädiziert werden — die Vorhersagen beginnen daher bei
+        Test slice (DatetimeIndex). Must lie strictly after df_train in time.
+        The first window_size rows CANNOT be predicted because of the
+        sequence construction; predictions therefore start at
         df_test.index[window_size:].
     features, labels_col, window_size, ... :
-        Identische Bedeutung wie in train_lstm. Werden 1:1 aus cfg.models.lstm
-        durchgereicht.
+        Same meaning as in train_lstm. Passed through 1:1 from cfg.models.lstm.
 
-    Rückgabe
-    --------
+    Returns
+    -------
     tuple[np.ndarray, pd.DatetimeIndex, list | None]
         (probs_raw, prediction_index, final_weights)
-        probs_raw : 1D-Array der Roh-Probabilities (Sigmoid-Output) auf dem
-                    OOS-Test-Bereich.
-        prediction_index : DatetimeIndex, exakt len(probs_raw) Einträge,
-                           ausgerichtet auf df_test.index[window_size:].
-        final_weights : Liste der Keras-Gewichte (model.get_weights()) am
-                        Ende des Trainings — dient als Warm-Start-Basis für
-                        den Folge-Fold. None im Single-Class-Fallback.
+        probs_raw : 1D array of the raw probabilities (sigmoid output) on the
+                    OOS test range.
+        prediction_index : DatetimeIndex, exactly len(probs_raw) entries,
+                           aligned to df_test.index[window_size:].
+        final_weights : list of the Keras weights (model.get_weights()) at
+                        the end of training; serves as the warm-start basis
+                        for the following fold. None in the single-class fallback.
 
-    Hinweise
-    --------
-    - Sequenz-Boundary: Indem create_sequences nur auf df_test angewendet wird,
-      kann KEINE Test-Sequenz Trainings-Inputs enthalten. Das ist die
-      konservative, leakage-freie Variante. Alternative (warm-up Buffer aus den
-      letzten window_size Train-Zeilen) bewusst NICHT implementiert, um die
-      Logik transparent und prüfbar zu halten.
-    - pos_weight wird ausschließlich aus den Train-Labels berechnet.
-    - validation_split wirkt wie in train_lstm: die letzten X% des erzeugten
-      X_train-Tensors dienen Keras als interne Validation. Da X_train zeitlich
-      geordnet ist, ist auch dieser interne Split look-ahead-frei.
+    Notes
+    -----
+    - Sequence boundary: by applying create_sequences only to df_test,
+      NO test sequence can contain training inputs. This is the
+      conservative, leakage-free variant. The alternative (warm-up buffer from
+      the last window_size train rows) was deliberately NOT implemented here
+      to keep the logic transparent and verifiable.
+    - pos_weight is computed exclusively from the train labels.
+    - validation_split acts as in train_lstm: the last X% of the generated
+      X_train tensor serve as Keras-internal validation. Since X_train is
+      chronologically ordered, this internal split is also look-ahead-free.
     """
     n_features = len(features)
 
-    # --- 1. Sanity-Checks ---
+    # --- 1. Sanity checks ---
     if len(df_train) <= window_size:
         raise ValueError(
-            f"df_train hat nur {len(df_train)} Zeilen, benötigt > window_size={window_size}."
+            f"df_train has only {len(df_train)} rows, requires > window_size={window_size}."
         )
     if len(df_test) < window_size:
         raise ValueError(
-            f"df_test hat nur {len(df_test)} Zeilen, benötigt >= window_size={window_size}."
+            f"df_test has only {len(df_test)} rows, requires >= window_size={window_size}."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(
-            f"df_train endet ({df_train.index.max()}) nicht strikt vor df_test "
-            f"({df_test.index.min()}) — Look-Ahead-Verdacht!"
+            f"df_train does not end ({df_train.index.max()}) strictly before df_test "
+            f"({df_test.index.min()}): possible look-ahead!"
         )
 
-    # --- 2. Skalierung — fit NUR auf Trainingsdaten ---
+    # --- 2. Scaling: fit ONLY on the training data ---
     scaler = RobustScaler()
     scaler.fit(df_train[features])
     train_scaled = scaler.transform(df_train[features])
     test_scaled = scaler.transform(df_test[features])
 
-    # --- 3. Sequenzen erzeugen — mit Warm-up-Buffer für Test ---
-    # Train-Sequenzen nur aus df_train.
+    # --- 3. Create sequences, with a warm-up buffer for the test range ---
+    # Train sequences from df_train only.
     X_train, y_train = create_sequences(
         train_scaled, df_train[labels_col].values, window_size,
     )
 
-    # Test-Sequenzen MIT Warm-up: die letzten window_size Zeilen aus df_train
-    # als "Geschichte" voranstellen, damit die erste Test-Sequenz am ersten
-    # Test-Tag prädizieren kann (statt erst window_size Tage später).
-    # WICHTIG: Diese Buffer-Zeilen werden NICHT zum Trainieren verwendet;
-    # sie liefern nur die Input-Features für die Test-Sequenzen.
+    # Test sequences WITH warm-up: prepend the last window_size rows of df_train
+    # as "history", so that the first test sequence can predict on the first
+    # test day (instead of only window_size days later).
+    # IMPORTANT: these buffer rows are NOT used for training;
+    # they only provide the input features for the test sequences.
     buffer_scaled = train_scaled[-window_size:]
     test_scaled_with_buffer = np.concatenate([buffer_scaled, test_scaled], axis=0)
 
@@ -277,29 +276,30 @@ def train_lstm_fold(
         test_scaled_with_buffer, test_labels_with_buffer, window_size,
     )
 
-    # prediction_index: jetzt der GESAMTE df_test.index (nicht mehr [window_size:]),
-    # weil die erste Test-Sequenz dank Buffer schon am ersten Test-Tag prädizieren kann.
+    # prediction_index: now the ENTIRE df_test.index (no longer [window_size:]),
+    # because the first test sequence can already predict on the first test day
+    # thanks to the buffer.
     prediction_index = df_test.index
     assert len(prediction_index) == len(X_test), (
-        f"Index-Mismatch nach Warm-up-Buffer: prediction_index={len(prediction_index)}, "
+        f"Index mismatch after warm-up buffer: prediction_index={len(prediction_index)}, "
         f"X_test={len(X_test)}"
     )
 
-    # --- 4. Klassengewichtung (nur auf Train-Labels!) ---
+    # --- 4. Class weighting (train labels only!) ---
     n_neg = int((y_train == 0).sum())
     n_pos = int((y_train == 1).sum())
     if n_pos == 0 or n_neg == 0:
         import warnings
         majority_prob = 1.0 if n_pos > n_neg else 0.0
         warnings.warn(
-            f"  [LSTM] Train-Fold einklassig (n_neg={n_neg}, n_pos={n_pos}). "
-            f"Fallback: konstante Vorhersage P(Bear)={majority_prob}."
+            f"  [LSTM] Train fold is single-class (n_neg={n_neg}, n_pos={n_pos}). "
+            f"Fallback: constant prediction P(Bear)={majority_prob}."
         )
-        # Mit Warm-up-Buffer prädizieren wir den GESAMTEN Test-Bereich,
-        # also muss der Fallback denselben pred_idx zurückgeben.
+        # With the warm-up buffer we predict the ENTIRE test range,
+        # so the fallback must return the same pred_idx.
         pred_idx = df_test.index
         probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
-        # Warm-Start: None — im Einklassen-Fall wurde kein echtes Modell trainiert.
+        # Warm start: None; in the single-class case no real model was trained.
         return probs, pred_idx, None
 
     raw_weight = n_neg / n_pos
@@ -310,7 +310,7 @@ def train_lstm_fold(
             f"Bull: {n_neg}, Bear: {n_pos}, pos_weight (sqrt): {pos_weight:.2f}"
         )
 
-    # --- 5. Architektur aufbauen ---
+    # --- 5. Build the architecture ---
     model = build_lstm(
         window_size=window_size,
         n_features=n_features,
@@ -325,11 +325,11 @@ def train_lstm_fold(
         metrics=metrics,
     )
 
-    # --- 5a. Warm-Start aus Vorgaenger-Fold (falls vorhanden) ---
-    # 90% Train-Overlap zwischen rolling Folds -> Initialgewichte sind bereits
-    # "vorkonditioniert". Wir trainieren anschliessend nur wenige Epochen nach.
-    # Architektur-Mismatch (z.B. bei geaenderter Feature-Anzahl) fuehrt zu
-    # ValueError -> Fallback auf Kaltstart (init_weights verwerfen).
+    # --- 5a. Warm start from the previous fold (if available) ---
+    # 90% train overlap between rolling folds -> the initial weights are already
+    # "preconditioned". We then only fine-tune for a few epochs.
+    # An architecture mismatch (e.g. changed feature count) raises a
+    # ValueError -> fall back to a cold start (discard init_weights).
     effective_epochs = epochs
     if init_weights is not None:
         try:
@@ -337,10 +337,10 @@ def train_lstm_fold(
             if epochs_warm is not None and epochs_warm > 0:
                 effective_epochs = epochs_warm
             if verbose:
-                print(f"  [LSTM Fold] Warm-Start aktiv, epochs={effective_epochs}")
+                print(f"  [LSTM Fold] Warm start active, epochs={effective_epochs}")
         except ValueError as e:
             if verbose:
-                print(f"  [LSTM Fold] Warm-Start verworfen (Architektur-Mismatch): {e}")
+                print(f"  [LSTM Fold] Warm start discarded (architecture mismatch): {e}")
 
     early_stop = EarlyStopping(
         monitor="val_loss",
@@ -359,10 +359,10 @@ def train_lstm_fold(
         verbose=verbose,
     )
 
-    # --- 7. OOS-Vorhersagen auf Test-Sequenzen ---
+    # --- 7. OOS predictions on the test sequences ---
     probs_raw = model.predict(X_test, verbose=0).flatten()
 
-    # --- 8. Gewichte fuer Warm-Start des naechsten Folds ---
+    # --- 8. Weights for the warm start of the next fold ---
     final_weights = model.get_weights()
 
     return probs_raw, prediction_index, final_weights
@@ -377,31 +377,31 @@ def load_lstm_model(
     scaler_file: str,
 ) -> tuple[Sequential, RobustScaler, np.ndarray, int]:
     """
-    Persistiertes LSTM-Modell + Scaler laden (Training überspringen).
-    Skalierung mit geladenem Scaler (transform, NICHT fit_transform!).
+    Load the persisted LSTM model + scaler (skip training).
+    Scaling with the loaded scaler (transform, NOT fit_transform!).
 
-    Gibt (model, scaler, test_probs, split_index) zurück.
+    Returns (model, scaler, test_probs, split_index).
     """
-    print(f"LSTM: Lade persistiertes Modell aus {model_file}")
-    # compile=False: das geladene Modell wird nur für Inference genutzt,
-    # daher muss Keras die custom weighted_bce-Loss nicht deserialisieren.
-    # Falls später inkrementell weitertrainiert werden soll, hier stattdessen
-    # custom_objects={"loss": weighted_bce(pos_weight)} übergeben oder das
-    # Modell nach dem Laden neu compilen.
+    print(f"LSTM: loading persisted model from {model_file}")
+    # compile=False: the loaded model is used for inference only,
+    # so Keras does not need to deserialize the custom weighted_bce loss.
+    # If incremental training is desired later, pass
+    # custom_objects={"loss": weighted_bce(pos_weight)} instead or
+    # recompile the model after loading.
     model = load_model(model_file, compile=False)
     scaler = joblib.load(scaler_file)
 
-    # Skalierung mit geladenem Scaler (transform, NICHT fit_transform!)
+    # Scaling with the loaded scaler (transform, NOT fit_transform!)
     scaled_data = scaler.transform(df[features])
 
-    # Labels und Sequenzen
+    # Labels and sequences
     X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
 
-    # Split (Train/Test) - 80% Training, 20% Test
+    # Split (train/test): 80% training, 20% test
     split = int(len(X) * train_test_split)
     X_test = X[split:]
 
-    # Vorhersagen generieren
+    # Generate predictions
     lstm_probs_raw = model.predict(X_test)
 
     return model, scaler, lstm_probs_raw, split
@@ -412,10 +412,10 @@ def predict_lstm(
     threshold: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Wahrscheinlichkeiten und binäres Signal ableiten.
-    Signale generieren via Threshold.
+    Derive probabilities and the binary signal.
+    Generate signals via threshold.
 
-    Gibt (probabilities, signal) zurück.
+    Returns (probabilities, signal).
     """
     probs = probs_raw.flatten()
     signal = (probs >= threshold).astype(int)

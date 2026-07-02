@@ -1,4 +1,4 @@
-"""Transformer-Netzwerk — Regime Detection via Multi-Head Self-Attention (PyTorch)."""
+"""Transformer network: regime detection via multi-head self-attention (PyTorch)."""
 
 import numpy as np
 import pandas as pd
@@ -13,9 +13,9 @@ import joblib
 from .common import create_sequences
 
 
-# --- Positional Encoding ---
+# --- Positional encoding ---
 class PositionalEncoding(nn.Module):
-    """Sinusoidale Positionsencoding für Transformer-Architektur."""
+    """Sinusoidal positional encoding for the Transformer architecture."""
 
     def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
         super().__init__()
@@ -35,7 +35,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
-# --- Transformer-Klassifikator ---
+# --- Transformer classifier ---
 class TransformerRegimeClassifier(nn.Module):
     """
     Linear(n_features → d_model) → PositionalEncoding
@@ -73,7 +73,7 @@ class TransformerRegimeClassifier(nn.Module):
         x = self.input_projection(x)
         x = self.pos_encoder(x)
         x = self.transformer_encoder(x)
-        x = x[:, -1, :]  # Letzter Zeitschritt
+        x = x[:, -1, :]  # last time step
         x = self.classifier(x)
         return x
 
@@ -87,7 +87,7 @@ def _build_model(
     dropout: float,
     device: torch.device,
 ) -> TransformerRegimeClassifier:
-    """Transformer-Modell instanziieren und auf Device verschieben."""
+    """Instantiate the Transformer model and move it to the device."""
     return TransformerRegimeClassifier(
         n_features=n_features,
         d_model=d_model,
@@ -118,43 +118,43 @@ def train_transformer(
     scaler_file: str,
 ) -> tuple[TransformerRegimeClassifier, RobustScaler, np.ndarray, int]:
     """
-    Transformer-Netzwerk trainieren.
-    Typ: Supervised (Labels von MS_Univariate).
-    Transformer-Encoder mit Positional Encoding für zeitreihenbasierte
-    Regime-Klassifikation. Testet Hypothese H2 (Attention > Econometric MSM).
+    Train the Transformer network.
+    Type: supervised (labels from MS_Univariate).
+    Transformer encoder with positional encoding for time-series-based
+    regime classification. Tests hypothesis H2 (attention > econometric MSM).
 
-    Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden).
-    BCEWithLogitsLoss erwartet RAW Logits (kein Sigmoid im Modell-Output!).
-    Gewichtung Bear/Bull via sqrt(raw_weight).
-    Modell + Scaler werden persistiert.
+    Scaling: fit ONLY on the training data (avoid data leakage).
+    BCEWithLogitsLoss expects RAW logits (no sigmoid in the model output!).
+    Bear/bull weighting via sqrt(raw_weight).
+    Model + scaler are persisted.
 
-    Gibt (model, scaler, test_probs, split_index) zurück.
+    Returns (model, scaler, test_probs, split_index).
     """
     n_features = len(features)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Skalierung — fit NUR auf Trainingsdaten (Data Leakage vermeiden)
+    # Scaling: fit ONLY on the training data (avoid data leakage)
     split_point = int(len(df) * train_test_split)
     scaler = RobustScaler()
-    scaler.fit(df[features].iloc[:split_point])               # fit nur auf Train
-    scaled_data = scaler.transform(df[features])               # transform auf alles
+    scaler.fit(df[features].iloc[:split_point])               # fit on train only
+    scaled_data = scaler.transform(df[features])               # transform on everything
 
-    # Sequenzen erstellen
+    # Create sequences
     X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
 
-    # Train/Test Split (identisch zum LSTM)
+    # Train/test split (identical to the LSTM)
     split = int(len(X) * train_test_split)
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
 
-    # --- Validation-Split (letzte 10% der Trainingsdaten) ---
+    # --- Validation split (last 10% of the training data) ---
     val_split = int(len(X_train) * (1 - validation_split))
     X_val = X_train[val_split:]
     y_val = y_train[val_split:]
     X_train = X_train[:val_split]
     y_train = y_train[:val_split]
 
-    # Modell instanziieren
+    # Instantiate the model
     model = _build_model(
         n_features=n_features,
         d_model=d_model,
@@ -165,22 +165,22 @@ def train_transformer(
         device=device,
     )
 
-    # Gewichtung Bear/Bull
-    n_pos = y_train.sum()           # Anzahl Bear-Samples im Training
-    n_neg = len(y_train) - n_pos    # Anzahl Bull-Samples im Training
+    # Bear/bull weighting
+    n_pos = y_train.sum()           # number of bear samples in training
+    n_neg = len(y_train) - n_pos    # number of bull samples in training
     raw_weight = n_neg / n_pos
     pos_weight = torch.tensor([math.sqrt(raw_weight)], dtype=torch.float32).to(device)
-    print(f"Class Balance — Bull: {int(n_neg)}, Bear: {int(n_pos)}, "
+    print(f"Class balance: bull: {int(n_neg)}, bear: {int(n_pos)}, "
           f"raw_weight: {raw_weight:.2f}, pos_weight (sqrt): {pos_weight.item():.2f}")
-    # Erwartet: raw_weight: 3.31, pos_weight (sqrt): ~1.82
+    # Expected: raw_weight: 3.31, pos_weight (sqrt): ~1.82
 
-    # BCEWithLogitsLoss erwartet RAW Logits (kein Sigmoid im Modell-Output!)
+    # BCEWithLogitsLoss expects RAW logits (no sigmoid in the model output!)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.classifier = nn.Linear(d_model, 1).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # DataLoader erstellen
+    # Create DataLoader
     X_train_tensor = torch.FloatTensor(X_train).to(device)
     y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(device)
     X_test_tensor = torch.FloatTensor(X_test).to(device)
@@ -191,7 +191,7 @@ def train_transformer(
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     # Training
-    print("Starte Transformer Training...")
+    print("Starting Transformer training...")
     model.train()
     for epoch in range(epochs):
         epoch_loss = 0.0
@@ -199,7 +199,7 @@ def train_transformer(
         total = 0
         for batch_X, batch_y in train_loader:
             optimizer.zero_grad()
-            logits = model(batch_X)          # Raw Logits
+            logits = model(batch_X)          # raw logits
             loss = criterion(logits, batch_y)
             loss.backward()
             optimizer.step()
@@ -214,28 +214,28 @@ def train_transformer(
             avg_loss = epoch_loss / len(train_loader)
             accuracy = correct / total
 
-            # Validation-Loss berechnen
+            # Compute the validation loss
             model.eval()
             with torch.no_grad():
                 val_logits = model(X_val_tensor)
                 val_loss = criterion(val_logits, y_val_tensor).item()
             model.train()
 
-            print(f"  Epoch {epoch+1}/{epochs} — Loss: {avg_loss:.4f}, "
-                  f"Accuracy: {accuracy:.2%}, Val-Loss: {val_loss:.4f}")
+            print(f"  Epoch {epoch+1}/{epochs}: loss: {avg_loss:.4f}, "
+                  f"accuracy: {accuracy:.2%}, val loss: {val_loss:.4f}")
 
-    # Vorhersagen auf Test-Set
-    # Sigmoid erst bei der Inference anwenden (Logits → Probabilities)
+    # Predictions on the test set
+    # Apply the sigmoid only at inference (logits → probabilities)
     model.eval()
     with torch.no_grad():
         logits_test = model(X_test_tensor)
         transformer_probs_raw = torch.sigmoid(logits_test).cpu().numpy().flatten()
 
-    # Modell + Scaler persistieren
+    # Persist model + scaler
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), model_file)
     joblib.dump(scaler, scaler_file)
-    print(f"Transformer: Modell gespeichert unter {model_file}")
+    print(f"Transformer: model saved at {model_file}")
 
     return model, scaler, transformer_probs_raw, split
 
@@ -259,79 +259,80 @@ def train_transformer_fold(
     epochs_warm: int | None = None,
 ) -> tuple[np.ndarray, pd.DatetimeIndex, dict | None]:
     """
-    Transformer-Netzwerk auf einem Walk-Forward-Fold trainieren.
+    Train the Transformer network on a walk-forward fold.
 
-    Analog zu train_lstm_fold:
-    - Erhält Train- und Test-Slices explizit.
-    - Fittet den Scaler ausschließlich auf df_train.
-    - Persistiert NICHTS.
-    - Gibt OOS-Probabilities samt zugehörigem DatetimeIndex zurück.
+    Analogous to train_lstm_fold:
+    - Receives train and test slices explicitly.
+    - Fits the scaler exclusively on df_train.
+    - Persists NOTHING.
+    - Returns the OOS probabilities together with the corresponding DatetimeIndex.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     df_train, df_test : pd.DataFrame
-        Train- bzw. Test-Slice (DatetimeIndex), zeitlich disjunkt.
+        Train and test slice (DatetimeIndex), temporally disjoint.
     init_state_dict : dict | None
-    State-Dict vom vorigen Fold fuer Warm-Start (rolling WF hat 90%
-    Train-Ueberlappung zwischen Folds → Warm-Start ist look-ahead-frei).
-    None = from scratch.
+        State dict from the previous fold for a warm start (rolling WF has 90%
+        train overlap between folds → warm start is look-ahead-free).
+        None = from scratch.
     epochs_warm : int | None
-    Reduzierte Epochen-Zahl beim Warm-Start. None → max(5, epochs // 4).
-    Übrige Parameter :
-        Identische Bedeutung wie in train_transformer.
+        Reduced epoch count for the warm start. None → max(5, epochs // 4).
+    Remaining parameters :
+        Same meaning as in train_transformer.
 
-    Rückgabe
-    --------
+    Returns
+    -------
     tuple[np.ndarray, pd.DatetimeIndex, dict | None]
         (probs_raw, prediction_index, final_state_dict)
-        final_state_dict ist None im Einklassen-Fallback.
+        final_state_dict is None in the single-class fallback.
 
-    Hinweise
-    --------
-    - BCEWithLogitsLoss erwartet RAW Logits; der Classifier ist daher ein
-      reines nn.Linear ohne Sigmoid (identisch zu train_transformer).
-      Sigmoid wird erst bei der Inference angewendet.
-    - pos_weight wird ausschließlich aus den Train-Labels berechnet.
-    - validation_split: die letzten X% von X_train werden als interne
-      Validation verwendet (zeitlich geordnet, leakage-frei).
-    - Einklassen-Fallback wird auf dem VOLLEN y_train (vor Val-Split) geprüft,
-      damit der Val-Split die Klassenbalance nicht künstlich zerstören kann.
+    Notes
+    -----
+    - BCEWithLogitsLoss expects RAW logits; the classifier is therefore a
+      plain nn.Linear without sigmoid (identical to train_transformer).
+      The sigmoid is applied only at inference.
+    - pos_weight is computed exclusively from the train labels.
+    - validation_split: the last X% of X_train are used as internal
+      validation (chronologically ordered, leakage-free).
+    - The single-class fallback is checked on the FULL y_train (before the
+      val split), so that the val split cannot artificially destroy the
+      class balance.
     """
     n_features = len(features)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # --- 1. Sanity-Checks ---
+    # --- 1. Sanity checks ---
     if len(df_train) <= window_size:
         raise ValueError(
-            f"df_train hat nur {len(df_train)} Zeilen, benötigt > window_size={window_size}."
+            f"df_train has only {len(df_train)} rows, requires > window_size={window_size}."
         )
     if len(df_test) < window_size:
         raise ValueError(
-            f"df_test hat nur {len(df_test)} Zeilen, benötigt >= window_size={window_size}."
+            f"df_test has only {len(df_test)} rows, requires >= window_size={window_size}."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(
-            f"df_train endet ({df_train.index.max()}) nicht strikt vor df_test "
-            f"({df_test.index.min()}) — Look-Ahead-Verdacht!"
+            f"df_train does not end ({df_train.index.max()}) strictly before df_test "
+            f"({df_test.index.min()}): possible look-ahead!"
         )
 
-    # --- 2. Skalierung — fit NUR auf Trainingsdaten ---
+    # --- 2. Scaling: fit ONLY on the training data ---
     scaler = RobustScaler()
     scaler.fit(df_train[features])
     train_scaled = scaler.transform(df_train[features])
     test_scaled = scaler.transform(df_test[features])
 
-    # --- 3. Sequenzen erzeugen — mit Warm-up-Buffer für Test ---
-    # Train-Sequenzen nur aus df_train.
+    # --- 3. Create sequences, with a warm-up buffer for the test range ---
+    # Train sequences from df_train only.
     X_train, y_train = create_sequences(
         train_scaled, df_train[labels_col].values, window_size,
     )
 
-    # Test-Sequenzen MIT Warm-up: die letzten window_size Zeilen aus df_train
-    # als "Geschichte" voranstellen, damit die erste Test-Sequenz am ersten
-    # Test-Tag prädizieren kann (statt erst window_size Tage später).
-    # WICHTIG: Diese Buffer-Zeilen werden NICHT zum Trainieren verwendet;
-    # sie liefern nur die Input-Features für die Test-Sequenzen.
+    # Test sequences WITH warm-up: prepend the last window_size rows of df_train
+    # as "history", so that the first test sequence can predict on the first
+    # test day (instead of only window_size days later).
+    # IMPORTANT: these buffer rows are NOT used for training;
+    # they only provide the input features for the test sequences.
     buffer_scaled = train_scaled[-window_size:]
     test_scaled_with_buffer = np.concatenate([buffer_scaled, test_scaled], axis=0)
 
@@ -344,40 +345,41 @@ def train_transformer_fold(
         test_scaled_with_buffer, test_labels_with_buffer, window_size,
     )
 
-    # prediction_index: jetzt der GESAMTE df_test.index (nicht mehr [window_size:]),
-    # weil die erste Test-Sequenz dank Buffer schon am ersten Test-Tag prädizieren kann.
+    # prediction_index: now the ENTIRE df_test.index (no longer [window_size:]),
+    # because the first test sequence can already predict on the first test day
+    # thanks to the buffer.
     prediction_index = df_test.index
     assert len(prediction_index) == len(X_test), (
-        f"Index-Mismatch nach Warm-up-Buffer: prediction_index={len(prediction_index)}, "
+        f"Index mismatch after warm-up buffer: prediction_index={len(prediction_index)}, "
         f"X_test={len(X_test)}"
     )
 
-    # --- 4. Einklassen-Check auf dem VOLLEN Train-Set (VOR Val-Split) ---
-    # Muss hier passieren, nicht nach dem Val-Split — sonst triggert der
-    # Fallback auch in Folds, in denen nur zufällig alle Positives im
-    # Val-Fenster landen würden.
+    # --- 4. Single-class check on the FULL train set (BEFORE the val split) ---
+    # Must happen here, not after the val split; otherwise the fallback would
+    # also trigger in folds where all positives just happen to land in the
+    # val window.
     n_pos = int(y_train.sum())
     n_neg = int(len(y_train) - n_pos)
     if n_pos == 0 or n_neg == 0:
         import warnings
         majority_prob = 1.0 if n_pos > n_neg else 0.0
         warnings.warn(
-            f"  [Transformer] Train-Fold einklassig (n_neg={n_neg}, n_pos={n_pos}). "
-            f"Fallback: konstante Vorhersage P(Bear)={majority_prob}."
+            f"  [Transformer] Train fold is single-class (n_neg={n_neg}, n_pos={n_pos}). "
+            f"Fallback: constant prediction P(Bear)={majority_prob}."
         )
-        # Voller Test-Bereich (konsistent mit Warm-up-Buffer-Logik)
+        # Full test range (consistent with the warm-up buffer logic)
         pred_idx = df_test.index
         probs = np.full(len(pred_idx), majority_prob, dtype=np.float32)
         return probs, pred_idx, None
 
-    # --- 5. Validation-Split innerhalb der Train-Sequenzen (zeitlich am Ende) ---
+    # --- 5. Validation split within the train sequences (at the end in time) ---
     val_split = int(len(X_train) * (1 - validation_split))
     X_val = X_train[val_split:]
     y_val = y_train[val_split:]
     X_train = X_train[:val_split]
     y_train = y_train[:val_split]
 
-    # --- 6. Modell instanziieren ---
+    # --- 6. Instantiate the model ---
     model = _build_model(
         n_features=n_features,
         d_model=d_model,
@@ -388,13 +390,13 @@ def train_transformer_fold(
         device=device,
     )
 
-    # --- 7. Klassengewichtung (nur auf Train-Labels!) ---
-    # Nach dem Val-Split auf dem reduzierten y_train neu berechnen,
-    # damit pos_weight zum tatsächlich trainierten Subset passt.
+    # --- 7. Class weighting (train labels only!) ---
+    # Recompute on the reduced y_train after the val split, so that
+    # pos_weight matches the subset that is actually trained on.
     n_pos_tr = int(y_train.sum())
     n_neg_tr = int(len(y_train) - n_pos_tr)
-    # Edge-Case: Val-Split hat alle einer Klasse entzogen — dann mit 1.0 fallback-gewichten,
-    # Training läuft trotzdem durch (Klassen existieren im vollen y_train).
+    # Edge case: the val split removed all samples of one class; then fall back
+    # to a weight of 1.0. Training still runs (both classes exist in the full y_train).
     raw_weight = (n_neg_tr / n_pos_tr) if (n_pos_tr > 0 and n_neg_tr > 0) else 1.0
     pos_weight = torch.tensor([math.sqrt(raw_weight)], dtype=torch.float32).to(device)
     if verbose:
@@ -403,37 +405,37 @@ def train_transformer_fold(
             f"Bull: {n_neg_tr}, Bear: {n_pos_tr}, pos_weight (sqrt): {pos_weight.item():.2f}"
         )
 
-    # --- 8. Loss + Classifier-Override (Raw Logits) ---
+    # --- 8. Loss + classifier override (raw logits) ---
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.classifier = nn.Linear(d_model, 1).to(device)
 
-    # --- 8b. Warm-Start vom vorherigen Fold (optional) ---
+    # --- 8b. Warm start from the previous fold (optional) ---
     if init_state_dict is not None:
         try:
-            # State-Dict ist auf CPU gespeichert → auf device verschieben
+            # The state dict is stored on CPU → move to device
             moved = {k: v.to(device) for k, v in init_state_dict.items()}
             model.load_state_dict(moved)
             epochs_used = epochs_warm if epochs_warm is not None else max(5, epochs // 4)
             if verbose:
-                print(f"    [Transformer] Warm-Start aktiv, epochs_used={epochs_used}")
+                print(f"    [Transformer] Warm start active, epochs_used={epochs_used}")
         except RuntimeError as e:
-            # Shape-Mismatch (z.B. d_model / window_size geaendert) → from scratch
+            # Shape mismatch (e.g. changed d_model / window_size) → from scratch
             if verbose:
-                print(f"    [Transformer] Warm-Start verworfen ({e.__class__.__name__}), from-scratch")
+                print(f"    [Transformer] Warm start discarded ({e.__class__.__name__}), from scratch")
             epochs_used = epochs
     else:
         epochs_used = epochs
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # --- 8c. AMP-Setup ---
-    # torch.amp.* ersetzt torch.cuda.amp.* (deprecated ab PyTorch 2.3).
-    # device_type wird an GradScaler + autocast weitergereicht.
+    # --- 8c. AMP setup ---
+    # torch.amp.* replaces torch.cuda.amp.* (deprecated since PyTorch 2.3).
+    # device_type is passed to GradScaler + autocast.
     use_amp = torch.cuda.is_available()
     device_type = "cuda" if use_amp else "cpu"
     scaler = torch.amp.GradScaler(device_type, enabled=use_amp)
 
-    # --- 9. Tensoren + DataLoader ---
+    # --- 9. Tensors + DataLoader ---
     X_train_tensor = torch.FloatTensor(X_train).to(device)
     y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(device)
     X_val_tensor = torch.FloatTensor(X_val).to(device)
@@ -443,7 +445,7 @@ def train_transformer_fold(
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    # --- 10. Training: AMP + Early Stopping ---
+    # --- 10. Training: AMP + early stopping ---
     best_val_loss = float("inf")
     best_state = None
     patience, patience_counter = 5, 0
@@ -459,7 +461,7 @@ def train_transformer_fold(
             scaler.step(optimizer)
             scaler.update()
 
-        # Val-Loss pro Epoche (fuer Early Stopping)
+        # Val loss per epoch (for early stopping)
         model.eval()
         with torch.no_grad(), torch.amp.autocast(device_type, enabled=use_amp):
             val_logits = model(X_val_tensor)
@@ -477,19 +479,19 @@ def train_transformer_fold(
                 break
 
         if verbose and (epoch + 1) % 10 == 0:
-            print(f"    Epoch {epoch+1}/{epochs_used} — Val-Loss: {val_loss:.4f}")
+            print(f"    Epoch {epoch+1}/{epochs_used}: val loss: {val_loss:.4f}")
 
-    # Beste Gewichte wiederherstellen
+    # Restore the best weights
     if best_state is not None:
         model.load_state_dict(best_state)
 
-    # --- 11. OOS-Vorhersagen ---
+    # --- 11. OOS predictions ---
     model.eval()
     with torch.no_grad(), torch.amp.autocast(device_type, enabled=use_amp):
         logits_test = model(X_test_tensor)
         probs_raw = torch.sigmoid(logits_test.float()).cpu().numpy().flatten()
 
-    # --- 12. State-Dict fuer Warm-Start des naechsten Folds ---
+    # --- 12. State dict for the warm start of the next fold ---
     final_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
     return probs_raw, prediction_index, final_state
@@ -509,14 +511,14 @@ def load_transformer_model(
     scaler_file: str,
 ) -> tuple[TransformerRegimeClassifier, RobustScaler, np.ndarray, int]:
     """
-    Persistiertes Transformer-Modell + Scaler laden (Training überspringen).
+    Load the persisted Transformer model + scaler (skip training).
 
-    Gibt (model, scaler, test_probs, split_index) zurück.
+    Returns (model, scaler, test_probs, split_index).
     """
     n_features = len(features)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Modell instanziieren und Gewichte laden
+    # Instantiate the model and load the weights
     model = _build_model(
         n_features=n_features,
         d_model=d_model,
@@ -526,24 +528,24 @@ def load_transformer_model(
         dropout=dropout,
         device=device,
     )
-    # BCEWithLogitsLoss → Classifier ohne Sigmoid beim Training
+    # BCEWithLogitsLoss → classifier without sigmoid during training
     model.classifier = nn.Linear(d_model, 1).to(device)
     model.load_state_dict(torch.load(model_file, map_location=device))
     model.eval()
-    print(f"Transformer: Lade persistiertes Modell aus {model_file}")
+    print(f"Transformer: loading persisted model from {model_file}")
 
-    # Skalierung mit geladenem Scaler
+    # Scaling with the loaded scaler
     scaler = joblib.load(scaler_file)
     scaled_data = scaler.transform(df[features])
 
-    # Sequenzen erstellen
+    # Create sequences
     X, y = create_sequences(scaled_data, df[labels_col].values, window_size)
 
     # Split
     split = int(len(X) * train_test_split)
     X_test = X[split:]
 
-    # Vorhersagen auf Test-Set
+    # Predictions on the test set
     X_test_tensor = torch.FloatTensor(X_test).to(device)
     with torch.no_grad():
         logits_test = model(X_test_tensor)
@@ -557,10 +559,10 @@ def predict_transformer(
     threshold: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Wahrscheinlichkeiten und binäres Signal ableiten.
-    Signale generieren via Threshold.
+    Derive probabilities and the binary signal.
+    Generate signals via threshold.
 
-    Gibt (probabilities, signal) zurück.
+    Returns (probabilities, signal).
     """
     probs = probs_raw.flatten()
     signal = (probs >= threshold).astype(int)

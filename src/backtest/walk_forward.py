@@ -1,4 +1,4 @@
-"""Walk-Forward-Validierung — Splitter und Helper für rollierende OOS-Evaluation."""
+"""Walk-forward validation: splitter and helpers for rolling OOS evaluation."""
 
 import warnings
 import pandas as pd
@@ -17,57 +17,57 @@ def walk_forward_splits(
     min_train_years: int,
 ) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
     """
-    Generiert Walk-Forward-Splits über einen DatetimeIndex.
+    Generates walk-forward splits over a DatetimeIndex.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     index : pd.DatetimeIndex
-        Vollständiger Zeitindex der Datenreihe (z.B. df.index).
+        Full time index of the data series (e.g. df.index).
     mode : str
-        "rolling"   = Train-Fenster konstanter Länge, wandert mit.
-        "expanding" = Train-Fenster wächst monoton ab Start.
+        "rolling"   = training window of constant length, moves along.
+        "expanding" = training window grows monotonically from the start.
     train_window_years : int
-        Länge des Train-Fensters in Jahren (nur bei mode="rolling" relevant).
+        Length of the training window in years (only relevant for mode="rolling").
     test_window_months : int
-        Länge eines OOS-Test-Folds in Monaten.
+        Length of one OOS test fold in months.
     step_months : int
-        Schrittweite zwischen aufeinanderfolgenden Test-Fenster-Starts.
-        step_months == test_window_months → disjunkte (nicht-überlappende) Folds.
+        Step size between the starts of consecutive test windows.
+        step_months == test_window_months → disjoint (non-overlapping) folds.
     min_train_years : int
-        Mindest-Trainingsdatenmenge (in Jahren) für den ersten Fold (mode="expanding").
+        Minimum amount of training data (in years) for the first fold (mode="expanding").
 
-    Rückgabe
-    --------
+    Returns
+    -------
     list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]
-        Liste von (train_idx, test_idx)-Paaren. Indizes sind echte
-        DatetimeIndex-Slices aus dem übergebenen index; robust gegenüber
-        Reindexing und Period/Datetime-Konvertierungen.
+        List of (train_idx, test_idx) pairs. Indices are true
+        DatetimeIndex slices from the provided index; robust against
+        reindexing and period/datetime conversions.
 
-    Garantien
-    ---------
-    - train_idx und test_idx überlappen NICHT (train endet strikt vor test).
-    - Bei step_months == test_window_months sind die Test-Bereiche aller
-      Folds disjunkt (kein Doppel-Sampling).
-    - Folds mit leerem Train- oder Test-Bereich werden übersprungen.
+    Guarantees
+    ----------
+    - train_idx and test_idx do NOT overlap (train ends strictly before test).
+    - With step_months == test_window_months, the test ranges of all
+      folds are disjoint (no double sampling).
+    - Folds with an empty train or test range are skipped.
 
-    Voraussetzungen
-    --------
-    - index ist monoton steigend und enthält Handelstage (Wochenenden / Feiertage
-      lückenhaft, das ist ok; die Selektion erfolgt per Datums-Maske).
+    Requirements
+    ------------
+    - index is monotonically increasing and contains trading days (gaps for
+      weekends/holidays are fine; selection is done via date masks).
     """
     if mode not in ("rolling", "expanding"):
-        raise ValueError(f"mode muss 'rolling' oder 'expanding' sein, war: {mode}")
+        raise ValueError(f"mode must be 'rolling' or 'expanding', was: {mode}")
     if not isinstance(index, pd.DatetimeIndex):
         index = pd.DatetimeIndex(index)
     if not index.is_monotonic_increasing:
-        raise ValueError("index muss monoton steigend sein.")
+        raise ValueError("index must be monotonically increasing.")
 
     splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]] = []
 
     start = index.min()
     end = index.max()
 
-    # Erster Test-Beginn: nach Ablauf des initialen Trainingsfensters
+    # First test start: after the initial training window has elapsed
     if mode == "rolling":
         first_test_start = start + DateOffset(years=train_window_years)
     else:  # expanding
@@ -78,14 +78,14 @@ def walk_forward_splits(
     while current_test_start + DateOffset(months=test_window_months) <= end + DateOffset(days=1):
         current_test_end = current_test_start + DateOffset(months=test_window_months)
 
-        # Train-Fenster bestimmen
+        # Determine the training window
         if mode == "rolling":
             train_start = current_test_start - DateOffset(years=train_window_years)
         else:  # expanding
             train_start = start
 
-        # Indizes per Datums-Maske selektieren
-        # Train: [train_start, current_test_start) — strikt VOR Test
+        # Select indices via date masks
+        # Train: [train_start, current_test_start), strictly BEFORE test
         # Test:  [current_test_start, current_test_end)
         train_mask = (index >= train_start) & (index < current_test_start)
         test_mask = (index >= current_test_start) & (index < current_test_end)
@@ -98,19 +98,19 @@ def walk_forward_splits(
 
         current_test_start = current_test_start + DateOffset(months=step_months)
 
-    # --- Partialer letzter Fold: restliche Daten nutzen ---
+    # --- Partial last fold: use the remaining data ---
     if current_test_start < end:
         if mode == "rolling":
             train_start = current_test_start - DateOffset(years=train_window_years)
         else:
             train_start = start
-        
+
         train_mask = (index >= train_start) & (index < current_test_start)
-        test_mask = (index >= current_test_start)  # bis zum Ende der Daten
-        
+        test_mask = (index >= current_test_start)  # up to the end of the data
+
         train_idx = index[train_mask]
         test_idx = index[test_mask]
-        
+
         if len(train_idx) > 0 and len(test_idx) > 0:
             splits.append((train_idx, test_idx))
 
@@ -121,11 +121,11 @@ def summarize_splits(
     splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]],
 ) -> pd.DataFrame:
     """
-    Erstellt eine Übersichtstabelle der Walk-Forward-Splits.
+    Creates an overview table of the walk-forward splits.
 
-    Pro Fold: train_start, train_end, test_start, test_end, n_train, n_test.
-    Nützlich für Sanity-Checks (Überlappungs-Prüfung, Fold-Anzahl, Fenster-Größen)
-    und als Datenquelle für die Walk-Forward-Schema-Visualisierung in Schritt 2.
+    Per fold: train_start, train_end, test_start, test_end, n_train, n_test.
+    Useful for sanity checks (overlap check, fold count, window sizes)
+    and as the data source for the walk-forward schema visualization in step 2.
     """
     rows = []
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
@@ -145,12 +145,12 @@ def assert_no_leakage(
     splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]],
 ) -> None:
     """
-    Sanity-Check: verifiziert, dass kein Train-Fenster in den zugehörigen
-    Test-Bereich hineinreicht. Wirft AssertionError bei Verletzung.
+    Sanity check: verifies that no training window extends into the
+    corresponding test range. Raises AssertionError on violation.
 
-    Aufrufen direkt nach walk_forward_splits() im Code, bevor irgendein
-    Training startet — schützt vor subtilen Off-by-One-Bugs in der
-    Datums-Logik.
+    Call directly after walk_forward_splits() in the code, before any
+    training starts; protects against subtle off-by-one bugs in the
+    date logic.
     """
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
         if len(train_idx) == 0 or len(test_idx) == 0:
@@ -158,8 +158,8 @@ def assert_no_leakage(
         train_max = train_idx.max()
         test_min = test_idx.min()
         assert train_max < test_min, (
-            f"Fold {fold_id}: Train-Ende ({train_max}) liegt nicht strikt vor "
-            f"Test-Beginn ({test_min}) — Look-Ahead-Verdacht!"
+            f"Fold {fold_id}: train end ({train_max}) does not lie strictly before "
+            f"test start ({test_min}): possible look-ahead!"
         )
 
 def run_walk_forward(
@@ -169,12 +169,12 @@ def run_walk_forward(
     models_to_run: list[str],
 ) -> pd.DataFrame:
     """
-    Walk-Forward mit parallelisierten CPU-Modellen (MSM, HMM) und
-    sequentiellem DL-Training (LSTM, Transformer) auf der GPU.
+    Walk-forward with parallelized CPU models (MSM, HMM) and
+    sequential DL training (LSTM, Transformer) on the GPU.
 
-    Parallelisierung gilt ausschliesslich innerhalb der CPU-Fold-Schleife;
-    Ergebnisse sind bit-identisch zur sequentiellen Variante, da jeder Fold
-    einen eigenen RandomState und keinen Shared State hat.
+    Parallelization applies exclusively within the CPU fold loop;
+    results are bit-identical to the sequential variant, since every fold
+    has its own RandomState and no shared state.
     """
     import warnings
     import logging
@@ -185,7 +185,7 @@ def run_walk_forward(
     logger = logging.getLogger("model_service")
     n_jobs = getattr(cfg.walk_forward, "n_jobs", -1)
 
-    # 1. Supervised-Labels einmalig fuer den gesamten DF erzeugen
+    # 1. Create the supervised labels once for the entire DF
     supervised_label_source = cfg.labels.supervised_label_source
     result_df = df.copy()
     if supervised_label_source != "hmm":
@@ -199,9 +199,9 @@ def run_walk_forward(
 
     failed_folds = {m: 0 for m in models_to_run}
 
-    # 2. CPU-Modelle parallel ueber alle Folds
+    # 2. CPU models in parallel over all folds
     logger.info(
-        f"Walk-Forward CPU-Phase start: n_jobs={n_jobs}, folds={len(splits)}, "
+        f"Walk-forward CPU phase start: n_jobs={n_jobs}, folds={len(splits)}, "
         f"models={[m for m in models_to_run if m in ('MSM', 'HMM', 'HMM_Uni')]}"
     )
     parallel_results = run_folds_parallel(
@@ -219,20 +219,20 @@ def run_walk_forward(
                 continue
             result_df.loc[r["test_idx"], f"{model_name}_Prob"]   = r["probs"].values
             result_df.loc[r["test_idx"], f"{model_name}_Signal"] = r["signal"].values
-    logger.info("Walk-Forward CPU-Phase done")
+    logger.info("Walk-forward CPU phase done")
 
-    # 3. DL-Modelle sequentiell (GPU-gebunden)
+    # 3. DL models sequentially (GPU-bound)
     features = cfg.features.model_features
     label_col = resolve_label_col(cfg)
 
     logger.info(
-        f"Walk-Forward DL-Phase start: folds={len(splits)}, "
+        f"Walk-forward DL phase start: folds={len(splits)}, "
         f"models={[m for m in models_to_run if m in ('LSTM', 'Transformer')]}"
     )
-    # Warm-Start zwischen Folds: Gewichte aus Fold N-1 als Initialisierung fuer
-    # Fold N verwenden (Rolling-Window -> ~90% Train-Overlap -> legitim, weil
-    # Fold N-1 die Fold-N-Testdaten nie gesehen hat).
-    # Beim ersten Fold bzw. nach Fehlschlaegen: Kaltstart (state = None).
+    # Warm start between folds: use the weights from fold N-1 as initialization
+    # for fold N (rolling window -> ~90% train overlap -> legitimate, since
+    # fold N-1 has never seen the fold-N test data).
+    # For the first fold or after failures: cold start (state = None).
     lstm_state = None
     transformer_state = None
     dl_warm_start = getattr(cfg.walk_forward, "dl_warm_start", False)
@@ -265,7 +265,7 @@ def run_walk_forward(
                 if failed_folds["LSTM"] < 2:
                     traceback.print_exc()
                 failed_folds["LSTM"] += 1
-                # Warm-Start verwerfen, damit der naechste Fold wieder kalt startet.
+                # Discard the warm start so that the next fold starts cold again.
                 lstm_state = None
 
         if "Transformer" in models_to_run:
@@ -297,24 +297,23 @@ def run_walk_forward(
                 if failed_folds["Transformer"] < 2:
                     traceback.print_exc()
                 failed_folds["Transformer"] += 1
-                # Warm-Start verwerfen, damit der naechste Fold wieder kalt startet.
+                # Discard the warm start so that the next fold starts cold again.
                 transformer_state = None
 
-    logger.info("Walk-Forward DL-Phase done")
+    logger.info("Walk-forward DL phase done")
 
-    # 4. Abschluss-Report
-    print(f"\n=== Walk-Forward abgeschlossen ===")
+    # 4. Final report
+    print(f"\n=== Walk-forward complete ===")
     for model_name, n_failed in failed_folds.items():
         n_oos = result_df[f"{model_name}_Signal"].notna().sum()
-        print(f"  {model_name}: {n_oos} OOS-Tage, {n_failed} Folds fehlgeschlagen")
+        print(f"  {model_name}: {n_oos} OOS days, {n_failed} folds failed")
 
     return result_df
-    
+
 def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
     """
-    Erzeugt einen deterministischen Hash über alle Parameter, die das
-    Walk-Forward-Ergebnis beeinflussen. Ändert sich ein Parameter,
-    wird der Cache invalidiert.
+    Produces a deterministic hash over all parameters that influence the
+    walk-forward result. If any parameter changes, the cache is invalidated.
     """
     params = {
         "mode": cfg.walk_forward.mode,
@@ -324,7 +323,7 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "min_train_years": cfg.walk_forward.min_train_years,
         "df_shape": list(df_shape),
         "df_index_hash": df_index_hash,
-        # Modell-Hyperparameter, die das Ergebnis ändern
+        # Model hyperparameters that change the result
         "msm_k": cfg.models.msm.k_regimes,
         "msm_threshold": cfg.models.msm.threshold,
         "hmm_n_components": cfg.models.hmm.n_components,
@@ -358,14 +357,14 @@ def save_walk_forward_cache(
     fingerprint: str,
     cache_path: str,
 ) -> None:
-    """Speichert OOS-Ergebnisse + Fingerprint als Parquet mit Metadaten."""
+    """Saves the OOS results + fingerprint as Parquet with metadata."""
     test_df.attrs["wf_fingerprint"] = fingerprint
     test_df.to_parquet(cache_path)
-    # Fingerprint separat als .txt speichern (Parquet attrs gehen bei manchen
-    # Engines verloren)
+    # Store the fingerprint separately as .txt (Parquet attrs are lost with
+    # some engines)
     with open(cache_path + ".fingerprint", "w") as f:
         f.write(fingerprint)
-    print(f"  Walk-Forward-Cache gespeichert: {cache_path}")
+    print(f"  Walk-forward cache saved: {cache_path}")
 
 
 def load_walk_forward_cache(
@@ -373,8 +372,8 @@ def load_walk_forward_cache(
     expected_fingerprint: str,
 ) -> pd.DataFrame | None:
     """
-    Lädt Cache wenn vorhanden UND Fingerprint übereinstimmt.
-    Gibt None zurück wenn Cache ungültig/nicht vorhanden.
+    Loads the cache if it exists AND the fingerprint matches.
+    Returns None if the cache is invalid/missing.
     """
     import os
     fp_path = cache_path + ".fingerprint"
@@ -386,8 +385,8 @@ def load_walk_forward_cache(
         stored_fp = f.read().strip()
 
     if stored_fp != expected_fingerprint:
-        print(f"  Walk-Forward-Cache ungültig (Fingerprint mismatch). Re-Training nötig.")
+        print(f"  Walk-forward cache invalid (fingerprint mismatch). Retraining required.")
         return None
 
-    print(f"  Walk-Forward-Cache geladen: {cache_path}")
+    print(f"  Walk-forward cache loaded: {cache_path}")
     return pd.read_parquet(cache_path)

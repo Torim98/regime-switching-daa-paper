@@ -1,4 +1,4 @@
-"""Zentrale Auflösung der Supervised-Label-Quelle aus der Config."""
+"""Central resolution of the supervised label source from the config."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ import pandas as pd
 
 def compute_supervised_labels(df: pd.DataFrame, cfg) -> pd.Series:
     """
-    Erzeugt externes Regime-Label fuer LSTM/Transformer-Training.
+    Produces the external regime label for LSTM/Transformer training.
 
-    Rueckgabe
-    ---------
-    pd.Series (int8 oder NaN)
-        "Supervised_Label"-Serie mit gleichem Index wie df.
+    Returns
+    -------
+    pd.Series (int8 or NaN)
+        "Supervised_Label" series with the same index as df.
     """
     source = cfg.labels.supervised_label_source
     prices = df["Cumulative_Returns"]
@@ -27,15 +27,15 @@ def compute_supervised_labels(df: pd.DataFrame, cfg) -> pd.Series:
     elif source == "hmm":
         return pd.Series(np.nan, index=df.index)
     else:
-        raise ValueError(f"Unbekannte supervised_label_source: {source}")
+        raise ValueError(f"Unknown supervised_label_source: {source}")
 
 
 def resolve_label_col(cfg) -> str:
     """
-    Liefert den Spaltennamen, den LSTM/Transformer als `labels_col` nutzen.
+    Returns the column name that LSTM/Transformer use as `labels_col`.
 
     - "pagan_sossounov" / "peak_to_trough" -> "Supervised_Label"
-    - "hmm"                                -> "HMM_Signal" (Fallback, Legacy)
+    - "hmm"                                -> "HMM_Signal" (fallback, legacy)
     """
     if cfg.labels.supervised_label_source == "hmm":
         return "HMM_Signal"

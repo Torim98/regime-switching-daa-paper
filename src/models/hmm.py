@@ -1,4 +1,4 @@
-"""Hidden Markov Model (HMM) — hmmlearn mit Gaussian-Emissions."""
+"""Hidden Markov model (HMM), hmmlearn with Gaussian emissions."""
 
 import pandas as pd
 import numpy as np
@@ -9,8 +9,8 @@ import joblib
 from pathlib import Path
 
 def _filtered_probs(model: GaussianHMM, X: np.ndarray) -> np.ndarray:
-    """P(state_t | x_1..t) via reinem Forward-Pass — kein Backward-Pass,
-    daher kein Look-Ahead (Gegenstueck zu predict_proba = smoothed)."""
+    """P(state_t | x_1..t) via a pure forward pass; no backward pass,
+    hence no look-ahead (counterpart to predict_proba = smoothed)."""
     framelogprob = model._compute_log_likelihood(X)          # (T, n_states)
     log_alpha = np.empty_like(framelogprob)
     log_alpha[0] = np.log(model.startprob_ + 1e-300) + framelogprob[0]
@@ -46,7 +46,7 @@ def train_hmm(
     Path(model_file).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, model_file)
     joblib.dump(scaler, scaler_file)
-    print(f"HMM: Modell gespeichert unter {model_file}")
+    print(f"HMM: model saved at {model_file}")
 
     return model, scaler
 
@@ -61,59 +61,62 @@ def train_hmm_fold(
     threshold: float,
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
     """
-    Hidden Markov Model auf einem Walk-Forward-Fold trainieren.
+    Train the hidden Markov model on a walk-forward fold.
 
-    Logik:
-    1. Scaler NUR auf Train-Features fitten.
-    2. HMM NUR auf skalierten Train-Features fitten.
-    3. Bear-State-Identifikation auf TRAIN-Predictions:
-       Welches Regime hat im Trainingszeitraum die höhere Returns-Volatilität?
-       Diese Zuordnung wird gespeichert und auf Test angewendet.
-       (KRITISCH: NICHT auf Test-Daten basierend bestimmen, sonst Leakage!)
-    4. Gefilterte Wahrscheinlichkeiten P(State_t | x_1..t) via Forward-Pass auf Train+Test; Train-Fenster dient als Burn-in-Kontext. KEIN predict_proba (= smoothed, Look-Ahead innerhalb des Folds).
-    5. Bear-Wahrscheinlichkeit gemäß Train-Mapping extrahieren, Threshold anwenden.
+    Logic:
+    1. Fit the scaler ONLY on the train features.
+    2. Fit the HMM ONLY on the scaled train features.
+    3. Bear-state identification on the TRAIN predictions:
+       which regime has the higher return volatility in the training period?
+       This mapping is stored and applied to the test range.
+       (CRITICAL: do NOT determine it based on test data, otherwise leakage!)
+    4. Filtered probabilities P(state_t | x_1..t) via a forward pass on train+test;
+       the train window serves as burn-in context. NO predict_proba (= smoothed,
+       look-ahead within the fold).
+    5. Extract the bear probability per the train mapping, apply the threshold.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     features_df_train : pd.DataFrame
-        Feature-Slice für Training (z.B. df.loc[train_idx, hmm_features]).
+        Feature slice for training (e.g. df.loc[train_idx, hmm_features]).
     features_df_test : pd.DataFrame
-        Feature-Slice für Test, zeitlich strikt nach Train.
+        Feature slice for the test range, strictly after train in time.
     returns_train : pd.Series
-        Returns für den Trainingsbereich, wird AUSSCHLIESSLICH zur
-        Bear-State-Identifikation auf Train-Predictions benötigt.
+        Returns for the training range, needed EXCLUSIVELY for
+        bear-state identification on the train predictions.
     n_components, covariance_type, n_iter, random_state, threshold :
-        Identische Bedeutung wie in train_hmm / predict_hmm.
+        Same meaning as in train_hmm / predict_hmm.
 
-    Rückgabe
-    --------
+    Returns
+    -------
     tuple[pd.Series, pd.Series]
-        (probs, signal), beide indexiert auf features_df_test.index.
+        (probs, signal), both indexed on features_df_test.index.
 
-    Hinweise
-    --------
-    - Cold-Start entfällt: Der Forward-Pass läuft über Train+Test, der Test startet mit korrektem Zustands-Prior.
-    - Falls sich bear_state zwischen Folds wild ändert, deutet das auf
-      instabile HMM-Konvergenz oder zu kurze Train-Fenster hin; im
-      Orchestrator entsprechend loggen.
+    Notes
+    -----
+    - No cold start: the forward pass runs over train+test, so the test
+      starts with the correct state prior.
+    - If bear_state changes erratically between folds, this indicates
+      unstable HMM convergence or training windows that are too short;
+      log accordingly in the orchestrator.
     """
-    # --- 1. Sanity-Checks ---
+    # --- 1. Sanity checks ---
     if features_df_train.index.max() >= features_df_test.index.min():
         raise ValueError(
-            f"features_df_train endet ({features_df_train.index.max()}) nicht strikt vor "
-            f"features_df_test ({features_df_test.index.min()}) — Look-Ahead-Verdacht!"
+            f"features_df_train does not end ({features_df_train.index.max()}) strictly before "
+            f"features_df_test ({features_df_test.index.min()}): possible look-ahead!"
         )
     if not features_df_train.index.equals(returns_train.index):
         raise ValueError(
-            "features_df_train.index und returns_train.index müssen identisch sein."
+            "features_df_train.index and returns_train.index must be identical."
         )
 
-    # --- 2. Skalierung — fit NUR auf Train ---
+    # --- 2. Scaling: fit ONLY on train ---
     scaler = RobustScaler()
     X_train_scaled = scaler.fit_transform(features_df_train.values)
     X_test_scaled = scaler.transform(features_df_test.values)
 
-    # --- 3. HMM auf Train fitten ---
+    # --- 3. Fit the HMM on train ---
     model = GaussianHMM(
         n_components=n_components,
         covariance_type=covariance_type,
@@ -122,32 +125,32 @@ def train_hmm_fold(
     )
     model.fit(X_train_scaled)
 
-    # --- 4. Bear-State-Identifikation aus TRAIN-Predictions ---
-    # Welches Regime hat im Training die höhere Volatilität der Returns?
-    # Diese Zuordnung wird gemerkt und auf Test angewendet.
+    # --- 4. Bear-state identification from the TRAIN predictions ---
+    # Which regime has the higher return volatility in training?
+    # This mapping is stored and applied to the test range.
     train_states = model.predict(X_train_scaled)
     state_0_vol = returns_train[train_states == 0].std()
     state_1_vol = returns_train[train_states == 1].std()
 
-    # NaN-Schutz: falls ein State im Train gar nicht auftritt
+    # NaN protection: in case one state is never visited in training
     if pd.isna(state_0_vol) or pd.isna(state_1_vol):
         raise ValueError(
-            f"HMM-Fold: Ein Regime wurde im Train nie besucht "
+            f"HMM fold: one regime was never visited in training "
             f"(state_0_vol={state_0_vol}, state_1_vol={state_1_vol}). "
-            f"Train-Fenster zu kurz oder zu homogen?"
+            f"Training window too short or too homogeneous?"
         )
 
     bear_state = 1 if state_1_vol > state_0_vol else 0
 
-    # --- 5. FILTERED probs auf Test (Train als Kontext, kein Look-Ahead) ---
+    # --- 5. FILTERED probs on test (train as context, no look-ahead) ---
     X_all = np.vstack([X_train_scaled, X_test_scaled])
     filtered = _filtered_probs(model, X_all)
     bear_probs = filtered[len(X_train_scaled):, bear_state]
-    
+
     probs = pd.Series(bear_probs, index=features_df_test.index)
     signal = (probs >= threshold).astype(int)
 
-    # Train-Signal für DL-Label-Injection (analog zu train_msm_fold)
+    # Train signal for DL label injection (analogous to train_msm_fold)
     train_probs_raw = model.predict_proba(X_train_scaled)[:, bear_state]
     signal_train = pd.Series(
         (train_probs_raw >= threshold).astype(int),
@@ -173,28 +176,28 @@ def predict_hmm(
     threshold: float,
 ) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Regimes und Wahrscheinlichkeiten bias-frei vorhersagen.
+    Predict regimes and probabilities bias-free.
 
-    1. Bear-State aus TRAIN-Predictions bestimmen (Volatilitätsvergleich).
-    2. Gefilterte Probs (Forward-Pass), Test mit Train als Kontext
+    1. Determine the bear state from the TRAIN predictions (volatility comparison).
+    2. Filtered probs (forward pass), test with train as context
 
-    Gibt (probs_train, signal_train, probs_test, signal_test) zurück.
+    Returns (probs_train, signal_train, probs_test, signal_test).
     """
     X_train_scaled = scaler.transform(features_df_train.values)
     X_test_scaled = scaler.transform(features_df_test.values)
 
-    # --- Bear-State aus Train-Predictions ---
+    # --- Bear state from the train predictions ---
     train_states = model.predict(X_train_scaled)
     state_0_vol = returns_train[train_states == 0].std()
     state_1_vol = returns_train[train_states == 1].std()
     bear_state = 1 if state_1_vol > state_0_vol else 0
 
-    # --- Train-Probs (filtered, nur Train-Information) ---
+    # --- Train probs (filtered, train information only) ---
     filtered_train = _filtered_probs(model, X_train_scaled)
     probs_train = pd.Series(filtered_train[:, bear_state], index=features_df_train.index)
     signal_train = (probs_train >= threshold).astype(int)
 
-    # --- Test-Probs (filtered, Train als Burn-in-Kontext, kein Look-Ahead) ---
+    # --- Test probs (filtered, train as burn-in context, no look-ahead) ---
     X_all = np.vstack([X_train_scaled, X_test_scaled])
     filtered = _filtered_probs(model, X_all)
     probs_test = pd.Series(filtered[len(X_train_scaled):, bear_state], index=features_df_test.index)

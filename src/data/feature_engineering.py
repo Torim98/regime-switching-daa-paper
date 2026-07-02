@@ -1,4 +1,4 @@
-"""Rolling-Window Feature-Konstruktion für Regime-Erkennung."""
+"""Rolling-window feature construction for regime detection."""
 
 import pandas as pd
 
@@ -10,17 +10,17 @@ def engineer_features(
     momentum_window: int,
 ) -> pd.DataFrame:
     """
-    Berechnet alle Features aus dem preprocessed DataFrame:
-    - Vol_20: Rollierende Standardabweichung der Portfolio-Renditen
-    - SMA_200: Rollierender Mittelwert der kumulativen Renditen
-      (Wir nutzen 'Cumulative_Returns' als unseren "Preis",
-      da dies den Wert des 60/40 Portfolios über die Zeit darstellt)
-    - Distance_SMA: Relative Abweichung vom gleitenden Durchschnitt
-    - Momentum: Rollierender Mittelwert der Renditen
-    - Yield_Spread: Renditestrukturkurve (10Y - 3M Spread)
-      Ein inverser Spread (3M > 10Y) ist ein klassischer Rezessionsindikator
+    Computes all features from the preprocessed DataFrame:
+    - Vol_20: rolling standard deviation of the portfolio returns
+    - SMA_200: rolling mean of the cumulative returns
+      (we use 'Cumulative_Returns' as our "price",
+      since it represents the value of the 60/40 portfolio over time)
+    - Distance_SMA: relative deviation from the moving average
+    - Momentum: rolling mean of the returns
+    - Yield_Spread: yield curve (10Y - 3M spread)
+      An inverted spread (3M > 10Y) is a classic recession indicator
 
-    Zeilen mit NaN-Werten (durch rolling) werden entfernt.
+    Rows with NaN values (caused by rolling) are removed.
     """
     result = df.copy()
 
@@ -30,10 +30,10 @@ def engineer_features(
         (result["Cumulative_Returns"] - result["SMA_200"]) / result["SMA_200"]
     )
     result["Momentum"] = result["Returns"].rolling(momentum_window).mean()
-    # Renditestrukturkurve (10Y - 3M Spread) - Ein inverser Spread (3M > 10Y) ist ein klassischer Rezessionsindikator
+    # Yield curve (10Y - 3M spread): an inverted spread (3M > 10Y) is a classic recession indicator
     result["Yield_Spread"] = result["TNX_10Y"] - result["IRX_3M"]
 
-    # Zeilen mit NaN-Werten (durch rolling) entfernen
+    # Remove rows with NaN values (caused by rolling)
     result = result.dropna()
 
     return result
