@@ -120,7 +120,7 @@ def run_backtest():
         sorr_summaries.extend(build_sorr_summary(sim_results, name))
 
     backtesting_sorr.to_parquet(cfg.data_path("backtesting_sorr"))
-    sorr_df = pd.DataFrame(sorr_summaries).set_index(["Szenario", "Strategie"])
+    sorr_df = pd.DataFrame(sorr_summaries).set_index(["Scenario", "Strategy"])
     sorr_df.to_markdown(cfg.asset_path("sorr_summary"), index=True)
 
     elapsed = time.time() - start
@@ -173,7 +173,7 @@ def evaluate():
     mcs_results.to_parquet(cfg.data_path("mcs_data"))
 
     if all_mc_summaries:
-        mc_summary_df = pd.DataFrame(all_mc_summaries).set_index(["Szenario", "Strategie"])
+        mc_summary_df = pd.DataFrame(all_mc_summaries).set_index(["Scenario", "Strategy"])
         mc_summary_df.to_markdown(cfg.asset_path("mcs_summary"))
 
     # MCS Plots
@@ -254,7 +254,7 @@ def evaluate():
     for m in models:
         t = switch_timing_vs_peak(test_df, backtesting_results, m, crisis_windows)
         if not t.empty:
-            t.insert(0, "Modell", m)
+            t.insert(0, "Model", m)
             switch_rows.append(t.reset_index())
     if switch_rows:
         pd.concat(switch_rows, ignore_index=True).to_markdown(

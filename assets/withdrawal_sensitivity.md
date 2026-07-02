@@ -1,8 +1,8 @@
-| Strategie   | ('Endkapital', '3.5%')   | ('Endkapital', '4.0%')   | ('Endkapital', '5.0%')   | ('Status', '3.5%')   | ('Status', '4.0%')   | ('Status', '5.0%')   |
-|:------------|:-------------------------|:-------------------------|:-------------------------|:---------------------|:---------------------|:---------------------|
-| Buy_Hold    | 871,962 €                | 695,461 €                | 342,458 €                | Kapitalerhalt        | Kapitalerhalt        | Kapitalerhalt        |
-| HMM         | 425,628 €                | 324,580 €                | 122,482 €                | Kapitalerhalt        | Kapitalerhalt        | Kapitalerhalt        |
-| HMM_Uni     | 494,851 €                | 353,983 €                | 72,247 €                 | Kapitalerhalt        | Kapitalerhalt        | Kapitalerhalt        |
-| LSTM        | 819,477 €                | 644,011 €                | 293,080 €                | Kapitalerhalt        | Kapitalerhalt        | Kapitalerhalt        |
-| MSM         | 428,386 €                | 275,867 €                | 0 €                      | Kapitalerhalt        | Kapitalerhalt        | Erschöpft (2025)     |
-| Transformer | 715,642 €                | 553,116 €                | 228,064 €                | Kapitalerhalt        | Kapitalerhalt        | Kapitalerhalt        |
+| Strategy    | ('Terminal Capital', '3.5%')   | ('Terminal Capital', '4.0%')   | ('Terminal Capital', '5.0%')   | ('Status', '3.5%')   | ('Status', '4.0%')   | ('Status', '5.0%')   |
+|:------------|:-------------------------------|:-------------------------------|:-------------------------------|:---------------------|:---------------------|:---------------------|
+| Buy_Hold    | 867,601 €                      | 691,478 €                      | 339,233 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| HMM         | 422,752 €                      | 321,831 €                      | 119,989 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| HMM_Uni     | 515,236 €                      | 384,681 €                      | 123,571 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| LSTM        | 858,236 €                      | 684,630 €                      | 337,418 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| MSM         | 425,496 €                      | 273,276 €                      | 0 €                            | Capital preserved    | Capital preserved    | Depleted (2025)      |
+| Transformer | 874,769 €                      | 702,838 €                      | 358,978 €                      | Capital preserved    | Capital preserved    | Capital preserved    |

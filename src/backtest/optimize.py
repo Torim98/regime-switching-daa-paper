@@ -701,25 +701,25 @@ def save_optuna_best_params(
     metric_label: str = "Sharpe (Median OOS)",
 ) -> str:
     """
-    Persistiert die besten Hyperparameter aller Optuna-Studies als Markdown.
+    Persists the best hyperparameters of all Optuna studies as Markdown.
 
-    Format: Übersichts-Tabelle (Modell · Best Score · ✓/✂/Total)
-    plus pro Modell eine Parameter-Tabelle mit lesbar formatierten Werten.
-    Zielpfad: cfg.asset_path("optuna_best_params").
+    Format: overview table (model · best score · ✓/✂/total)
+    plus one parameter table per model with readably formatted values.
+    Target path: cfg.asset_path("optuna_best_params").
     """
     from pathlib import Path
     import datetime
     import optuna as _optuna
 
     lines: list[str] = [
-        "# Optuna — Beste Hyperparameter",
+        "# Optuna: Best Hyperparameters",
         "",
-        f"_Generiert am {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_  ",
-        f"Optimierungs-Metrik: **{metric_label}**",
+        f"_Generated at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_  ",
+        f"Optimization metric: **{metric_label}**",
         "",
-        "## Übersicht",
+        "## Overview",
         "",
-        "| Modell | Best Score | ✓ Complete | ✗ Pruned | Total |",
+        "| Model | Best Score | ✓ Complete | ✗ Pruned | Total |",
         "|:---|---:|---:|---:|---:|",
     ]
     for name, study in studies.items():
@@ -738,9 +738,9 @@ def save_optuna_best_params(
     lines.append("")
 
     for name, study in studies.items():
-        lines.append(f"### {name} — Best Score `{study.best_value:.4f}`")
+        lines.append(f"### {name}: Best Score `{study.best_value:.4f}`")
         lines.append("")
-        lines.append("| Parameter | Wert |")
+        lines.append("| Parameter | Value |")
         lines.append("|:---|---:|")
         for k, v in study.best_params.items():
             lines.append(f"| `{k}` | `{_format_param_value(v)}` |")

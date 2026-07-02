@@ -1,4 +1,4 @@
-"""Backtesting-Engine — Kumulierte Renditeberechnung mit Transaktionskosten."""
+"""Backtesting engine: cumulative return calculation with transaction costs."""
 
 import pandas as pd
 import numpy as np
@@ -11,33 +11,33 @@ def backtest(
     fee: float,
 ) -> pd.Series:
     """
-    Berechnet die kumulierte Rendite unter Berücksichtigung von Transaktionskosten.
-    fee: Kosten für einen vollständigen Wechsel (z.B. 0.1% = 0.001).
+    Computes the cumulative return taking transaction costs into account.
+    fee: cost of a full switch (e.g. 0.1% = 0.001).
 
-    Logik:
-    - Signal um konfigurierbare Tage verschieben zur Vermeidung von Look-ahead Bias
-    - Trades identifizieren: Wo unterscheidet sich das Signal von heute zu gestern?
-    - Wenn Signal 0 → Portfolio-Return, sonst Cash-Return
-    - Transaktionskosten abziehen
-    - Kumulierte Rendite berechnen
+    Logic:
+    - Shift the signal by a configurable number of days to prevent look-ahead bias
+    - Identify trades: where does today's signal differ from yesterday's?
+    - If signal 0 → portfolio return, otherwise cash return
+    - Subtract transaction costs
+    - Compute the cumulative return
     """
-    # Signal um konfigurierbare Tage verschieben zur Vermeidung von Look-ahead Bias
+    # Shift the signal by a configurable number of days to prevent look-ahead bias
     trading_signal = df[signal_col].shift(signal_shift).fillna(0)
 
-    # Trades identifizieren: Wo unterscheidet sich das Signal von heute zu gestern?
+    # Identify trades: where does today's signal differ from yesterday's?
     trades = trading_signal.diff().fillna(0).abs()
 
-    # Logik: Wenn Signal 0 -> Portfolio-Return, sonst Cash-Return
+    # Logic: if signal 0 -> portfolio return, otherwise cash return
     strategy_returns = np.where(
         trading_signal == 0,
         df["Returns"],
         df["Cash_Returns"],
     )
 
-    # Transaktionskosten abziehen
+    # Subtract transaction costs
     net_strategy_returns = strategy_returns - (trades * fee)
 
-    # Kumulierte Rendite berechnen
+    # Compute the cumulative return
     return pd.Series(np.exp(net_strategy_returns.cumsum()), index=df.index)
 
 
@@ -47,36 +47,36 @@ def run_all_backtests(
     signal_shift: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Alle verfügbaren Modelle dynamisch identifizieren (anhand der _Signal Endung)
-    und Backtesting durchführen.
+    Dynamically identify all available models (via the _Signal suffix)
+    and run the backtesting.
 
-    Benchmark: Buy & Hold des 60/40 Portfolios (0 Transaktionskosten, da nie umgeschichtet).
+    Benchmark: buy and hold of the 60/40 portfolio (0 transaction costs, since never reallocated).
 
-    Gibt (backtesting_results, backtesting_transaction_costs) zurück.
+    Returns (backtesting_results, backtesting_transaction_costs).
     """
-    # Alle verfügbaren Modelle dynamisch identifizieren (anhand der _Signal Endung)
+    # Dynamically identify all available models (via the _Signal suffix)
     signal_cols = [col for col in test_df.columns if col.endswith("_Signal")]
 
-    # Ergebnisse-DataFrame initialisieren
+    # Initialize the results DataFrame
     backtesting_results = pd.DataFrame(index=test_df.index)
-    # DataFrame für den zeitlichen Verlauf der Transaktionskosten
+    # DataFrame for the transaction costs over time
     backtesting_transaction_costs = pd.DataFrame(index=test_df.index)
 
-    # Benchmark berechnen (Buy & Hold des 60/40 Portfolios)
+    # Compute the benchmark (buy and hold of the 60/40 portfolio)
     backtesting_results["Buy_Hold"] = np.exp(test_df["Returns"].cumsum())
-    # Buy & Hold hat 0 Transaktionskosten, da wir nie umschichten
+    # Buy and hold has 0 transaction costs, since we never reallocate
     backtesting_transaction_costs["Buy_Hold"] = 0.0
 
-    # Alle erkannten Modelle dynamisch backtesten
+    # Dynamically backtest all detected models
     for sig_col in signal_cols:
         model_name = sig_col.rsplit("_", 1)[0]
 
-        print(f"Berechne Backtest für {model_name} mit {fee_rate*100}% Kosten...")
+        print(f"Running backtest for {model_name} with {fee_rate*100}% costs...")
         backtesting_results[model_name] = backtest(
             test_df, sig_col, signal_shift=signal_shift, fee=fee_rate,
         )
 
-        # Transaktionskosten im zeitlichen Verlauf berechnen
+        # Compute transaction costs over time
         trading_signal = test_df[sig_col].shift(signal_shift).fillna(0)
         trades = trading_signal.diff().fillna(0).abs()
         backtesting_transaction_costs[model_name] = (trades * fee_rate).cumsum()
@@ -89,84 +89,84 @@ def calculate_performance_summary(
     initial_capital: float = 1.0,
 ) -> pd.DataFrame:
     """
-    Performance & Drawdown Zusammenfassung berechnen.
-    Pro Strategie: Final Wealth (in €), Total Return, Max Drawdown.
+    Compute the performance & drawdown summary.
+    Per strategy: final wealth (in €), total return, max drawdown.
     """
     summary_stats = []
 
     for col in backtesting_results.columns:
         series = backtesting_results[col]
 
-        # Normierter Endwert (Start = 1.0) und Total Return bleiben skalierungs-invariant
+        # Normalized final value (start = 1.0) and total return remain scale-invariant
         final_norm = series.iloc[-1]
         total_ret = (final_norm - 1) * 100
         final_eur = final_norm * initial_capital
 
-        # Max Drawdown berechnen
+        # Compute max drawdown
         roll_max = series.cummax()
         drawdown = series / roll_max - 1.0
         mdd = drawdown.min() * 100
 
         summary_stats.append({
-            "Strategie": col,
+            "Strategy": col,
             "Final Wealth": f"{final_eur:,.0f} €",
             "Total Return": f"{total_ret:+.2f}%",
             "Max Drawdown": f"{mdd:.2f}%",
         })
 
-    return pd.DataFrame(summary_stats).set_index("Strategie")
+    return pd.DataFrame(summary_stats).set_index("Strategy")
 
 def calculate_annualized_metrics(
     backtesting_results: pd.DataFrame,
     trading_days_per_year: int = 252,
 ) -> pd.DataFrame:
     """
-    Annualisierte Performance-Metriken für alle Strategien.
+    Annualized performance metrics for all strategies.
 
-    Konvention (kanonisch nach Sharpe, 1966; konsistent zu
-    src/backtest/evaluation.py::evaluate_strategies und
+    Convention (canonical per Sharpe, 1966; consistent with
+    src/backtest/evaluation.py::evaluate_strategies and
     src/backtest/optimize.py::_compute_oos_sharpe):
 
-    - Tägliche einfache Renditen via pct_change (NICHT Log-Renditen).
-    - Sharpe / Sortino auf Basis des arithmetischen Mittels der Tagesrenditen
-      (AM × √252 / σ bzw. AM × √252 / σ_downside) — nicht CAGR-basiert.
-      Die CAGR-Variante (cagr / σ) unterschätzt Sharpe systematisch um den
-      Volatility-Drag (½σ²) und ist nicht die Sharpe-1966-Definition.
+    - Daily simple returns via pct_change (NOT log returns).
+    - Sharpe / Sortino based on the arithmetic mean of the daily returns
+      (AM × √252 / σ and AM × √252 / σ_downside), not CAGR-based.
+      The CAGR variant (cagr / σ) systematically underestimates Sharpe by the
+      volatility drag (½σ²) and is not the Sharpe (1966) definition.
 
-    Berechnet pro Strategie:
-    - Annualisierte Rendite (CAGR; weiterhin geometrisch für Renditeausweis)
-    - Annualisierte Volatilität (σ × √252 aus einfachen Tagesrenditen)
-    - Sharpe Ratio (AM × √252 / σ; rf=0, da Cash bereits in Strategie eingepreist)
-    - Sortino Ratio (AM × √252 / σ_downside)
-    - Max Drawdown
-    - Calmar Ratio (CAGR / |Max DD|)
-    - OOS-Tage / OOS-Jahre
+    Computes per strategy:
+    - Annualized return (CAGR; still geometric for return reporting)
+    - Annualized volatility (σ × √252 from simple daily returns)
+    - Sharpe ratio (AM × √252 / σ; rf=0, since cash is already priced into the strategy)
+    - Sortino ratio (AM × √252 / σ_downside)
+    - Max drawdown
+    - Calmar ratio (CAGR / |max DD|)
+    - OOS days / OOS years
     """
     summary = []
 
     for col in backtesting_results.columns:
         equity = backtesting_results[col]
-        # Tägliche einfache Renditen (konsistent zu evaluate_strategies)
+        # Daily simple returns (consistent with evaluate_strategies)
         daily_rets = equity.pct_change().dropna()
 
         n_days = len(daily_rets)
         n_years = n_days / trading_days_per_year
 
-        # CAGR (geometrische Jahresrendite; nur als Renditeausweis & für Calmar)
+        # CAGR (geometric annual return; only for return reporting & Calmar)
         total_return = equity.iloc[-1] / equity.iloc[0]
         cagr = total_return ** (1 / n_years) - 1 if n_years > 0 else 0
 
-        # Volatilität (annualisiert)
+        # Volatility (annualized)
         ann_vol = daily_rets.std() * np.sqrt(trading_days_per_year)
 
-        # Sharpe Ratio — AM-basiert (Sharpe, 1966)
+        # Sharpe ratio, AM-based (Sharpe, 1966)
         std_daily = daily_rets.std()
         sharpe = (
             (daily_rets.mean() / std_daily) * np.sqrt(trading_days_per_year)
             if std_daily > 0 else 0
         )
 
-        # Sortino Ratio — AM-basiert (nur Downside-Vol)
+        # Sortino ratio, AM-based (downside vol only)
         downside = daily_rets[daily_rets < 0]
         downside_std_daily = downside.std() if len(downside) > 0 else 0
         sortino = (
@@ -174,41 +174,41 @@ def calculate_annualized_metrics(
             if downside_std_daily > 0 else 0
         )
 
-        # Max Drawdown
+        # Max drawdown
         roll_max = equity.cummax()
         drawdown = equity / roll_max - 1.0
         max_dd = drawdown.min()
 
-        # Calmar Ratio
+        # Calmar ratio
         calmar = cagr / abs(max_dd) if max_dd != 0 else 0
 
         summary.append({
-            "Strategie": col,
+            "Strategy": col,
             "CAGR": f"{cagr*100:+.2f}%",
-            "Ann. Volatilität": f"{ann_vol*100:.2f}%",
+            "Ann. Volatility": f"{ann_vol*100:.2f}%",
             "Sharpe Ratio": f"{sharpe:.3f}",
             "Sortino Ratio": f"{sortino:.3f}",
             "Max Drawdown": f"{max_dd*100:.2f}%",
             "Calmar Ratio": f"{calmar:.3f}",
-            "OOS-Tage": n_days,
-            "OOS-Jahre": f"{n_years:.1f}",
+            "OOS Days": n_days,
+            "OOS Years": f"{n_years:.1f}",
         })
 
-    return pd.DataFrame(summary).set_index("Strategie")
+    return pd.DataFrame(summary).set_index("Strategy")
 
 def calculate_crisis_performance(
     backtesting_results: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Performance während historischer Krisenperioden.
-    Zeigt Return und Max Drawdown pro Strategie in jeder Krise.
+    Performance during historical crisis periods.
+    Shows return and max drawdown per strategy in each crisis.
     """
     crises = {
-        "Dot-Com (2000-03 – 2002-10)":    ("2000-03-01", "2002-10-31"),
-        "GFC (2007-10 – 2009-03)":         ("2007-10-01", "2009-03-31"),
-        "EU-Schuldenkrise (2011-07 – 2011-11)": ("2011-07-01", "2011-11-30"),
-        "COVID Crash (2020-02 – 2020-03)": ("2020-02-01", "2020-03-31"),
-        "Zinsanstieg (2022-01 – 2022-10)": ("2022-01-01", "2022-10-31"),
+        "Dot-Com (2000-03 to 2002-10)":        ("2000-03-01", "2002-10-31"),
+        "GFC (2007-10 to 2009-03)":            ("2007-10-01", "2009-03-31"),
+        "EU Debt Crisis (2011-07 to 2011-11)": ("2011-07-01", "2011-11-30"),
+        "COVID Crash (2020-02 to 2020-03)":    ("2020-02-01", "2020-03-31"),
+        "Rate Hikes (2022-01 to 2022-10)":     ("2022-01-01", "2022-10-31"),
     }
 
     rows = []
@@ -217,7 +217,7 @@ def calculate_crisis_performance(
         crisis_data = backtesting_results.loc[mask]
 
         if len(crisis_data) < 2:
-            continue  # Krise nicht im OOS-Bereich
+            continue  # Crisis not in the OOS range
 
         for col in backtesting_results.columns:
             equity = crisis_data[col]
@@ -226,8 +226,8 @@ def calculate_crisis_performance(
             crisis_dd = (equity / roll_max - 1).min() * 100
 
             rows.append({
-                "Krise": crisis_name,
-                "Strategie": col,
+                "Crisis": crisis_name,
+                "Strategy": col,
                 "Return": f"{crisis_ret:+.2f}%",
                 "Max Drawdown": f"{crisis_dd:.2f}%",
             })
@@ -236,27 +236,27 @@ def calculate_crisis_performance(
         return pd.DataFrame()
 
     return pd.DataFrame(rows).pivot(
-        index="Krise", columns="Strategie", values=["Return", "Max Drawdown"]
+        index="Crisis", columns="Strategy", values=["Return", "Max Drawdown"]
     )
 
 def calculate_rolling_sharpe(
     backtesting_results: pd.DataFrame,
     window_days: int = 252,
     trading_days_per_year: int = 252,
-    min_vol_annualized: float = 0.005,  # 0.5% jährliche Volatilität Mindestschwelle
-    cap: float = 10.0,                   # Ökonomisch plausibles Maximum
+    min_vol_annualized: float = 0.005,  # 0.5% minimum annualized volatility threshold
+    cap: float = 10.0,                   # economically plausible maximum
 ) -> pd.DataFrame:
     """
-    Rollierender Sharpe Ratio (1-Jahres-Fenster) für alle Strategien.
+    Rolling Sharpe ratio (1-year window) for all strategies.
 
-    Stabilisierung:
-    - Fenster mit annualisierter Volatilität unter `min_vol_annualized` werden
-      als NaN markiert (vermeidet Division durch ~0 in Cash-Only-Phasen, in
-      denen die Strategie durchgängig im Safe-Haven sitzt).
-    - Werte werden auf ±`cap` begrenzt (Sharpe > 10 ist ökonomisch unplausibel
-      und meist Artefakt numerischer Instabilität).
+    Stabilization:
+    - Windows with annualized volatility below `min_vol_annualized` are
+      marked as NaN (avoids division by ~0 in cash-only phases in which
+      the strategy sits entirely in the safe haven).
+    - Values are capped at ±`cap` (Sharpe > 10 is economically implausible
+      and usually an artifact of numerical instability).
 
-    Gibt DataFrame mit gleicher Struktur wie backtesting_results zurück.
+    Returns a DataFrame with the same structure as backtesting_results.
     """
     rolling_sharpe = pd.DataFrame(index=backtesting_results.index)
 
@@ -267,20 +267,20 @@ def calculate_rolling_sharpe(
         roll_mean = daily_rets.rolling(window_days).mean() * trading_days_per_year
         roll_std = daily_rets.rolling(window_days).std() * np.sqrt(trading_days_per_year)
 
-        # Rohwert berechnen (mit Division-Schutz)
+        # Compute the raw value (with division protection)
         sharpe = roll_mean / roll_std.replace(0, np.nan)
 
-        # Low-Vol-Fenster (Cash-Only-Phasen) auf 0 setzen statt NaN.
-        # Begründung: Flache Phase = keine Überrendite, kein Risiko = Sharpe 0.
-        # Das erhält die Linie durchgängig und vermeidet die Division-durch-~0-Peaks.
+        # Set low-vol windows (cash-only phases) to 0 instead of NaN.
+        # Rationale: flat phase = no excess return, no risk = Sharpe 0.
+        # This keeps the line continuous and avoids division-by-~0 peaks.
         low_vol_mask = roll_std < min_vol_annualized
         sharpe[low_vol_mask] = 0.0
 
-        # Auf plausiblen Bereich clippen (fängt verbleibende numerische Ausreißer)
+        # Clip to a plausible range (catches remaining numerical outliers)
         sharpe = sharpe.clip(lower=-cap, upper=cap)
 
-        # Verbleibende NaN sind strukturell bedingt (Fold-Ränder, window_size-Offset
-        # bei DL-Modellen) — diese bleiben als NaN erhalten.
+        # Remaining NaNs are structural (fold edges, window_size offset
+        # for DL models) and are kept as NaN.
 
         rolling_sharpe[col] = sharpe
 

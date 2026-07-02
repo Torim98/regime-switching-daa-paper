@@ -1,11 +1,11 @@
-"""Datenqualitätsprüfung (Issue #2): Coverage, Missing Values, Adjustment-Plausibilität.
+"""Data quality checks (Issue #2): coverage, missing values, adjustment plausibility.
 
-Erzeugt einen Markdown-Report über die Rohdaten (Bronze, VOR ffill/dropna) und
-die Auswirkung der Bereinigung (Silver). Reine Funktionen ohne Config-Abhängigkeit;
-die aufrufende Route (data_service) übergibt Freeze-Metadaten und schreibt die Datei.
+Generates a Markdown report on the raw data (Bronze, BEFORE ffill/dropna) and
+the effect of cleaning (Silver). Pure functions without config dependency;
+the calling route (data_service) passes freeze metadata and writes the file.
 
-Analog zu src/data/eda.py gehalten: DataFrame-basierte Teil-Reports, die im
-Master-Report als Markdown-Tabellen zusammengesetzt werden.
+Kept analogous to src/data/eda.py: DataFrame-based partial reports that are
+assembled into the master report as Markdown tables.
 """
 
 from __future__ import annotations
@@ -16,15 +16,15 @@ from datetime import datetime
 from importlib.metadata import version, PackageNotFoundError
 
 
-# Preis-basierte Ticker (Log-Return-Plausibilität) vs. Level-Serien (VIX/Zinsen)
+# Price-based tickers (log-return plausibility) vs. level series (VIX/interest rates)
 PRICE_TICKERS = ["^GSPC", "VUSTX"]
 
 
 # --------------------------------------------------------------------------- #
-# Hilfsfunktionen
+# Helper functions
 # --------------------------------------------------------------------------- #
 def _yfinance_version() -> str:
-    """Installierte yfinance-Version für die Freeze-Dokumentation."""
+    """Installed yfinance version for the freeze documentation."""
     try:
         return version("yfinance")
     except PackageNotFoundError:
@@ -32,14 +32,14 @@ def _yfinance_version() -> str:
 
 
 def _fmt_date(ts) -> str:
-    """Timestamp -> 'YYYY-MM-DD' (robust gegen None/NaT)."""
+    """Timestamp -> 'YYYY-MM-DD' (robust against None/NaT)."""
     if ts is None or (isinstance(ts, float) and np.isnan(ts)) or pd.isna(ts):
         return "n/a"
     return pd.Timestamp(ts).date().isoformat()
 
 
 def _longest_nan_run(series: pd.Series) -> int:
-    """Längste zusammenhängende Folge fehlender Werte (in Beobachtungen)."""
+    """Longest contiguous run of missing values (in observations)."""
     isna = series.isna().to_numpy()
     if not isna.any():
         return 0
@@ -52,7 +52,7 @@ def _longest_nan_run(series: pd.Series) -> int:
 
 
 def _robust_z(x: pd.Series) -> pd.Series:
-    """MAD-basierter robuster z-Score (fat-tail-tauglich, konsistent zu RobustScaler)."""
+    """MAD-based robust z-score (fat-tail-proof, consistent with RobustScaler)."""
     med = x.median()
     mad = (x - med).abs().median()
     if mad == 0 or np.isnan(mad):
@@ -61,22 +61,22 @@ def _robust_z(x: pd.Series) -> pd.Series:
 
 
 # --------------------------------------------------------------------------- #
-# Teil-Reports
+# Partial reports
 # --------------------------------------------------------------------------- #
 def coverage_report(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Abdeckung je Ticker: Zeitraum, beobachtete vs. erwartete Handelstage.
+    """Coverage per ticker: period, observed vs. expected trading days.
 
-    Erwartete Handelstage werden über `pd.bdate_range` (Mo–Fr) approximiert.
-    Börsenfeiertage sind darin enthalten, daher ist die Coverage eine konservative
-    Untergrenze (auch bei lückenlosen Daten < 100 % wegen Feiertagen).
+    Expected trading days are approximated via `pd.bdate_range` (Mon-Fri).
+    Exchange holidays are included, so the coverage is a conservative
+    lower bound (below 100% even for gapless data due to holidays).
     """
     rows = []
     for col in raw_df.columns:
         valid = raw_df[col].dropna()
         if valid.empty:
             rows.append({
-                "Ticker": col, "Von": "n/a", "Bis": "n/a",
-                "Beob. Tage": 0, "Erw. Bd (Mo–Fr)": 0, "Coverage %": "n/a",
+                "Ticker": col, "From": "n/a", "To": "n/a",
+                "Obs. Days": 0, "Exp. Bd (Mon-Fri)": 0, "Coverage %": "n/a",
             })
             continue
         first, last = valid.index.min(), valid.index.max()
@@ -84,19 +84,19 @@ def coverage_report(raw_df: pd.DataFrame) -> pd.DataFrame:
         observed = int(valid.shape[0])
         rows.append({
             "Ticker": col,
-            "Von": _fmt_date(first),
-            "Bis": _fmt_date(last),
-            "Beob. Tage": observed,
-            "Erw. Bd (Mo–Fr)": expected,
+            "From": _fmt_date(first),
+            "To": _fmt_date(last),
+            "Obs. Days": observed,
+            "Exp. Bd (Mon-Fri)": expected,
             "Coverage %": f"{100 * observed / expected:.2f}" if expected else "n/a",
         })
     return pd.DataFrame(rows).set_index("Ticker")
 
 
 def missing_value_report(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Fehlende Werte je Ticker im ROH-Frame (vor ffill/dropna).
+    """Missing values per ticker in the RAW frame (before ffill/dropna).
 
-    Macht den in preprocessing.fill_missing_values() stillen Datenverlust sichtbar.
+    Makes the data loss that is silent in preprocessing.fill_missing_values() visible.
     """
     rows = []
     n = len(raw_df)
@@ -105,11 +105,11 @@ def missing_value_report(raw_df: pd.DataFrame) -> pd.DataFrame:
         n_missing = int(s.isna().sum())
         rows.append({
             "Ticker": col,
-            "NaN (roh)": n_missing,
+            "NaN (raw)": n_missing,
             "NaN %": f"{100 * n_missing / n:.3f}" if n else "n/a",
-            "Längste Lücke (Tage)": _longest_nan_run(s),
-            "Erster Wert": _fmt_date(s.first_valid_index()),
-            "Letzter Wert": _fmt_date(s.last_valid_index()),
+            "Longest Gap (Days)": _longest_nan_run(s),
+            "First Value": _fmt_date(s.first_valid_index()),
+            "Last Value": _fmt_date(s.last_valid_index()),
         })
     return pd.DataFrame(rows).set_index("Ticker")
 
@@ -119,11 +119,11 @@ def adjustment_jump_report(
     price_tickers: list[str] = PRICE_TICKERS,
     z_thresh: float = 8.0,
 ) -> pd.DataFrame:
-    """Sprung-/Ausreißer-Check auf Log-Renditen der Preis-Serien.
+    """Jump/outlier check on the log returns of the price series.
 
-    Proxy für Adjustment-Fehler: eine fehlerhafte Split-/Dividenden-Bereinigung
-    zeigt sich als unplausibler Tagessprung. Gemeldet werden je Ticker die Anzahl
-    Tage mit |robust-z| > z_thresh sowie die größte Tagesbewegung.
+    Proxy for adjustment errors: a faulty split/dividend adjustment
+    shows up as an implausible daily jump. Reported per ticker: the number of
+    days with |robust z| > z_thresh and the largest daily move.
     """
     rows = []
     for col in price_tickers:
@@ -136,9 +136,9 @@ def adjustment_jump_report(
         z = _robust_z(logret)
         rows.append({
             "Ticker": col,
-            "Max. abs. Tagesrendite": f"{logret.abs().max():.4f}",
-            f"Ausreißertage (z>{z_thresh:g})": int((z.abs() > z_thresh).sum()),
-            "Größter Sprung (Datum)": _fmt_date(logret.abs().idxmax()),
+            "Max. Abs. Daily Return": f"{logret.abs().max():.4f}",
+            f"Outlier Days (z>{z_thresh:g})": int((z.abs() > z_thresh).sum()),
+            "Largest Jump (Date)": _fmt_date(logret.abs().idxmax()),
         })
     return pd.DataFrame(rows).set_index("Ticker")
 
@@ -148,10 +148,10 @@ def worst_moves_report(
     price_tickers: list[str] = PRICE_TICKERS,
     top_n: int = 5,
 ) -> pd.DataFrame:
-    """Top-N größte absolute Tagesbewegungen je Preis-Serie (Plausibilitätssicht).
+    """Top-N largest absolute daily moves per price series (plausibility view).
 
-    Dient dem Abgleich mit bekannten Krisentagen (z. B. 2008-10, 2020-03):
-    Sprünge an bekannten Terminen sind plausibel, isolierte Sprünge nicht.
+    Serves for cross-checking against known crisis days (e.g. 2008-10, 2020-03):
+    jumps on known dates are plausible, isolated jumps are not.
     """
     rows = []
     for col in price_tickers:
@@ -165,9 +165,9 @@ def worst_moves_report(
         for rank, (date, val) in enumerate(top.items(), start=1):
             rows.append({
                 "Ticker": col,
-                "Rang": rank,
-                "Datum": _fmt_date(date),
-                "Log-Rendite": f"{val:+.4f}",
+                "Rank": rank,
+                "Date": _fmt_date(date),
+                "Log Return": f"{val:+.4f}",
             })
     return pd.DataFrame(rows).set_index("Ticker")
 
@@ -176,25 +176,25 @@ def cleaning_impact_report(
     raw_df: pd.DataFrame,
     preprocessed_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Auswirkung der Bereinigung: Zeilen roh vs. preprocessed.
+    """Effect of cleaning: rows raw vs. preprocessed.
 
-    Die Differenz umfasst per dropna() entfernte Start-Zeilen (kein ffill-Anker)
-    sowie die eine durch die Log-Return-Bildung (shift) verlorene Zeile.
+    The difference comprises start rows removed via dropna() (no ffill anchor)
+    and the single row lost through the log-return construction (shift).
     """
     n_raw = len(raw_df)
     n_pre = len(preprocessed_df)
     dropped = n_raw - n_pre
     rows = [
-        {"Kennzahl": "Zeilen roh (Bronze)", "Wert": n_raw},
-        {"Kennzahl": "Zeilen bereinigt (Silver)", "Wert": n_pre},
-        {"Kennzahl": "Entfernt (dropna + Return-Shift)", "Wert": dropped},
-        {"Kennzahl": "Entfernt %", "Wert": f"{100 * dropped / n_raw:.3f}" if n_raw else "n/a"},
+        {"Metric": "Rows raw (Bronze)", "Value": n_raw},
+        {"Metric": "Rows cleaned (Silver)", "Value": n_pre},
+        {"Metric": "Removed (dropna + return shift)", "Value": dropped},
+        {"Metric": "Removed %", "Value": f"{100 * dropped / n_raw:.3f}" if n_raw else "n/a"},
     ]
-    return pd.DataFrame(rows).set_index("Kennzahl")
+    return pd.DataFrame(rows).set_index("Metric")
 
 
 # --------------------------------------------------------------------------- #
-# Master-Report
+# Master report
 # --------------------------------------------------------------------------- #
 def build_data_quality_report(
     raw_df: pd.DataFrame,
@@ -204,27 +204,27 @@ def build_data_quality_report(
     is_frozen: bool,
     price_tickers: list[str] = PRICE_TICKERS,
 ) -> str:
-    """Vollständigen Data-Quality-Report als Markdown-String zusammensetzen.
+    """Assemble the full data quality report as a Markdown string.
 
-    Parameter
-    ---------
-    raw_df : Bronze-Frame (Ticker-Spalten, VOR ffill/dropna).
-    preprocessed_df : Silver-Frame (nach preprocess_pipeline).
-    freeze_date : cfg.data.end_date (aufgelöstes Enddatum).
-    is_frozen : cfg.data.end_date_is_frozen (False = dynamisch/rolling).
+    Parameters
+    ----------
+    raw_df : Bronze frame (ticker columns, BEFORE ffill/dropna).
+    preprocessed_df : Silver frame (after preprocess_pipeline).
+    freeze_date : cfg.data.end_date (resolved end date).
+    is_frozen : cfg.data.end_date_is_frozen (False = dynamic/rolling).
     """
-    mode = "Freeze (fester Cutoff)" if is_frozen else "Rolling (dynamisch = letzter Handelstag)"
+    mode = "Freeze (fixed cutoff)" if is_frozen else "Rolling (dynamic = last trading day)"
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     idx = raw_df.index
-    span = f"{_fmt_date(idx.min())} – {_fmt_date(idx.max())}" if len(idx) else "n/a"
+    span = f"{_fmt_date(idx.min())} to {_fmt_date(idx.max())}" if len(idx) else "n/a"
 
-    # Teil-Reports einmal berechnen (für Verdict UND Sektionen wiederverwendet)
+    # Compute partial reports once (reused for the verdict AND the sections)
     cov = coverage_report(raw_df)
     miss = missing_value_report(raw_df)
     cov_min = pd.to_numeric(cov["Coverage %"], errors="coerce").min()
-    gap_max = int(miss["Längste Lücke (Tage)"].max()) if len(miss) else 0
+    gap_max = int(miss["Longest Gap (Days)"].max()) if len(miss) else 0
     verdict = (
-        f"Coverage ≥ {cov_min:.1f} % · max. Lücke {gap_max} Tage"
+        f"Coverage ≥ {cov_min:.1f} % · max. gap {gap_max} days"
         if pd.notna(cov_min) else "n/a"
     )
 
@@ -232,31 +232,31 @@ def build_data_quality_report(
     parts.append("# Data Quality Report")
     parts.append("")
     parts.append(f"- **Status:** {verdict}")
-    parts.append(f"- **Zeitraum (roh):** {span}")
-    parts.append(f"- **End-Datum-Modus:** {mode}")
-    parts.append(f"- **Aufgelöstes Enddatum:** `{freeze_date}`")
-    parts.append(f"- **yfinance-Version:** `{_yfinance_version()}`")
-    parts.append(f"- **Ticker:** {', '.join(raw_df.columns)}")
-    parts.append(f"- **Erzeugt am:** {ts}")
+    parts.append(f"- **Period (raw):** {span}")
+    parts.append(f"- **End date mode:** {mode}")
+    parts.append(f"- **Resolved end date:** `{freeze_date}`")
+    parts.append(f"- **yfinance version:** `{_yfinance_version()}`")
+    parts.append(f"- **Tickers:** {', '.join(raw_df.columns)}")
+    parts.append(f"- **Generated at:** {ts}")
     parts.append("")
-    parts.append("## 1. Coverage (beobachtete vs. erwartete Handelstage)")
+    parts.append("## 1. Coverage (Observed vs. Expected Trading Days)")
     parts.append(cov.to_markdown())
     parts.append("")
     parts.append(
-        "_Hinweis: Erwartete Handelstage aus `bdate_range` (Mo–Fr inkl. Feiertage). "
-        "~96–97 % sind die feiertagsbedingte Untergrenze, kein Datenverlust._"
+        "_Note: expected trading days from `bdate_range` (Mon-Fri incl. holidays). "
+        "~96-97% is the holiday-induced lower bound, not data loss._"
     )
     parts.append("")
-    parts.append("## 2. Fehlende Werte (Roh-Frame, vor ffill/dropna)")
+    parts.append("## 2. Missing Values (Raw Frame, Before ffill/dropna)")
     parts.append(miss.to_markdown())
     parts.append("")
-    parts.append("## 3. Adjustment-Plausibilität (Tagessprünge Preis-Serien)")
+    parts.append("## 3. Adjustment Plausibility (Daily Jumps of the Price Series)")
     parts.append(adjustment_jump_report(raw_df, price_tickers).to_markdown())
     parts.append("")
-    parts.append("## 4. Größte Tagesbewegungen (Krisen-Plausibilität)")
+    parts.append("## 4. Largest Daily Moves (Crisis Plausibility)")
     parts.append(worst_moves_report(raw_df, price_tickers).to_markdown())
     parts.append("")
-    parts.append("## 5. Auswirkung der Bereinigung (Bronze → Silver)")
+    parts.append("## 5. Effect of Cleaning (Bronze → Silver)")
     parts.append(cleaning_impact_report(raw_df, preprocessed_df).to_markdown())
     parts.append("")
     return "\n".join(parts)

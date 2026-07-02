@@ -1,5 +1,5 @@
-| Vergleich            | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median LSTM   |
+| Comparison           | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median LSTM   |
 |:---------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:--------------|
-| Transformer vs. MSM  | 196,718 €            | 165,650 €    | +31,067 €  |     6.87e-81 | bestätigt     | nan          | nan           |
-| Transformer vs. HMM  | 196,718 €            | nan          | +74,946 €  |     0        | bestätigt     | 121,771 €    | nan           |
-| Transformer vs. LSTM | 196,718 €            | nan          | -23,479 €  |     1        | abgelehnt     | nan          | 220,197 €     |
+| Transformer vs. MSM  | 222,759 €            | 165,348 €    | +57,411 €  |    5.47e-196 | confirmed     | nan          | nan           |
+| Transformer vs. HMM  | 222,759 €            | nan          | +101,539 € |    0         | confirmed     | 121,220 €    | nan           |
+| Transformer vs. LSTM | 222,759 €            | nan          | -3,169 €   |    0.854     | rejected      | nan          | 225,928 €     |

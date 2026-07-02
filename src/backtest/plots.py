@@ -16,30 +16,30 @@ def plot_walk_forward_schema(
     test_color: str = "#DD8452",
 ) -> None:
     """
-    Visualisierung des Walk-Forward-Schemas als horizontaler Gantt-artiger Plot.
+    Visualization of the walk-forward schema as a horizontal Gantt-style plot.
 
-    Pro Fold wird ein blauer Balken für das Trainingsfenster und ein orangefarbener
-    Balken für das OOS-Testfenster gezeichnet. Fold-IDs wachsen nach unten
-    (Fold 1 oben), wodurch die rollierende Verschiebung des Train/Test-Fensters
-    über die Zeit unmittelbar ablesbar wird.
+    For each fold, a blue bar is drawn for the training window and an orange
+    bar for the OOS test window. Fold IDs increase downwards (fold 1 at the top),
+    which makes the rolling shift of the train/test window over time
+    immediately visible.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     splits_summary : pd.DataFrame
-        Ausgabe von src.backtest.walk_forward.summarize_splits:
-        Index = fold-ID, Spalten = train_start, train_end, test_start, test_end,
+        Output of src.backtest.walk_forward.summarize_splits:
+        index = fold ID, columns = train_start, train_end, test_start, test_end,
         n_train, n_test.
     save_path : str
-        Zielpfad für die PNG-Datei (DPI=300).
+        Target path for the PNG file (DPI=300).
     mode : str
-        "rolling" oder "expanding" — fließt nur in den Titel ein.
+        "rolling" or "expanding"; only used in the title.
     train_window_years : int | None
-        Länge des Trainingsfensters (Jahre) für den Titel.
+        Length of the training window (years) for the title.
     test_window_months : int | None
-        Länge des Testfensters (Monate) für den Titel.
+        Length of the test window (months) for the title.
     train_color, test_color : str
-        Farben der Train/Test-Balken. Defaults konsistent mit den übrigen
-        Pipeline-Plots.
+        Colors of the train/test bars. Defaults consistent with the other
+        pipeline plots.
     """
     n_folds = len(splits_summary)
     fig, ax = plt.subplots(figsize=(13, max(4.5, 0.25 * n_folds)))
@@ -52,18 +52,18 @@ def plot_walk_forward_schema(
         ax.barh(fold_id, test_width, left=row["test_start"],
                 height=0.7, color=test_color, edgecolor="none")
 
-    ax.invert_yaxis()  # Fold 1 oben
-    ax.set_xlabel("Datum")
+    ax.invert_yaxis()  # Fold 1 at the top
+    ax.set_xlabel("Date")
     ax.set_ylabel("Fold")
 
-    subtitle_parts = [f"Modus: {mode}"]
+    subtitle_parts = [f"Mode: {mode}"]
     if train_window_years is not None:
-        subtitle_parts.append(f"Train: {train_window_years}J")
+        subtitle_parts.append(f"Train: {train_window_years}y")
     if test_window_months is not None:
-        subtitle_parts.append(f"Test: {test_window_months}M")
-    subtitle_parts.append(f"{n_folds} Folds")
+        subtitle_parts.append(f"Test: {test_window_months}m")
+    subtitle_parts.append(f"{n_folds} folds")
     ax.set_title(
-        "Walk-Forward-Schema — Train/Test-Fenster über die Zeit\n"
+        "Walk-Forward Schema: Train/Test Windows Over Time\n"
         + " | ".join(subtitle_parts),
         fontsize=12,
     )
@@ -82,13 +82,13 @@ def plot_walk_forward_schema(
 
 def plot_equity_curves(backtesting_results, color_map: dict, save_path: str,
                        initial_capital: float = 1.0):
-    """Equity Curves aller Strategien in €-Darstellung (unnormiert)."""
+    """Equity curves of all strategies in € (unnormalized)."""
     default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     fig, ax = plt.subplots(figsize=(14, 7))
 
     ax.plot(backtesting_results['Buy_Hold'] * initial_capital,
-            label='Statisches 60/40 Portfolio (Benchmark)',
+            label='Static 60/40 portfolio (benchmark)',
             color=color_map.get('Buy_Hold', 'gray'), alpha=0.5, linestyle='--')
 
     for col in backtesting_results.columns:
@@ -96,15 +96,15 @@ def plot_equity_curves(backtesting_results, color_map: dict, save_path: str,
             continue
         color = color_map.get(col, None)
         ax.plot(backtesting_results[col] * initial_capital,
-                label=f'Strategie: {col.replace("_", " ")}',
+                label=f'Strategy: {col.replace("_", " ")}',
                 color=color, linewidth=1.5, alpha=0.8)
 
     ax.set_title(
-        f"Equity Curves: Dynamischer Vergleich der Regime-Switching-Modelle "
-        f"(Startkapital {initial_capital:,.0f} €)"
+        f"Equity Curves: Dynamic Comparison of the Regime-Switching Models "
+        f"(Initial Capital {initial_capital:,.0f} €)"
     )
-    ax.set_xlabel("Datum")
-    ax.set_ylabel("Kapital (€)")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Capital (€)")
     ax.yaxis.set_major_formatter(
         mticker.FuncFormatter(lambda x, _: f"{x:,.0f}")
     )
@@ -116,7 +116,7 @@ def plot_equity_curves(backtesting_results, color_map: dict, save_path: str,
 
 
 def plot_transaction_costs(backtesting_costs, fee_rate: float, color_map: dict, save_path: str):
-    """Kumulierte Transaktionskosten."""
+    """Cumulative transaction costs."""
     fig, ax = plt.subplots(figsize=(14, 5))
 
     for col in backtesting_costs.columns:
@@ -124,10 +124,10 @@ def plot_transaction_costs(backtesting_costs, fee_rate: float, color_map: dict, 
             continue
         color = color_map.get(col, None)
         ax.plot(backtesting_costs[col] * 100,
-                label=f'Kosten: {col.replace("_", " ")}', color=color)
+                label=f'Costs: {col.replace("_", " ")}', color=color)
 
-    ax.set_title(f"Kumulierte Transaktionskosten im Zeitverlauf (Gebühr: {fee_rate*100}%)")
-    ax.set_ylabel("Kosten in %")
+    ax.set_title(f"Cumulative Transaction Costs Over Time (Fee: {fee_rate*100}%)")
+    ax.set_ylabel("Costs in %")
     ax.legend(loc='upper left')
     ax.grid(True, alpha=0.2)
 
@@ -137,7 +137,7 @@ def plot_transaction_costs(backtesting_costs, fee_rate: float, color_map: dict, 
 
 def plot_sorr_scenario(sim_results, scenario_name: str, params: dict,
                        color_map: dict, save_path: str):
-    """SORR-Simulation für ein einzelnes Szenario."""
+    """SORR simulation for a single scenario."""
     default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -146,8 +146,8 @@ def plot_sorr_scenario(sim_results, scenario_name: str, params: dict,
         color = color_map.get(col, default_colors[i % len(default_colors)])
         ax.plot(sim_results[col], label=col.replace('_', ' '), color=color)
 
-    ax.set_title(f"SORR Szenario {scenario_name}: Start {params['start']:,.0f}€, "
-                 f"Entnahme {params['withdrawal']:,.0f}€")
+    ax.set_title(f"SORR Scenario {scenario_name}: Start {params['start']:,.0f}€, "
+                 f"Withdrawal {params['withdrawal']:,.0f}€")
     ax.axhline(y=0, color='black', linestyle='-')
     ax.legend(loc='upper left', fontsize='small')
 
@@ -157,12 +157,12 @@ def plot_sorr_scenario(sim_results, scenario_name: str, params: dict,
 
 def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
                       sim_years: int, save_path_template: str):
-    """MCS Violin + Boxplots pro Szenario (optimiert für 10.000+ Pfade)."""
+    """MCS violin + boxplots per scenario (optimized for 10,000+ paths)."""
     for sc_name, params in scenarios.items():
         mc_results_scenario = {}
         for strategy in daily_rets_columns:
             prefix = f"{sc_name}_{strategy}_path_"
-            # Direkt nur Endkapitalwerte sammeln (letzter Wert je Pfad)
+            # Collect only the terminal capital values directly (last value per path)
             finals = [
                 path[-1] for k, path in mcs_paths_collector.items()
                 if k.startswith(prefix)
@@ -176,19 +176,19 @@ def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
 
             fig, ax = plt.subplots(figsize=(12, 6))
 
-            # Violin-Plot für Verteilungsform
+            # Violin plot for the distribution shape
             vp = ax.violinplot(data, showmedians=False, showextrema=False)
             for i, body in enumerate(vp['bodies']):
                 body.set_alpha(0.3)
 
-            # Boxplot darüber für Quartile + Ausreißer
+            # Boxplot on top for quartiles + outliers
             bp = ax.boxplot(
                 data, tick_labels=labels, widths=0.15,
-                showfliers=False,  # Keine Outlier-Punkte bei 10k Werten
+                showfliers=False,  # no outlier points with 10k values
                 medianprops=dict(color='red', linewidth=2),
             )
 
-            # Median-Werte annotieren
+            # Annotate median values
             for i, vals in enumerate(data, start=1):
                 import numpy as _np
                 med = _np.median(vals)
@@ -199,10 +199,10 @@ def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
                 )
 
             ax.set_title(
-                f"MCS {sc_name}: Verteilung des Endkapitals "
-                f"(n={len(data[0]):,}, Start: {params['start']:,.0f}€)"
+                f"MCS {sc_name}: Distribution of Terminal Capital "
+                f"(n={len(data[0]):,}, start: {params['start']:,.0f}€)"
             )
-            ax.set_ylabel(f"Endkapital nach {sim_years} Jahren in €")
+            ax.set_ylabel(f"Terminal capital after {sim_years} years in €")
             ax.axhline(y=0, color='red', linestyle='--', alpha=0.7)
             ax.grid(axis='y', alpha=0.3)
 
@@ -215,12 +215,12 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
                    trading_days_per_year: int = 252,
                    start_year: int | None = None):
     """
-    MCS Pfad-Verläufe für alle Szenarien (optimiert für 10.000+ Pfade).
+    MCS path trajectories for all scenarios (optimized for 10,000+ paths).
 
-    Statt 10.000 individuelle Linien zu zeichnen (extrem langsam), wird
-    ein Quantil-Band (5%-25%-50%-75%-95%) pro Strategie geplottet. Zusätzlich
-    werden max. 50 zufällige Pfade als Spaghetti-Overlay gezeichnet, um die
-    Streuung der Einzelpfade visuell zu erhalten.
+    Instead of drawing 10,000 individual lines (extremely slow), a quantile
+    band (5%-25%-50%-75%-95%) is plotted per strategy. In addition, at most
+    50 random paths are drawn as a spaghetti overlay to visually preserve
+    the dispersion of the individual paths.
     """
     import numpy as np
 
@@ -262,7 +262,7 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
             ax.plot(x, q50, color=color, linewidth=2,
                     label=strat.replace('_', ' '))
 
-        # Jahres-Ticks: Kalenderjahre ab start_year (Default: aktuelles Jahr)
+        # Year ticks: calendar years from start_year (default: current year)
         if start_year is None:
             from datetime import datetime
             start_year = datetime.now().year
@@ -272,14 +272,14 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
         ax.set_xticks(year_ticks)
         ax.set_xticklabels(year_labels)
 
-        ax.set_title(f"MCS Pfad-Verläufe: Szenario {sc_name} "
-                     f"(Bänder: 25-75% / 5-95%, n={n_paths:,})")
-        ax.set_ylabel("Kapital in €")
+        ax.set_title(f"MCS Path Trajectories: Scenario {sc_name} "
+                     f"(bands: 25-75% / 5-95%, n={n_paths:,})")
+        ax.set_ylabel("Capital in €")
         ax.axhline(y=0, color='black', linewidth=1.5)
         ax.grid(alpha=0.2)
         ax.legend(loc='upper left', ncol=2)
 
-    plt.xlabel("Simulationszeit")
+    plt.xlabel("Simulation time")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
@@ -288,7 +288,7 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
                        total_days: int, color_map: dict, save_path: str,
                        trading_days_per_year: int = 252,
                        start_year: int | None = None):
-    """MCS Konfidenz-Intervalle (5%-95%) für alle Szenarien (optimiert via NumPy)."""
+    """MCS confidence intervals (5%-95%) for all scenarios (optimized via NumPy)."""
     import numpy as np
 
     fig, axes = plt.subplots(len(scenarios_list), 1,
@@ -315,11 +315,11 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
             x = np.arange(total_days)
             ax.fill_between(x, q05, q95, color=color, alpha=0.15)
             ax.plot(x, q50, color=color, linewidth=1.5,
-                    label=f"{strat.replace('_', ' ')} (Median)")
+                    label=f"{strat.replace('_', ' ')} (median)")
 
             n_paths_display = values.shape[1]
 
-        # Jahres-Ticks: Kalenderjahre ab start_year (Default: aktuelles Jahr)
+        # Year ticks: calendar years from start_year (default: current year)
         if start_year is None:
             from datetime import datetime
             start_year = datetime.now().year
@@ -329,28 +329,28 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
         ax.set_xticks(year_ticks)
         ax.set_xticklabels(year_labels)
 
-        ax.set_title(f"MCS Konfidenz-Intervalle (5% - 95%): "
-                     f"Szenario {sc_name} (n={n_paths_display:,})")
-        ax.set_ylabel("Kapital in €")
+        ax.set_title(f"MCS Confidence Intervals (5% - 95%): "
+                     f"Scenario {sc_name} (n={n_paths_display:,})")
+        ax.set_ylabel("Capital in €")
         ax.axhline(y=0, color='red', linestyle='--', linewidth=1,
-                   label="Erschöpfungsgrenze")
+                   label="Depletion threshold")
         ax.grid(alpha=0.2)
         ax.legend(loc='upper left', ncol=2)
 
-    plt.xlabel("Simulationszeit")
+    plt.xlabel("Simulation time")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
-    
+
 def plot_rolling_sharpe(rolling_sharpe: pd.DataFrame, color_map: dict, save_path: str):
-    """Rollierender 1-Jahres Sharpe Ratio aller Strategien."""
+    """Rolling 1-year Sharpe ratio of all strategies."""
     fig, ax = plt.subplots(figsize=(14, 6))
 
-    # .dropna() + Original-Index bewahren: matplotlib zeichnet durchgehende
-    # Linie über vorhandene Punkte, überspringt NaN-Indizes visuell.
+    # .dropna() + preserving the original index: matplotlib draws a continuous
+    # line over the available points and visually skips NaN indices.
     bh = rolling_sharpe["Buy_Hold"].dropna()
     ax.plot(bh.index, bh.values,
-            label="Buy & Hold (Benchmark)",
+            label="Buy & Hold (benchmark)",
             color=color_map.get("Buy_Hold", "gray"), alpha=0.5, linestyle="--")
 
     for col in rolling_sharpe.columns:
@@ -359,26 +359,26 @@ def plot_rolling_sharpe(rolling_sharpe: pd.DataFrame, color_map: dict, save_path
         series = rolling_sharpe[col].dropna()
         color = color_map.get(col, None)
         ax.plot(series.index, series.values,
-                label=f"Strategie: {col}", color=color, linewidth=1.5, alpha=0.8)
+                label=f"Strategy: {col}", color=color, linewidth=1.5, alpha=0.8)
 
-    # Referenzlinien für Interpretation
+    # Reference lines for interpretation
     ax.axhline(y=1.0, color="green", linewidth=0.5, linestyle=":", alpha=0.5)
     ax.axhline(y=2.0, color="darkgreen", linewidth=0.5, linestyle=":", alpha=0.5)
-    # Y-Achse auf plausiblen Bereich fixieren
+    # Fix the y-axis to a plausible range
     ax.set_ylim(-3, 5)
 
     ax.axhline(y=0, color="black", linewidth=0.5, linestyle="-")
-    ax.set_title("Rollierender Sharpe Ratio (252-Tage-Fenster, Cap ±10, Low-Vol NaN)")
-    ax.set_xlabel("Datum")
-    ax.set_ylabel("Sharpe Ratio (annualisiert)")
+    ax.set_title("Rolling Sharpe Ratio (252-day window, cap ±10, low-vol NaN)")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Sharpe ratio (annualized)")
     ax.legend(loc="upper left", ncol=2, fontsize="small")
     ax.grid(True, alpha=0.2)
 
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
- 
+
 def plot_drawdown(backtesting_results: pd.DataFrame, color_map: dict, save_path: str):
-    """Drawdown-Verläufe aller Strategien."""
+    """Drawdown paths of all strategies."""
     fig, ax = plt.subplots(figsize=(14, 5))
 
     for col in backtesting_results.columns:
@@ -391,21 +391,21 @@ def plot_drawdown(backtesting_results: pd.DataFrame, color_map: dict, save_path:
         ax.plot(dd, label=col, color=color, linewidth=1.2,
                 linestyle=style, alpha=alpha)
 
-    ax.set_title("Drawdown-Verlauf aller Strategien")
-    ax.set_xlabel("Datum")
+    ax.set_title("Drawdown Paths of All Strategies")
+    ax.set_xlabel("Date")
     ax.set_ylabel("Drawdown (%)")
     ax.legend(loc="lower left", ncol=2, fontsize="small")
     ax.grid(True, alpha=0.2)
 
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
- 
-def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
-    """Optuna-Visualisierungen (History, Importance, Contour, Slice) als PNG speichern.
 
-    Der Contour-Plot wird ausschließlich für Modelle mit ≥ 2 Hyperparametern
-    erzeugt — bei einem einzigen Parameter (z.B. MSM mit nur `threshold`)
-    degeneriert die Matrix und der Plot ist inhaltslos.
+def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
+    """Save Optuna visualizations (history, importance, contour, slice) as PNG.
+
+    The contour plot is only created for models with >= 2 hyperparameters.
+    With a single parameter (e.g. MSM with only `threshold`), the matrix
+    degenerates and the plot carries no information.
     """
     from pathlib import Path
     from optuna.visualization import (
@@ -416,13 +416,13 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
     )
     from optuna.importance import FanovaImportanceEvaluator
 
-    # Anzahl Hyperparameter im Search-Space (für Contour-Entscheidung + Größe)
+    # Number of hyperparameters in the search space (for the contour decision + size)
     n_params = max(
         (len(t.params) for t in study.trials if t.params), default=1
     )
 
-    # fANOVA ist stochastisch (Random-Forest-Sampling) → fixer Seed, damit
-    # Pipeline-PNG und Dashboard-Live-Chart exakt dieselben Zahlen zeigen.
+    # fANOVA is stochastic (random-forest sampling) → fixed seed so that the
+    # pipeline PNG and the dashboard live chart show exactly the same numbers.
     importance_evaluator = FanovaImportanceEvaluator(seed=42)
 
     plots = {
@@ -436,13 +436,13 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         plots["optuna_contour"] = plot_contour(study)
     else:
         print(
-            f"  ℹ {model_name}: Contour-Plot übersprungen "
-            f"(nur {n_params} Hyperparameter im Search-Space)."
+            f"  ℹ {model_name}: contour plot skipped "
+            f"(only {n_params} hyperparameter(s) in the search space)."
         )
 
-    # Quell-Pixelmaße je Plot-Typ (vor scale=2)
-    # contour ist eine n×n-Matrix → Größe muss mit n_params skalieren,
-    # sonst überlappen Tick-Werte mit den Achsen-Titeln der Nachbarzelle.
+    # Source pixel sizes per plot type (before scale=2)
+    # contour is an n×n matrix → size must scale with n_params,
+    # otherwise tick values overlap with the axis titles of the neighboring cell.
     sizes = {
         "optuna_history":    (1200, 700),
         "optuna_importance": (1200, max(500, 60 * n_params)),
@@ -459,7 +459,7 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
             font=dict(size=11),
             margin=dict(l=110, r=80, t=80, b=110),
         )
-        # Kleinere Tick-Fonts + mehr Achsen-Abstand verhindern Overlap in Matrix-Plots
+        # Smaller tick fonts + more axis standoff prevent overlap in matrix plots
         fig.update_xaxes(tickfont=dict(size=9), title_standoff=20, automargin=True)
         fig.update_yaxes(tickfont=dict(size=9), title_standoff=20, automargin=True)
 
@@ -471,9 +471,9 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         saved[key] = str(path)
         print(f"  ✓ {path}")
 
-    # Importance-Werte in JSON-Cache persistieren, damit das Dashboard
-    # exakt dieselben Zahlen anzeigt wie die PNG-Datei (fANOVA ist stochastisch).
-    # Der Cache wird pro Modell inkrementell aktualisiert.
+    # Persist the importance values in a JSON cache so that the dashboard
+    # shows exactly the same numbers as the PNG file (fANOVA is stochastic).
+    # The cache is updated incrementally per model.
     try:
         import json
         import optuna
@@ -496,6 +496,6 @@ def save_optuna_plots(study, model_name: str, cfg) -> dict[str, str]:
         cache_path.write_text(json.dumps(cache_payload, indent=2), encoding="utf-8")
         saved["optuna_importance_json"] = str(cache_path)
     except Exception as e:
-        print(f"  ⚠ Importance-JSON-Cache nicht geschrieben ({model_name}): {e}")
+        print(f"  ⚠ Importance JSON cache not written ({model_name}): {e}")
 
     return saved

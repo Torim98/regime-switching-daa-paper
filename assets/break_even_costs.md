@@ -1,7 +1,7 @@
-| Modell      |   Final @10bps |   B&H Final |   Break-Even (bps) |
+| Model       |   Final @10bps |   B&H Final |   Break-Even (bps) |
 |:------------|---------------:|------------:|-------------------:|
-| MSM         |          2.991 |       4.214 |                  5 |
-| HMM         |          2.266 |       4.214 |                  0 |
-| HMM_Uni     |          2.961 |       4.214 |                  0 |
-| LSTM        |          4.095 |       4.214 |                  0 |
-| Transformer |          3.706 |       4.214 |                  0 |
+| MSM         |          2.982 |         4.2 |                  5 |
+| HMM         |          2.258 |         4.2 |                  0 |
+| HMM_Uni     |          2.858 |         4.2 |                  0 |
+| LSTM        |          4.146 |         4.2 |                  5 |
+| Transformer |          4.156 |         4.2 |                 10 |

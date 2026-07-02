@@ -1,11 +1,11 @@
-"""Generierung des statistics.md Master-Reports für das Git-Repository."""
+"""Generation of the statistics.md master report for the Git repository."""
 
 import datetime
 import os
 
 
 def load_markdown_asset(filepath: str, fallback: str = "") -> str:
-    """Markdown-Datei laden. Gibt Fallback-String zurück wenn nicht gefunden."""
+    """Load a Markdown file. Returns the fallback string if not found."""
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
@@ -15,12 +15,12 @@ def load_markdown_asset(filepath: str, fallback: str = "") -> str:
 
 def build_model_persistence_table(cfg) -> tuple[str, str]:
     """
-    Pro Modell prüfen, ob ein persistiertes Modell geladen wurde.
-    Gibt (persist_status_text, model_persistence_table_md) zurück.
+    Check per model whether a persisted model was loaded.
+    Returns (persist_status_text, model_persistence_table_md).
     """
     persist_enabled = cfg.model_persistence.enabled
     persist_dir = cfg.model_persistence.models_dir
-    persist_status_text = "AKTIV" if persist_enabled else "DEAKTIVIERT"
+    persist_status_text = "ENABLED" if persist_enabled else "DISABLED"
 
     model_status_rows = []
     for key in ["msm", "hmm", "lstm", "transformer"]:
@@ -28,14 +28,14 @@ def build_model_persistence_table(cfg) -> tuple[str, str]:
         filepath = os.path.join(persist_dir, filename)
         file_exists = os.path.exists(filepath)
         if persist_enabled and file_exists:
-            status = "Geladen (persistiert)"
+            status = "Loaded (persisted)"
         else:
-            status = "Neu trainiert"
+            status = "Newly trained"
         model_status_rows.append(f"| {key.upper()} | `{filename}` | {status} |")
 
     model_persistence_table = "\n".join(
         [
-            "| Modell | Datei | Status |",
+            "| Model | File | Status |",
             "|:---|:---|:---|",
         ]
         + model_status_rows
@@ -46,17 +46,17 @@ def build_model_persistence_table(cfg) -> tuple[str, str]:
 
 def generate_statistics_report(cfg) -> str:
     """
-    Liest alle generierten Markdown/PNG-Assets und baut daraus
-    das Master-Dokument statistics.md.
+    Reads all generated Markdown/PNG assets and builds the
+    master document statistics.md from them.
 
-    Lädt alle Teilberichte (EDA, Evaluation, SORR, MCS, Timing etc.)
-    und fügt sie in ein einheitliches Markdown-Template ein.
+    Loads all partial reports (EDA, evaluation, SORR, MCS, timing, etc.)
+    and inserts them into a unified Markdown template.
 
-    Gibt den fertigen Markdown-String zurück.
+    Returns the final Markdown string.
     """
     ASSETS_DIR = cfg.paths.assets_dir
 
-    # Alle Markdown-Assets laden
+    # Load all Markdown assets
     eda_desc_stats_md = load_markdown_asset(cfg.asset_path("eda_descriptive_stats"))
     eda_adf_tests_md = load_markdown_asset(cfg.asset_path("eda_adf_tests"))
     evaluation_table_md = load_markdown_asset(cfg.asset_path("evaluation_table"))
@@ -70,203 +70,203 @@ def generate_statistics_report(cfg) -> str:
     feature_corr_table_md = load_markdown_asset(cfg.asset_path("feature_correlation_table"))
     annualized_metrics_md = load_markdown_asset(
         cfg.asset_path("annualized_metrics"),
-        fallback="*Keine annualisierten Metriken verfügbar.*",
+        fallback="*No annualized metrics available.*",
     )
     crisis_performance_md = load_markdown_asset(
         cfg.asset_path("crisis_performance"),
-        fallback="*Keine Krisen-Performance verfügbar.*",
+        fallback="*No crisis performance available.*",
     )
 
     # --- Issue #13: Extended Evaluation ---
     classification_md = load_markdown_asset(
         cfg.asset_path("classification_metrics"),
-        fallback="*Keine Klassifikationsmetriken verfügbar.*",
+        fallback="*No classification metrics available.*",
     )
     churning_md = load_markdown_asset(
         cfg.asset_path("churning_stats"),
-        fallback="*Keine Churning-Statistik verfügbar.*",
+        fallback="*No churning statistics available.*",
     )
     depletion_ci_md = load_markdown_asset(
         cfg.asset_path("depletion_ci"),
-        fallback="*Keine Depletion-CI verfügbar.*",
+        fallback="*No depletion CI available.*",
     )
     h1_md = load_markdown_asset(
         cfg.asset_path("h1_drawdown"),
-        fallback="*H1-Test noch nicht durchgeführt.*",
+        fallback="*H1 test not yet performed.*",
     )
     h2_md = load_markdown_asset(
         cfg.asset_path("h2_transformer"),
-        fallback="*H2-Test noch nicht durchgeführt.*",
+        fallback="*H2 test not yet performed.*",
     )
     break_even_md = load_markdown_asset(
         cfg.asset_path("break_even_table"),
-        fallback="*Keine Break-Even-Analyse verfügbar.*",
+        fallback="*No break-even analysis available.*",
     )
     withdrawal_sensitivity_md = load_markdown_asset(
         cfg.asset_path("withdrawal_sensitivity"),
-        fallback="*Keine Entnahmeraten-Sensitivität verfügbar.*",
+        fallback="*No withdrawal rate sensitivity available.*",
     )
     switch_timing_md = load_markdown_asset(
         cfg.asset_path("switch_timing"),
-        fallback="*Keine Switch-Timing-Analyse verfügbar.*",
+        fallback="*No switch timing analysis available.*",
     )
     optuna_best_params_md = load_markdown_asset(
         cfg.asset_path("optuna_best_params"),
-        fallback="*Keine Optuna-Optimierung durchgeführt.*",
+        fallback="*No Optuna optimization performed.*",
     )
 
-    # Threshold-Sensitivität pro Modell laden
+    # Load threshold sensitivity per model
     threshold_models = list(cfg.evaluation.extended.f1_models)
     threshold_sections = []
     for m in threshold_models:
         md = load_markdown_asset(
             cfg.asset_path("threshold_sensitivity").replace("{model}", m),
-            fallback=f"*Keine Threshold-Sensitivity-Tabelle für {m} verfügbar.*",
+            fallback=f"*No threshold sensitivity table available for {m}.*",
         )
         threshold_sections.append(f"**{m}**\n\n{md}")
     threshold_sensitivity_md = "\n\n".join(threshold_sections)
 
-    # Time-to-Recovery pro Modell laden (Buy_Hold + alle f1_models)
+    # Load time-to-recovery per model (Buy_Hold + all f1_models)
     ttr_models = ["Buy_Hold"] + threshold_models
     ttr_sections = []
     for m in ttr_models:
         md = load_markdown_asset(
             cfg.asset_path("ttr_table").replace("{model}", m),
-            fallback=f"*Keine Time-to-Recovery-Tabelle für {m} verfügbar.*",
+            fallback=f"*No time-to-recovery table available for {m}.*",
         )
         ttr_sections.append(f"**{m}**\n\n{md}")
     ttr_md = "\n\n".join(ttr_sections)
 
-    # Fast Mode Status aus config auslesen
+    # Read fast mode status from config
     fast_mode_enabled = cfg.fast_mode.enabled
     fast_mode_status = "TRUE (Development Mode)" if fast_mode_enabled else "FALSE (Full Run)"
 
-    # Walk-Forward Status
+    # Walk-forward status
     wf_enabled = getattr(cfg.walk_forward, "enabled", False)
     if wf_enabled:
         wf_status = (
-            f"AKTIV (Modus: {cfg.walk_forward.mode}, "
-            f"Train: {cfg.walk_forward.train_window_years}J, "
-            f"Test: {cfg.walk_forward.test_window_months}M, "
-            f"Step: {cfg.walk_forward.step_months}M)"
+            f"ENABLED (mode: {cfg.walk_forward.mode}, "
+            f"train: {cfg.walk_forward.train_window_years}y, "
+            f"test: {cfg.walk_forward.test_window_months}m, "
+            f"step: {cfg.walk_forward.step_months}m)"
         )
     else:
-        wf_status = "DEAKTIVIERT (Single 80/20 Split)"
+        wf_status = "DISABLED (single 80/20 split)"
 
-    # Model Persistence Status
+    # Model persistence status
     persist_status_text, model_persistence_table = build_model_persistence_table(cfg)
     persist_dir = cfg.model_persistence.models_dir
 
-    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     if cfg.data.end_date_is_frozen:
         data_window_note = (
-            f"Alle Auswertungen basieren auf dem **eingefrorenen Datensatz** "
-            f"vom **{cfg.data.start_date}** bis **{cfg.data.end_date}** "
-            f"(Thesis-Freeze)."
+            f"All evaluations are based on the **frozen dataset** "
+            f"from **{cfg.data.start_date}** to **{cfg.data.end_date}** "
+            f"(thesis freeze)."
         )
     else:
         data_window_note = (
-            f"Alle Auswertungen basieren auf dem Datensatz bis zum gestrigen "
-            f"Tag ({cfg.data.end_date}) und werden automatisiert aktualisiert."
+            f"All evaluations are based on the dataset up to yesterday "
+            f"({cfg.data.end_date}) and are updated automatically."
         )
 
     stats_md_content = f"""
-# Detaillierte statistische Auswertung & Forschungsergebnisse
+# Detailed Statistical Evaluation & Research Results
 
-Diese Seite dokumentiert die numerischen und grafischen Ergebnisse der Forschungs-Pipeline. {data_window_note}
+This page documents the numerical and graphical results of the research pipeline. {data_window_note}
 
 ---
 
-## 1. Executive Summary: Performance & Risiko
-Ein direkter Vergleich der Kernkennzahlen über den gesamten **Out-of-Sample Testzeitraum**.
+## 1. Executive Summary: Performance & Risk
+A direct comparison of the core metrics over the entire **out-of-sample test period**.
 
 {performance_summary_md}
 
-> **Kernaussage:** Vergleiche den **Max Drawdown** der aktiven Strategien mit der Buy & Hold Benchmark. Ziel der Arbeit ist eine signifikante Reduktion dieses Werts zur Minderung des SORR.
+> **Key point:** Compare the **max drawdown** of the active strategies with the buy-and-hold benchmark. The objective of this work is a significant reduction of this value to mitigate SORR.
 
 ---
 
-## 2. Datenbasis & Baseline Portfolio
-Grundlage der Untersuchung ist ein globaler Multi-Asset-Ansatz.
+## 2. Data Basis & Baseline Portfolio
+The analysis is based on a global multi-asset approach.
 
-### Explorative Datenanalyse (EDA)
-**Deskriptive Statistik der Basiszeitreihen:**
+### Exploratory Data Analysis (EDA)
+**Descriptive statistics of the base time series:**
 {eda_desc_stats_md}
 
-**Prüfung auf Stationarität (Augmented Dickey-Fuller Test):**
+**Stationarity check (augmented Dickey-Fuller test):**
 {eda_adf_tests_md}
 
-**Volatilitätscluster und Autokorrelation (Heteroskedastizität):**
+**Volatility clusters and autocorrelation (heteroskedasticity):**
 ![Volatility Clusters](../assets/{cfg.paths.assets.eda_volatility_clusters})
 
-### Feature-Korrelation
-Pearson-Korrelationsmatrix der sechs Modell-Features zur Prüfung auf Multikollinearität.
+### Feature Correlation
+Pearson correlation matrix of the six model features to check for multicollinearity.
 
 ![Feature Correlation Matrix](../assets/{cfg.paths.assets.feature_correlation_matrix})
 
-### SORR Kontext: Historische Drawdowns
-Darstellung der extremsten Verlustphasen des 60/40 Portfolios als Motivation für den aktiven Kapitalschutz.
+### SORR Context: Historical Drawdowns
+The most extreme loss phases of the 60/40 portfolio, shown as motivation for active capital protection.
 ![Historical Drawdowns](../assets/{cfg.paths.assets.eda_historical_drawdowns})
 
-### 60/40 Portfolio Kapitalkurve
-Die Abbildung zeigt die kumulierte Wertentwicklung des statischen Referenzportfolios (60% Aktien / 40% Anleihen).
+### 60/40 Portfolio Capital Curve
+The figure shows the cumulative performance of the static reference portfolio (60% equities / 40% bonds).
 
 ![Capital Curve](../assets/{cfg.paths.assets.capital_curve})
 
-*   **Datenquelle:** S&P 500 (`^GSPC`) und Vanguard Long-Term Treasury (`VUSTX`).
-*   **Reproduzierbarkeit:** Der bereinigte Datensatz inkl. aller Features ist hinterlegt unter: `data/02_feature_engineered_data.parquet`.
+*   **Data source:** S&P 500 (`^GSPC`) and Vanguard Long-Term Treasury (`VUSTX`).
+*   **Reproducibility:** The cleaned dataset incl. all features is stored at: `data/02_feature_engineered_data.parquet`.
 
 ---
 
-## 3. Regime-Erkennung der Einzelmodelle
-Hier werden die Identifikations-Ergebnisse der Modell-Kategorien (Statistik, Clustering, Deep Learning) visualisiert.
+## 3. Regime Detection of the Individual Models
+This section visualizes the identification results of the model categories (statistics, clustering, deep learning).
 
-### A. Markov-Switching-Modelle (Ökonometrie)
-Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-Markov-Switching-Modells auf Basis der S&P 500-Renditen.
+### A. Markov-Switching Models (Econometrics)
+Identification of bull and bear regimes using a univariate two-regime Markov-switching model based on S&P 500 returns.
 ![Markov Models](../assets/{cfg.paths.assets.markov_model})
 
 ### B. Hidden Markov Model (Unsupervised Clustering)
 ![HMM Regimes](../assets/{cfg.paths.assets.hmm_regimes})
 
-### C. Univariates HMM (Ablation, Issue #3)
-Robustheitscheck für den MSM-vs-HMM-Architekturvergleich: identischer
-Input-Raum wie das MSM (nur 60/40-Renditen). Isoliert den Architektureffekt
-(Clustering vs. Markov-Switching-Regression) vom Informationsbeitrag der
-erweiterten Features (VIX, Yield Spread).
+### C. Univariate HMM (Ablation, Issue #3)
+Robustness check for the MSM-vs-HMM architecture comparison: identical
+input space to the MSM (60/40 returns only). Isolates the architectural effect
+(clustering vs. Markov-switching regression) from the information contribution of the
+extended features (VIX, yield spread).
 ![HMM Uni Regimes](../assets/{cfg.paths.assets.hmm_uni_regimes})
 
-### D. LSTM-Netzwerk (Deep Learning)
-Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Pagan-Sossounov-Labels).
+### D. LSTM Network (Deep Learning)
+Prediction of market phases by the neural network (trained on Pagan-Sossounov labels).
 ![LSTM Model](../assets/{cfg.paths.assets.lstm_model})
 
-### E. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
-Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Pagan-Sossounov-Labels.
+### E. Transformer Network (Attention-Based Regime Detection)
+Classification of market regimes using a Transformer encoder with multi-head self-attention and positional encoding. In contrast to recurrent architectures (LSTM), the Transformer processes all time steps of a sequence in parallel and learns via the attention mechanism which historical data points are most relevant for the current regime classification. Trained in a supervised setting on Pagan-Sossounov labels.
 ![Transformer Model](../assets/{cfg.paths.assets.transformer_model})
 
-### F. Globaler Regime-Vergleich
-Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
+### F. Global Regime Comparison
+Detailed comparison of the probabilities and hard signals of all models.
 ![Regime Comparison](../assets/{cfg.paths.assets.regime_comparison})
 
-### G. Hyperparameter-Optimierung (Optuna)
-Bayessche Suche über den Hyperparameter-Raum aller vier Modelle mittels Walk-Forward-Validierung als innere CV. Optimierungsziel ist der mediane OOS-Sharpe-Ratio über die subgesampelten Folds; geprunete Trials nutzen den Median-Pruner. Die hier ausgewiesenen Werte wurden 1:1 in die `config.yaml` übernommen und für den finalen Walk-Forward-Lauf verwendet.
+### G. Hyperparameter Optimization (Optuna)
+Bayesian search over the hyperparameter space of all four models using walk-forward validation as inner CV. The optimization target is the median OOS Sharpe ratio over the subsampled folds; pruned trials use the median pruner. The values reported here were adopted 1:1 into `config.yaml` and used for the final walk-forward run.
 
 {optuna_best_params_md}
 
-**Diagnose-Plots pro Modell** (Optimization History · Param-Importance · Slice · Contour):
+**Diagnostic plots per model** (optimization history, parameter importance, slice, contour):
 
-| Modell | History | Importance | Slice | Contour |
+| Model | History | Importance | Slice | Contour |
 |:---|:---|:---|:---|:---|
-| MSM         | ![](../assets/optuna_MSM_history.png)         | ![](../assets/optuna_MSM_importance.png)         | ![](../assets/optuna_MSM_slice.png)         | — ¹                                           |
+| MSM         | ![](../assets/optuna_MSM_history.png)         | ![](../assets/optuna_MSM_importance.png)         | ![](../assets/optuna_MSM_slice.png)         | n/a ¹                                         |
 | HMM         | ![](../assets/optuna_HMM_history.png)         | ![](../assets/optuna_HMM_importance.png)         | ![](../assets/optuna_HMM_slice.png)         | ![](../assets/optuna_HMM_contour.png)         |
-| HMM_Uni     | ![](../assets/optuna_HMM_Uni_history.png)     | ![](../assets/optuna_HMM_Uni_importance.png)     | ![](../assets/optuna_HMM_Uni_slice.png)     | — ¹                                           |
+| HMM_Uni     | ![](../assets/optuna_HMM_Uni_history.png)     | ![](../assets/optuna_HMM_Uni_importance.png)     | ![](../assets/optuna_HMM_Uni_slice.png)     | n/a ¹                                         |
 | LSTM        | ![](../assets/optuna_LSTM_history.png)        | ![](../assets/optuna_LSTM_importance.png)        | ![](../assets/optuna_LSTM_slice.png)        | ![](../assets/optuna_LSTM_contour.png)        |
 | Transformer | ![](../assets/optuna_Transformer_history.png) | ![](../assets/optuna_Transformer_importance.png) | ![](../assets/optuna_Transformer_slice.png) | ![](../assets/optuna_Transformer_contour.png) |
 
-¹ MSM und HMM_Uni haben nur einen Hyperparameter (`threshold`) im Search-Space. Der Contour-Plot wäre degeneriert und entfällt.
+¹ MSM and HMM_Uni have only one hyperparameter (`threshold`) in the search space. The contour plot would be degenerate and is omitted.
 
-### G. Label-Konkordanz (Auswahl der Trainings-Labels)
-Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) zur Begründung der Label-Wahl für die Supervised-Modelle. Pagan-Sossounov wurde aufgrund seiner hohen Konkordanz mit NBER-Rezessionsperioden als Trainingsziel für LSTM und Transformer gewählt.
+### H. Label Concordance (Selection of the Training Labels)
+Comparison of the regime labelers (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) to justify the label choice for the supervised models. Pagan-Sossounov was chosen as the training target for LSTM and Transformer due to its high concordance with NBER recession periods.
 
 ![Label Concordance](../assets/{cfg.paths.assets.label_concordance_matrix})
 ![Label Cohen's κ](../assets/{cfg.paths.assets.label_kappa_matrix})
@@ -274,170 +274,170 @@ Vergleich der Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-T
 
 ---
 
-## 4. Backtesting & Strategie-Evaluation
-Die ökonomische Anwendung der Regime-Signale durch dynamische Umschichtung in den Geldmarkt.
+## 4. Backtesting & Strategy Evaluation
+The economic application of the regime signals via dynamic reallocation into the money market.
 
-### Walk-Forward-Schema
-Rollierende Train/Test-Fenster über den gesamten Untersuchungszeitraum. Jede Zeile entspricht einem Fold; der blaue Balken markiert das Trainingsfenster, der orange Balken das OOS-Testfenster. Die strikte chronologische Trennung verhindert Look-ahead Bias.
+### Walk-Forward Schema
+Rolling train/test windows over the entire study period. Each row corresponds to one fold; the blue bar marks the training window, the orange bar the OOS test window. The strict chronological separation prevents look-ahead bias.
 
-![Walk-Forward-Schema](../assets/{cfg.paths.assets.walk_forward_schema})
+![Walk-Forward Schema](../assets/{cfg.paths.assets.walk_forward_schema})
 
-### Equity Curves im Vergleich
+### Equity Curves in Comparison
 ![Equity Curves](../assets/{cfg.paths.assets.equity_curves})
 
-### Annualisierte Performance-Metriken
-Normalisierte Kennzahlen (CAGR, Sharpe, Sortino, Calmar) für den Vergleich über unterschiedlich lange Evaluationszeiträume.
+### Annualized Performance Metrics
+Normalized metrics (CAGR, Sharpe, Sortino, Calmar) for comparison across evaluation periods of different lengths.
 
 {annualized_metrics_md}
 
-### Klassifikationsmetriken (vs. NBER-Rezessionen als Ground Truth)
-Vergleich der Modelle als binäre Rezessionsklassifikatoren (Precision, Recall, F1).
+### Classification Metrics (vs. NBER Recessions as Ground Truth)
+Comparison of the models as binary recession classifiers (precision, recall, F1).
 
 {classification_md}
 
 ![Confusion Matrices](../assets/{cfg.paths.assets.confusion_matrices})
 
-**ROC- und Precision-Recall-Kurven** (schwellenunabhängiger Vergleich über `*_Prob`):
+**ROC and precision-recall curves** (threshold-independent comparison via `*_Prob`):
 
-![ROC-Kurven](../assets/{cfg.paths.assets.roc_curves})
-![PR-Kurven](../assets/{cfg.paths.assets.pr_curves})
+![ROC Curves](../assets/{cfg.paths.assets.roc_curves})
+![PR Curves](../assets/{cfg.paths.assets.pr_curves})
 
-### Signal-Churning & Whipsaw-Analyse
-Quantifizierung der Wechselhäufigkeit und Anteil sehr kurzer Regime-Phasen („Whipsaws").
+### Signal Churning & Whipsaw Analysis
+Quantification of the switching frequency and the share of very short regime phases ("whipsaws").
 
 {churning_md}
 
-### Regime-Wahrscheinlichkeits-Heatmap
-Zeitverlauf der Bear-Wahrscheinlichkeiten aller Modelle.
+### Regime Probability Heatmap
+Bear probabilities of all models over time.
 
 ![Regime Probability Heatmap](../assets/{cfg.paths.assets.regime_probability_heatmap})
 
-### Threshold-Sensitivität
-Variation der Entscheidungs-Schwelle pro Modell. Zeigt, wie robust Final Wealth, Max Drawdown und Anzahl der Regime-Wechsel gegenüber einer veränderten Bull/Bear-Klassifikations-Grenze sind (Kap. 4.1 — Glättung).
+### Threshold Sensitivity
+Variation of the decision threshold per model. Shows how robust final wealth, max drawdown, and the number of regime switches are to a modified bull/bear classification boundary (thesis ch. 4.1, smoothing).
 
 {threshold_sensitivity_md}
 
 ### Time-to-Recovery
-Alle Drawdown-Phasen jenseits der Mindesttiefe (gemäß `extended.ttr_min_dd`) mit Peak-, Trough- und Recovery-Datum sowie Dauer in Handelstagen. Eine offene (noch nicht erholte) Phase wird im Recovery-Feld mit „—" markiert.
+All drawdown phases beyond the minimum depth (per `extended.ttr_min_dd`) with peak, trough, and recovery date as well as duration in trading days. An open (not yet recovered) phase is marked as "open" in the recovery field.
 
 {ttr_md}
 
-### Krisen-Performance
-Return und Max Drawdown während historischer Krisenperioden — der zentrale Nachweis für den Tail-Risk-Schutz der Regime-Switching-Modelle.
+### Crisis Performance
+Return and max drawdown during historical crisis periods: the central evidence for the tail-risk protection of the regime-switching models.
 
 {crisis_performance_md}
 
-### Switch-Timing relativ zum Drawdown-Peak
-Zeitlicher Abstand zwischen dem ersten Bear-Signal des Modells und dem Drawdown-Trough des Buy & Hold-Portfolios je Krise. Positiv = Modell reagierte frühzeitig, negativ = zu spät.
+### Switch Timing Relative to the Drawdown Peak
+Time lag between the model's first bear signal and the drawdown trough of the buy-and-hold portfolio per crisis. Positive = model reacted early, negative = too late.
 
 {switch_timing_md}
 
-### Drawdown-Verlauf
+### Drawdown Profile
 ![Drawdown](../assets/{cfg.paths.assets.drawdown})
 
-### Rollierender Sharpe Ratio
-Zeitvariierender, risikoadjustierter Rendite-Vergleich über ein rollendes 252-Tage-Fenster.
+### Rolling Sharpe Ratio
+Time-varying, risk-adjusted return comparison over a rolling 252-day window.
 
 ![Rolling Sharpe](../assets/{cfg.paths.assets.rolling_sharpe})
 
-### Umfassende Kennzahlen-Matrix
-Detaillierte statistische Analyse inklusive risikoadjustierter Kennzahlen (Sharpe, Sortino, Calmar).
+### Comprehensive Metrics Matrix
+Detailed statistical analysis including risk-adjusted metrics (Sharpe, Sortino, Calmar).
 
 {evaluation_table_md}
 
-### Transaktionskosten
+### Transaction Costs
 
-Diese Grafik zeigt die kumulierten Transaktionskosten im Zeitverlauf. Steile Anstiege deuten auf instabile Regime-Wechsel ("Churning") hin.
+This figure shows the cumulative transaction costs over time. Steep increases indicate unstable regime switches ("churning").
 
 ![Transaction Costs](../assets/{cfg.paths.assets.transaction_costs})
 
-Stress-Test: Sequence of Returns Risk (SORR)
-Außerdem wurde die Überlebensdauer des Kapitals in einer simulierten Entnahmephase (Ruhestandsszenario) durchgeführt.
+Stress test: Sequence of Returns Risk (SORR)
+In addition, the survival time of the capital was simulated in a withdrawal phase (retirement scenario).
 
-### SORR-Simulation: Vergleich der Entnahmeszenarien
+### SORR Simulation: Comparison of the Withdrawal Scenarios
 
-In dieser Tabelle werden verschiedene Stress-Szenarien (Standard, Aggressiv, Geringes Kapital) gegenübergestellt.
+This table compares different stress scenarios (standard, aggressive, low capital).
 
 {sorr_summary_md}
 
-Abbildung der Kapitalentwicklung der unterschiedlichen Szenarien:
+Capital development of the different scenarios:
 ![SORR Standard](../assets/{cfg.paths.assets.sorr_sim_standard})
 ![SORR Aggressive](../assets/{cfg.paths.assets.sorr_sim_aggressive})
 ![SORR Low Capital](../assets/{cfg.paths.assets.sorr_sim_low_capital})
 
-### MCS: Block-Bootstrap Robustness-Check
+### MCS: Block-Bootstrap Robustness Check
 
-Um die statistische Signifikanz zu prüfen, wurden 10.000 künstliche Marktpfade mittels Block-Bootstrap simuliert.
+To assess statistical significance, 10,000 artificial market paths were simulated via block bootstrap.
 ![MCS Paths](../assets/{cfg.paths.assets.mcs_paths})
 {mcs_summary_md}
 
-Verteilung der Endkapitalwerte:
+Distribution of the terminal capital values:
 
 ![MCS Boxplots Standard](../assets/{cfg.paths.assets.mcs_boxplot_standard})
 ![MCS Boxplots Aggressive](../assets/{cfg.paths.assets.mcs_boxplot_aggressive})
 ![MCS Boxplots Low Capital](../assets/{cfg.paths.assets.mcs_boxplot_low_capital})
 
-Wahrscheinlichkeitskorridore:
+Probability corridors:
 
-Die schattierten Bereiche zeigen das 5% bis 95% Konfidenzintervall der Kapitalentwicklung.
+The shaded areas show the 5% to 95% confidence interval of the capital development.
 ![MCS Quantiles](../assets/{cfg.paths.assets.mcs_quantiles})
 
-### Depletion Rate mit 95%-Konfidenzintervall
-Wilson-CI für die Ruin-Wahrscheinlichkeit (P[Endkapital ≤ 0]) je Szenario × Strategie.
+### Depletion Rate with 95% Confidence Interval
+Wilson CI for the ruin probability (P[terminal capital ≤ 0]) per scenario × strategy.
 
 {depletion_ci_md}
 
-### Hypothesentests (gepaarter Wilcoxon, α = 0.05)
-**H1 — Regime-Switching reduziert MaxDD vs. Buy & Hold:**
+### Hypothesis Tests (Paired Wilcoxon, α = 0.05)
+**H1: Regime switching reduces MaxDD vs. buy and hold:**
 
 {h1_md}
 
-**H2 — Transformer dominiert Ökonometrie und LSTM im Endvermögen:**
+**H2: The Transformer dominates econometrics and LSTM in terminal wealth:**
 
 {h2_md}
 
-### Break-Even-Transaktionskosten
-Ab welcher Kostenquote (in Basispunkten pro Umschichtung) verliert das aktive Switching seinen Renditevorteil gegenüber Buy & Hold?
+### Break-Even Transaction Costs
+At what cost rate (in basis points per reallocation) does active switching lose its return advantage over buy and hold?
 
 {break_even_md}
 
-![Break-Even-Analyse](../assets/{cfg.paths.assets.break_even_plot})
+![Break-Even Analysis](../assets/{cfg.paths.assets.break_even_plot})
 
-### Entnahmeraten-Sensitivität (3.5 % / 4 % / 5 %)
-Robustheit der SORR-Ergebnisse bei variierenden jährlichen Entnahmen.
+### Withdrawal Rate Sensitivity (3.5% / 4% / 5%)
+Robustness of the SORR results under varying annual withdrawals.
 
 {withdrawal_sensitivity_md}
 
 ---
 
-## Forschungsnotizen & Methodik
-- **Cash-Komponente:** Bei einem "Bear"-Signal schichtet die Strategie in den aktuellen Geldmarktzins (**^IRX**) um.
-- **Vermeidung von Look-ahead Bias:** Alle Signale werden für das Backtesting um einen Tag zeitversetzt (`shift(1)`), um reale Handelsbedingungen zu simulieren.
-- **Feature-Set:** Die Modelle nutzen Renditen, Volatilität (20d), SMA-Abstand, Momentum, VIX und Yield Spread.
-- **Kostensimulation:** Es wird eine pauschale Gebühr von 10 Basispunkten (0,1%) pro Umschichtung berechnet.
-- **SORR-Spezifika:** Bei Entnahmen in "Bull"-Phasen wird eine zusätzliche Liquiditätsgebühr von 0,1% auf den Entnahmebetrag erhoben (Asset-Verkäufe). In "Bear"-Phasen (Cash) entfällt diese.
+## Research Notes & Methodology
+- **Cash component:** On a "bear" signal, the strategy reallocates into the current money market rate (**^IRX**).
+- **Look-ahead bias prevention:** All signals are shifted by one day for the backtesting (`shift(1)`) to simulate real trading conditions.
+- **Feature set:** The models use returns, volatility (20d), SMA distance, momentum, VIX, and yield spread.
+- **Cost simulation:** A flat fee of 10 basis points (0.1%) is charged per reallocation.
+- **SORR specifics:** For withdrawals during "bull" phases, an additional liquidity fee of 0.1% is charged on the withdrawal amount (asset sales). In "bear" phases (cash), this fee does not apply.
 
 ---
 
-## Modell-Persistierung
+## Model Persistence
 
-Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
+Model persistence status for this pipeline run:
 
-- **Persistierung:** {persist_status_text}
-- **Modell-Verzeichnis:** `{persist_dir}`
+- **Persistence:** {persist_status_text}
+- **Model directory:** `{persist_dir}`
 
 {model_persistence_table}
 
-> **Hinweis:** Bei aktivierter Persistierung werden vortrainierte Modelle aus `{persist_dir}` geladen, sofern die Dateien existieren. Andernfalls wird normal trainiert und das Ergebnis für zukünftige Läufe gespeichert. Bei Änderungen an Hyperparametern müssen die entsprechenden Modelldateien gelöscht werden.
+> **Note:** With persistence enabled, pre-trained models are loaded from `{persist_dir}` if the files exist. Otherwise, training runs normally and the result is stored for future runs. When hyperparameters change, the corresponding model files must be deleted.
 
 ---
 
-**Zuletzt aktualisiert:** {timestamp}<br>
+**Last updated:** {timestamp}<br>
 **End date:** `{cfg.data.end_date}`<br>
-**Fast Mode Status zur Laufzeit:** {fast_mode_status}<br>
-**Walk-Forward-Validierung:** {wf_status}<br>
-**Modell-Persistierung:** {persist_status_text}<br>
-*Generiert durch den Backtest-Service (Reporting).*
+**Fast mode status at runtime:** {fast_mode_status}<br>
+**Walk-forward validation:** {wf_status}<br>
+**Model persistence:** {persist_status_text}<br>
+*Generated by the Backtest Service (reporting).*
 """
 
     return stats_md_content

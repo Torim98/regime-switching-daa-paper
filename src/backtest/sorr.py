@@ -1,4 +1,4 @@
-"""Sequence of Returns Risk (SORR) Simulation — Analyse der Entnahmephase."""
+"""Sequence of Returns Risk (SORR) simulation: analysis of the withdrawal phase."""
 
 import pandas as pd
 import numpy as np
@@ -12,15 +12,15 @@ def run_sorr_simulation(
     fee_rate: float,
 ) -> pd.DataFrame:
     """
-    Führt eine SORR-Simulation für alle im DataFrame enthaltenen Strategien durch.
+    Runs a SORR simulation for all strategies contained in the DataFrame.
 
-    Berechnet den Kapitalverlauf unter monatlicher Entnahme.
-    Logik pro Tag:
-    - Kapital wächst/fällt gemäß täglicher Rendite
-    - Am Monatsanfang: Entnahme + Liquiditäts-Fee (falls in Bull-Phase investiert)
-    - Kapital wird bei 0 gedeckelt (kein Negativ-Kapital)
+    Computes the capital path under monthly withdrawals.
+    Logic per day:
+    - Capital grows/declines according to the daily return
+    - At the start of the month: withdrawal + liquidity fee (if invested in a bull phase)
+    - Capital is floored at 0 (no negative capital)
 
-    Gibt DataFrame mit Kapitalverläufen pro Strategie zurück.
+    Returns a DataFrame with capital paths per strategy.
     """
     daily_ret = backtest_res.pct_change().fillna(0)
     path_results = pd.DataFrame(index=daily_ret.index)
@@ -30,7 +30,7 @@ def run_sorr_simulation(
         current_capital = start_capital
         last_month = -1
 
-        # Signalzuordnung für Gebührenlogik
+        # Signal mapping for the fee logic
         sig_col = None
         if col == "Buy_Hold":
             sig_col = None
@@ -64,11 +64,11 @@ def run_sorr_simulation(
 
 def build_sorr_scenarios(scenarios_cfg) -> dict:
     """
-    Definition der Szenarien aus zentraler Config.
-    Berechnet monatliche Entnahme aus Jahresrate:
+    Scenario definition from the central config.
+    Computes the monthly withdrawal from the annual rate:
     withdrawal = initial_capital * annual_withdrawal_rate / 12
 
-    Gibt dict mit Szenario-Name → {start, withdrawal, fee} zurück.
+    Returns a dict scenario name → {start, withdrawal, fee}.
     """
     scenarios = {}
     for scenario_name, scenario_cfg in vars(scenarios_cfg).items():
@@ -85,23 +85,23 @@ def build_sorr_summary(
     scenario_name: str,
 ) -> list[dict]:
     """
-    Statistische Auswertung für ein SORR-Szenario.
-    Pro Strategie: Endkapital und Status (Kapitalerhalt oder Erschöpfungsjahr).
+    Statistical evaluation for one SORR scenario.
+    Per strategy: terminal capital and status (capital preserved or year of depletion).
 
-    Gibt Liste von Dicts zurück (für DataFrame-Erstellung).
+    Returns a list of dicts (for DataFrame construction).
     """
     summaries = []
     for col in sim_results.columns:
         final_cap = sim_results[col].iloc[-1]
         if final_cap > 0:
-            status = "Kapitalerhalt"
+            status = "Capital preserved"
         else:
             exhausted_idx = sim_results[sim_results[col] <= 0].index[0]
-            status = f"Erschöpft ({exhausted_idx.strftime('%Y')})"
+            status = f"Depleted ({exhausted_idx.strftime('%Y')})"
         summaries.append({
-            "Szenario": scenario_name,
-            "Strategie": col.replace("_", " "),
-            "Endkapital": f"{final_cap:,.2f} €",
+            "Scenario": scenario_name,
+            "Strategy": col.replace("_", " "),
+            "Terminal Capital": f"{final_cap:,.2f} €",
             "Status": status,
         })
     return summaries

@@ -1,9 +1,9 @@
-"""Performance-Metriken, Strategie-Evaluation und Monte Carlo Simulation.
+"""Performance metrics, strategy evaluation, and Monte Carlo simulation.
 
-Enthaelt zusaetzlich die erweiterten Auswertungen aus Issue #13
-(Ulcer Index, Classification vs. NBER, ROC/PR, Whipsaw/Churning,
-Time-to-Recovery, Switch-Timing, MCS Depletion-CI, H1/H2-Hypothesentests,
-Break-Even-Transaktionskosten, Entnahmeraten-Sensitivitaet, Regime-Heatmap).
+Additionally contains the extended evaluations from Issue #13
+(Ulcer index, classification vs. NBER, ROC/PR, whipsaw/churning,
+time-to-recovery, switch timing, MCS depletion CI, H1/H2 hypothesis tests,
+break-even transaction costs, withdrawal rate sensitivity, regime heatmap).
 """
 
 import matplotlib
@@ -19,16 +19,16 @@ def evaluate_strategies(
     costs_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Umfassende Evaluation aller Strategien.
-    Berechnet pro Strategie:
-    1. Total Return & CAGR (Annualisierte Rendite)
-    2. Volatilität (annualisiert)
-    3. Sharpe Ratio (Annahme: Risk-Free Rate = 0, da Cash bereits in der Strategie steckt)
-    4. Maximum Drawdown
-    5. Sortino Ratio (Fokus auf Downside-Risiko)
-    6. Calmar Ratio (Verhältnis Rendite zu Max Drawdown)
-    7. Anzahl der Trades (Regime-Wechsel)
-    8. Gesamte Transaktionskosten am Ende des Zeitraums
+    Comprehensive evaluation of all strategies.
+    Computes per strategy:
+    1. Total return & CAGR (annualized return)
+    2. Volatility (annualized)
+    3. Sharpe ratio (assumption: risk-free rate = 0, since cash is already part of the strategy)
+    4. Maximum drawdown
+    5. Sortino ratio (focus on downside risk)
+    6. Calmar ratio (ratio of return to max drawdown)
+    7. Number of trades (regime switches)
+    8. Total transaction costs at the end of the period
     """
     stats = []
 
@@ -36,60 +36,60 @@ def evaluate_strategies(
         equity_curve = results_df[col]
         daily_returns = equity_curve.pct_change().dropna()
 
-        # 1. Total Return & CAGR (Annualisierte Rendite)
+        # 1. Total return & CAGR (annualized return)
         total_return = (equity_curve.iloc[-1] / equity_curve.iloc[0]) - 1
         days = (equity_curve.index[-1] - equity_curve.index[0]).days
         cagr = (equity_curve.iloc[-1] / equity_curve.iloc[0]) ** (365.25 / days) - 1
 
-        # 2. Volatilität (annualisiert)
+        # 2. Volatility (annualized)
         vol = daily_returns.std() * np.sqrt(252)
 
-        # 3. Sharpe Ratio (Annahme: Risk-Free Rate = 0, da Cash bereits in der Strategie steckt)
+        # 3. Sharpe ratio (assumption: risk-free rate = 0, since cash is already part of the strategy)
         sharpe = (
             (daily_returns.mean() / daily_returns.std()) * np.sqrt(252)
             if daily_returns.std() != 0
             else 0
         )
 
-        # 4. Maximum Drawdown
+        # 4. Maximum drawdown
         peak = equity_curve.expanding(min_periods=1).max()
         drawdown = (equity_curve / peak) - 1
         mdd = drawdown.min()
 
-        # 5. Sortino Ratio (Fokus auf Downside-Risiko)
+        # 5. Sortino ratio (focus on downside risk)
         downside_returns = daily_returns[daily_returns < 0]
         downside_std = downside_returns.std() * np.sqrt(252)
         sortino = (daily_returns.mean() * 252) / downside_std if downside_std != 0 else np.nan
 
-        # 6. Calmar Ratio (Verhältnis Rendite zu Max Drawdown)
+        # 6. Calmar ratio (ratio of return to max drawdown)
         calmar = cagr / abs(mdd) if mdd != 0 else np.nan
 
-        # 7. Anzahl der Trades (Regime-Wechsel)
+        # 7. Number of trades (regime switches)
         if col in trades_df.columns:
             switches = trades_df[col].diff().abs().sum()
         else:
             switches = 0
 
-        # 8. Gesamte Transaktionskosten am Ende des Zeitraums extrahieren
+        # 8. Extract total transaction costs at the end of the period
         if col in costs_df.columns:
             total_fees = costs_df[col].iloc[-1]
         else:
             total_fees = 0.0
 
         stats.append({
-            "Strategie": col.replace("_", " "),
+            "Strategy": col.replace("_", " "),
             "Total Return": f"{total_return:.2%}",
             "CAGR (p.a.)": f"{cagr:.2%}",
-            "Volatilität": f"{vol:.2%}",
+            "Volatility": f"{vol:.2%}",
             "Max Drawdown": f"{mdd:.2%}",
             "Sharpe Ratio": round(sharpe, 2),
             "Sortino Ratio": round(sortino, 2),
             "Calmar Ratio": round(calmar, 2),
-            "Regime-Wechsel": int(switches),
-            "Gesamtkosten (Gebühren)": f"{total_fees:.2%}",
+            "Regime Switches": int(switches),
+            "Total Costs (Fees)": f"{total_fees:.2%}",
         })
 
-    return pd.DataFrame(stats).set_index("Strategie")
+    return pd.DataFrame(stats).set_index("Strategy")
 
 
 def find_matching_signal_col(
@@ -97,8 +97,8 @@ def find_matching_signal_col(
     test_df_columns: pd.Index,
 ) -> str | None:
     """
-    Dynamische Zuordnung von Strategie zu Signal-Spalte.
-    Sucht passende _Signal-Spalte im test_df für eine gegebene Strategie.
+    Dynamic mapping from strategy to signal column.
+    Searches for a matching _Signal column in test_df for a given strategy.
     """
     if strategy_name == "Buy_Hold":
         return None
@@ -126,58 +126,58 @@ def _simulate_strategy(
     rng: np.random.Generator,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Vektorisierte MCS für eine einzelne Strategie + Szenario-Kombination.
+    Vectorized MCS for a single strategy + scenario combination.
 
-    1. Paired Block Bootstrap: Alle Pfade gleichzeitig via vorberechneter
-       Block-Indizes (Renditen + Signale bleiben korreliert).
-    2. Capital Evolution: Tagesweise über alle Pfade parallel (NumPy-Vektoren),
-       mit monatlicher Entnahme (alle 21 Handelstage) und Ruin-Erkennung.
+    1. Paired block bootstrap: all paths simultaneously via precomputed
+       block indices (returns + signals remain correlated).
+    2. Capital evolution: day by day across all paths in parallel (NumPy vectors),
+       with monthly withdrawal (every 21 trading days) and ruin detection.
 
     Returns:
-        final_capitals: (n_simulations,) — Endkapital je Pfad
-        all_capital_histories: (n_simulations, total_days) — vollständige Pfade
+        final_capitals: (n_simulations,) terminal capital per path
+        all_capital_histories: (n_simulations, total_days) full paths
     """
     n_source = len(rets_arr)
     n_blocks = int(np.ceil(total_days / block_size))
 
-    # --- Vectorized Paired Block Bootstrap ---
-    # Alle Startindizes auf einmal ziehen: (n_simulations, n_blocks)
+    # --- Vectorized paired block bootstrap ---
+    # Draw all start indices at once: (n_simulations, n_blocks)
     start_indices = rng.integers(0, n_source - block_size, size=(n_simulations, n_blocks))
 
-    # Block-Indizes zu vollständigen Zeitreihen-Indizes expandieren
-    # offsets: (1, 1, block_size) broadcast mit start_indices: (n_sim, n_blocks, 1)
+    # Expand block indices to full time-series indices
+    # offsets: (1, 1, block_size) broadcast with start_indices: (n_sim, n_blocks, 1)
     offsets = np.arange(block_size)
     # (n_simulations, n_blocks, block_size)
     full_indices = start_indices[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :]
-    # Flatten zu (n_simulations, n_blocks * block_size) und auf total_days trimmen
+    # Flatten to (n_simulations, n_blocks * block_size) and trim to total_days
     full_indices = full_indices.reshape(n_simulations, -1)[:, :total_days]
 
     sim_rets = rets_arr[full_indices]   # (n_simulations, total_days)
     sim_sigs = sig_arr[full_indices]    # (n_simulations, total_days)
 
-    # --- Vectorized Capital Evolution ---
+    # --- Vectorized capital evolution ---
     capitals = np.full(n_simulations, start_capital, dtype=np.float64)
     all_capital_histories = np.empty((n_simulations, total_days), dtype=np.float64)
     ruined = np.zeros(n_simulations, dtype=bool)
 
     for i in range(total_days):
-        # Rendite anwenden (alle Pfade gleichzeitig)
+        # Apply return (all paths simultaneously)
         capitals *= (1 + sim_rets[:, i])
 
-        # Monatliche Entnahme (alle 21 Handelstage)
+        # Monthly withdrawal (every 21 trading days)
         if i % 21 == 0:
             withdrawal_amt = np.full(n_simulations, withdrawal)
-            # Liquiditäts-Fee wenn Signal == 0 (Bull-Phase investiert)
+            # Liquidity fee if signal == 0 (invested in bull phase)
             fee_mask = sim_sigs[:, i] == 0
             withdrawal_amt[fee_mask] += withdrawal * fee
             capitals -= withdrawal_amt
 
-        # Ruin-Check: neu ruinierte Pfade auf 0 setzen
+        # Ruin check: set newly ruined paths to 0
         newly_ruined = (capitals <= 0) & ~ruined
         capitals[newly_ruined] = 0.0
         ruined |= newly_ruined
 
-        # Bereits ruinierte Pfade bleiben bei 0
+        # Already ruined paths stay at 0
         capitals[ruined] = 0.0
 
         all_capital_histories[:, i] = capitals
@@ -196,41 +196,41 @@ def run_monte_carlo_simulation(
     trading_days_per_year: int,
 ) -> tuple[list[dict], dict]:
     """
-    Block-Bootstrap Monte Carlo Simulation (MCS) — Robustness-Check.
+    Block-bootstrap Monte Carlo simulation (MCS) as robustness check.
 
-    Paired Block Bootstrap: Rendite-Blöcke + Signal-Blöcke werden gemeinsam gezogen,
-    um die Korrelation zwischen Renditen und Signalen zu erhalten.
+    Paired block bootstrap: return blocks + signal blocks are drawn together
+    to preserve the correlation between returns and signals.
 
-    Entnahme-Simulation: Monatliche Entnahme (alle 21 Handelstage) mit
-    Liquiditäts-Fee falls in Bull-Phase investiert.
+    Withdrawal simulation: monthly withdrawal (every 21 trading days) with
+    a liquidity fee if invested in a bull phase.
 
-    Reproduzierbarkeit über random_seed sichergestellt.
+    Reproducibility ensured via random_seed.
 
-    Optimiert für hohe Pfadanzahlen (10.000+):
-    - Vektorisierter Block-Bootstrap (NumPy Fancy Indexing)
-    - Vektorisierte Capital Evolution (alle Pfade parallel)
-    - Parallelisierung über Strategien via concurrent.futures
+    Optimized for high path counts (10,000+):
+    - Vectorized block bootstrap (NumPy fancy indexing)
+    - Vectorized capital evolution (all paths in parallel)
+    - Parallelization across strategies via concurrent.futures
 
-    Gibt (all_mc_summaries, mcs_paths_collector) zurück:
-    - all_mc_summaries: Liste von Dicts mit Ruin-Wahrscheinlichkeit und Median Endkapital
-    - mcs_paths_collector: Dict mit allen simulierten Kapitalpfaden
+    Returns (all_mc_summaries, mcs_paths_collector):
+    - all_mc_summaries: list of dicts with ruin probability and median terminal capital
+    - mcs_paths_collector: dict with all simulated capital paths
     """
     from concurrent.futures import ProcessPoolExecutor, as_completed
     import os
 
     total_days = sim_years * trading_days_per_year
 
-    # Prüfen, ob Renditen vorhanden sind
+    # Check that returns are available
     if daily_rets.empty:
-        raise ValueError("daily_rets ist leer. Prüfe die Datenquelle backtesting_results.")
+        raise ValueError("daily_rets is empty. Check the data source backtesting_results.")
 
-    # Reproduzierbare, unabhängige Seeds pro Job via SeedSequence
+    # Reproducible, independent seeds per job via SeedSequence
     seed_seq = np.random.SeedSequence(random_seed)
 
     all_mc_summaries = []
     mcs_paths_collector = {}
 
-    # --- Jobs vorbereiten: (Szenario, Strategie) Paare ---
+    # --- Prepare jobs: (scenario, strategy) pairs ---
     jobs = []
     job_keys = []
     child_seeds = seed_seq.spawn(len(scenarios) * len(daily_rets.columns))
@@ -259,17 +259,17 @@ def run_monte_carlo_simulation(
             job_keys.append((sc_name, strategy))
             seed_idx += 1
 
-    # --- Parallel oder sequentiell ausführen ---
+    # --- Run in parallel or sequentially ---
     n_workers = min(len(jobs), max(1, os.cpu_count() - 1))
     results = {}
 
     if n_workers > 1 and n_simulations >= 1000:
-        print(f"MCS: Starte {len(jobs)} Jobs auf {n_workers} Workern "
-              f"({n_simulations:,} Pfade je Kombination)...")
+        print(f"MCS: starting {len(jobs)} jobs on {n_workers} workers "
+              f"({n_simulations:,} paths per combination)...")
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
             future_to_key = {}
             for key, job_args in zip(job_keys, jobs):
-                # SeedSequence → Generator im Worker erstellen
+                # SeedSequence → create generator in the worker
                 future = executor.submit(_run_strategy_job, *job_args)
                 future_to_key[future] = key
 
@@ -277,29 +277,29 @@ def run_monte_carlo_simulation(
                 key = future_to_key[future]
                 results[key] = future.result()
     else:
-        print(f"MCS: Starte {len(jobs)} Jobs sequentiell "
-              f"({n_simulations:,} Pfade je Kombination)...")
+        print(f"MCS: starting {len(jobs)} jobs sequentially "
+              f"({n_simulations:,} paths per combination)...")
         for key, job_args in zip(job_keys, jobs):
             results[key] = _run_strategy_job(*job_args)
 
-    # --- Ergebnisse aggregieren ---
+    # --- Aggregate results ---
     for (sc_name, strategy), (final_capitals, all_histories) in results.items():
         print(f"  ✓ {sc_name} / {strategy}")
 
-        # Pfade in Collector schreiben
+        # Write paths into the collector
         for s in range(n_simulations):
             path_id = f"{sc_name}_{strategy}_path_{s:03d}"
             mcs_paths_collector[path_id] = all_histories[s].tolist()
 
-        # Summary-Statistiken
+        # Summary statistics
         ruin_prob = np.mean(final_capitals <= 0)
         median_wealth = np.median(final_capitals)
 
         all_mc_summaries.append({
-            "Szenario": sc_name,
-            "Strategie": strategy.replace("_", " "),
-            "Ruin-Wahrscheinlichkeit": f"{ruin_prob:.2%}",
-            "Median Endkapital": f"{median_wealth:,.2f} €",
+            "Scenario": sc_name,
+            "Strategy": strategy.replace("_", " "),
+            "Ruin Probability": f"{ruin_prob:.2%}",
+            "Median Terminal Capital": f"{median_wealth:,.2f} €",
         })
 
     return all_mc_summaries, mcs_paths_collector
@@ -309,7 +309,7 @@ def _run_strategy_job(
     rets_arr, sig_arr, n_simulations, total_days, block_size,
     start_capital, withdrawal, fee, child_seed,
 ):
-    """Wrapper für ProcessPoolExecutor — erstellt Generator aus SeedSequence."""
+    """Wrapper for ProcessPoolExecutor: creates a generator from the SeedSequence."""
     rng = np.random.default_rng(child_seed)
     return _simulate_strategy(
         rets_arr, sig_arr, n_simulations, total_days, block_size,
@@ -318,16 +318,16 @@ def _run_strategy_job(
 
 
 # ============================================================
-# Issue #13 — Erweiterte Evaluations-Metriken (Kap. 4.1–4.4)
+# Issue #13: extended evaluation metrics (thesis ch. 4.1-4.4)
 # ============================================================
 
 # ------------------------------------------------------------
-# Kap. 4.2/4.4 — Ulcer Index
+# Ch. 4.2/4.4: Ulcer index
 # ------------------------------------------------------------
 def ulcer_index(equity: pd.Series) -> float:
     """
-    Martin (1989): RMS-Drawdown. Robusteres Stress-Mass als MaxDD,
-    da tiefe UND lange Drawdowns bestraft werden.
+    Martin (1989): RMS drawdown. More robust stress measure than MaxDD,
+    since deep AND long drawdowns are penalized.
     """
     roll_max = equity.cummax()
     dd_pct = (equity / roll_max - 1.0) * 100.0
@@ -338,7 +338,7 @@ def add_ulcer_to_table(
     backtesting_results: pd.DataFrame,
     evaluation_table: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Hängt eine 'Ulcer Index'-Spalte an die Evaluation-Tabelle an."""
+    """Appends an 'Ulcer Index' column to the evaluation table."""
     ui = {
         col.replace("_", " "): round(ulcer_index(backtesting_results[col]), 2)
         for col in backtesting_results.columns
@@ -348,7 +348,7 @@ def add_ulcer_to_table(
 
 
 # ------------------------------------------------------------
-# Kap. 4.1 — Classification vs. NBER-Ground-Truth
+# Ch. 4.1: classification vs. NBER ground truth
 # ------------------------------------------------------------
 def compute_classification_metrics(
     test_df: pd.DataFrame,
@@ -356,8 +356,8 @@ def compute_classification_metrics(
     models: list[str],
 ) -> tuple[pd.DataFrame, dict]:
     """
-    Pro Modell: Precision / Recall / F1 / Confusion Matrix gegen NBER.
-    `test_df` muss <Model>_Signal-Spalten enthalten.
+    Per model: precision / recall / F1 / confusion matrix against NBER.
+    `test_df` must contain <Model>_Signal columns.
     """
     from sklearn.metrics import (
         confusion_matrix, f1_score, precision_score, recall_score,
@@ -374,21 +374,21 @@ def compute_classification_metrics(
         cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
         cms[m] = cm
         rows.append({
-            "Modell": m,
+            "Model": m,
             "Precision": round(precision_score(y_true, y_pred, zero_division=0), 3),
             "Recall":    round(recall_score(y_true, y_pred, zero_division=0), 3),
             "F1":        round(f1_score(y_true, y_pred, zero_division=0), 3),
             "TN": int(cm[0, 0]), "FP": int(cm[0, 1]),
             "FN": int(cm[1, 0]), "TP": int(cm[1, 1]),
         })
-    return pd.DataFrame(rows).set_index("Modell"), cms
+    return pd.DataFrame(rows).set_index("Model"), cms
 
 
 def plot_confusion_matrices(
     cms: dict,
     save_path: str,
 ) -> None:
-    """Konfusions-Matrizen als Grid (eine pro Modell)."""
+    """Confusion matrices as a grid (one per model)."""
     n = len(cms)
     if n == 0:
         return
@@ -400,7 +400,7 @@ def plot_confusion_matrices(
         ax.set_xticks([0, 1]); ax.set_yticks([0, 1])
         ax.set_xticklabels(["No-Rec", "Rec"])
         ax.set_yticklabels(["No-Rec", "Rec"])
-        ax.set_xlabel("Vorhergesagt"); ax.set_ylabel("NBER (Wahrheit)")
+        ax.set_xlabel("Predicted"); ax.set_ylabel("NBER (ground truth)")
         ax.set_title(model)
         for i in range(2):
             for j in range(2):
@@ -421,8 +421,8 @@ def plot_roc_pr_curves(
     pr_path: str,
 ) -> pd.DataFrame:
     """
-    ROC + PR-Kurven pro Modell (nutzt <Model>_Prob, nicht _Signal,
-    um schwellenunabhängig zu vergleichen).
+    ROC + PR curves per model (uses <Model>_Prob, not _Signal,
+    for a threshold-independent comparison).
     """
     from sklearn.metrics import roc_curve, precision_recall_curve, auc
 
@@ -448,23 +448,23 @@ def plot_roc_pr_curves(
         pr_auc = auc(rec, prec)
         ax_p.plot(rec, prec, color=c, lw=1.6, label=f"{m} (AUC={pr_auc:.2f})")
 
-        rows.append({"Modell": m, "ROC-AUC": round(roc_auc, 3), "PR-AUC": round(pr_auc, 3)})
+        rows.append({"Model": m, "ROC-AUC": round(roc_auc, 3), "PR-AUC": round(pr_auc, 3)})
 
     ax_r.set_xlabel("False Positive Rate"); ax_r.set_ylabel("True Positive Rate")
-    ax_r.set_title("ROC-Kurven (vs. NBER)"); ax_r.legend(loc="lower right")
+    ax_r.set_title("ROC Curves (vs. NBER)"); ax_r.legend(loc="lower right")
     ax_r.grid(alpha=0.25)
     fig_roc.savefig(roc_path, dpi=300, bbox_inches="tight"); plt.close(fig_roc)
 
     ax_p.set_xlabel("Recall"); ax_p.set_ylabel("Precision")
-    ax_p.set_title("Precision-Recall-Kurven (vs. NBER)"); ax_p.legend(loc="lower left")
+    ax_p.set_title("Precision-Recall Curves (vs. NBER)"); ax_p.legend(loc="lower left")
     ax_p.grid(alpha=0.25)
     fig_pr.savefig(pr_path, dpi=300, bbox_inches="tight"); plt.close(fig_pr)
 
-    return pd.DataFrame(rows).set_index("Modell")
+    return pd.DataFrame(rows).set_index("Model")
 
 
 # ------------------------------------------------------------
-# Kap. 4.1 — Signal-Churning / Whipsaw / Schwellen-Sensitivität
+# Ch. 4.1: signal churning / whipsaw / threshold sensitivity
 # ------------------------------------------------------------
 def churning_stats(
     test_df: pd.DataFrame,
@@ -473,8 +473,8 @@ def churning_stats(
     min_phase_days: int = 5,
 ) -> pd.DataFrame:
     """
-    Pro Modell: Anzahl Signalwechsel, Anteil 'Whipsaws' (Phasen < min_phase_days),
-    durchschnittliche Phasenlänge, implizite Kosten bei `fee_rate`.
+    Per model: number of signal switches, share of 'whipsaws' (phases < min_phase_days),
+    average phase length, implied costs at `fee_rate`.
     """
     rows = []
     for m in models:
@@ -483,20 +483,20 @@ def churning_stats(
             continue
         sig = sig.dropna().astype(int)
         n_switches = int((sig.diff().abs() == 1).sum())
-        # Phasenlängen über Run-Length-Encoding
+        # Phase lengths via run-length encoding
         changes = (sig != sig.shift()).cumsum()
         phase_lengths = sig.groupby(changes).size().values
         whipsaws = int((phase_lengths < min_phase_days).sum())
         rows.append({
-            "Modell": m,
-            "Signalwechsel": n_switches,
-            f"Whipsaws (<{min_phase_days}T)": whipsaws,
-            "Whipsaw-Anteil": f"{whipsaws / max(len(phase_lengths), 1):.1%}",
-            "Ø Phase (Tage)": round(float(np.mean(phase_lengths)), 1),
-            "Median Phase (Tage)": int(np.median(phase_lengths)),
-            "Kumul. Kosten": f"{n_switches * fee_rate:.2%}",
+            "Model": m,
+            "Signal Switches": n_switches,
+            f"Whipsaws (<{min_phase_days}d)": whipsaws,
+            "Whipsaw Share": f"{whipsaws / max(len(phase_lengths), 1):.1%}",
+            "Mean Phase (Days)": round(float(np.mean(phase_lengths)), 1),
+            "Median Phase (Days)": int(np.median(phase_lengths)),
+            "Cumul. Costs": f"{n_switches * fee_rate:.2%}",
         })
-    return pd.DataFrame(rows).set_index("Modell")
+    return pd.DataFrame(rows).set_index("Model")
 
 
 def threshold_sensitivity(
@@ -509,12 +509,12 @@ def threshold_sensitivity(
     initial_capital: float = 1.0,
 ) -> pd.DataFrame:
     """
-    Variiert die Threshold-Schwelle für ein einzelnes Modell und misst,
-    wie sich Final-Equity (in €), MaxDD und #Wechsel ändern (Kap. 4.1 Glättung).
-    Setzt voraus, dass `<model>_Prob` in test_df vorhanden ist.
+    Varies the threshold for a single model and measures how
+    final equity (in €), MaxDD, and #switches change (thesis ch. 4.1, smoothing).
+    Requires `<model>_Prob` to be present in test_df.
     """
     prob_col = f"{model}_Prob"
-    assert prob_col in test_df.columns, f"{prob_col} fehlt in test_df"
+    assert prob_col in test_df.columns, f"{prob_col} missing in test_df"
 
     rows = []
     for t in thresholds:
@@ -528,18 +528,18 @@ def threshold_sensitivity(
             "Threshold": t,
             "Final Wealth": f"{float(eq.iloc[-1]) * initial_capital:,.0f} €",
             "Max Drawdown": f"{dd*100:.2f}%",
-            "Wechsel": n_switches,
+            "Switches": n_switches,
         })
     return pd.DataFrame(rows).set_index("Threshold")
 
 
 # ------------------------------------------------------------
-# Kap. 4.2 — Time-to-Recovery + Switch-Timing
+# Ch. 4.2: time-to-recovery + switch timing
 # ------------------------------------------------------------
 def time_to_recovery(equity: pd.Series, min_dd: float = -0.05) -> pd.DataFrame:
     """
-    Alle Drawdown-Phasen mit DD < min_dd: Peak-Datum, Trough-Datum,
-    Recovery-Datum, Dauer in Handelstagen. NaN bei unerholten Phasen.
+    All drawdown phases with DD < min_dd: peak date, trough date,
+    recovery date, duration in trading days. NaN for unrecovered phases.
     """
     roll_max = equity.cummax()
     dd = equity / roll_max - 1.0
@@ -560,12 +560,12 @@ def time_to_recovery(equity: pd.Series, min_dd: float = -0.05) -> pd.DataFrame:
                     "Trough":   trough.strftime("%Y-%m-%d"),
                     "Recovery": date.strftime("%Y-%m-%d"),
                     "Max DD":   f"{dd_min*100:.2f}%",
-                    "Drawdown-Dauer (T)": (trough - start).days,
-                    "Recovery-Dauer (T)": (date - trough).days,
-                    "Gesamt (T)": (date - start).days,
+                    "Drawdown Duration (d)": (trough - start).days,
+                    "Recovery Duration (d)": (date - trough).days,
+                    "Total (d)": (date - start).days,
                 })
             start = None
-    # Offene Phase am Ende (noch nicht erholt)
+    # Open phase at the end (not yet recovered)
     if start is not None:
         seg = equity.loc[start:]
         dd_seg = seg / seg.cummax() - 1
@@ -575,11 +575,11 @@ def time_to_recovery(equity: pd.Series, min_dd: float = -0.05) -> pd.DataFrame:
             phases.append({
                 "Peak":     start.strftime("%Y-%m-%d"),
                 "Trough":   trough_idx.strftime("%Y-%m-%d"),
-                "Recovery": "—",
+                "Recovery": "open",
                 "Max DD":   f"{dd_min*100:.2f}%",
-                "Drawdown-Dauer (T)": (trough_idx - start).days,
-                "Recovery-Dauer (T)": np.nan,
-                "Gesamt (T)": np.nan,
+                "Drawdown Duration (d)": (trough_idx - start).days,
+                "Recovery Duration (d)": np.nan,
+                "Total (d)": np.nan,
             })
     return pd.DataFrame(phases)
 
@@ -591,9 +591,9 @@ def switch_timing_vs_peak(
     crisis_windows: dict,
 ) -> pd.DataFrame:
     """
-    Pro Krisenfenster: Wie viele Tage VOR dem Drawdown-Peak des Buy-Hold
-    hat das Modell bereits ein Bear-Signal gesetzt? Negativ = reagierte
-    zu spät.
+    Per crisis window: how many days BEFORE the buy-and-hold drawdown
+    trough did the model already set a bear signal? Negative = reacted
+    too late.
     """
     sig_col = f"{model}_Signal"
     if sig_col not in test_df.columns:
@@ -611,18 +611,18 @@ def switch_timing_vs_peak(
         if pd.isna(first_bear):
             lead = np.nan
         else:
-            lead = (trough_date - first_bear).days  # pos. = frühzeitig
+            lead = (trough_date - first_bear).days  # positive = early
         rows.append({
-            "Krise": name,
-            "DD-Trough": trough_date.date(),
-            "1. Bear-Signal": first_bear.date() if not pd.isna(first_bear) else None,
-            "Lead (Tage)": lead,
+            "Crisis": name,
+            "DD Trough": trough_date.date(),
+            "First Bear Signal": first_bear.date() if not pd.isna(first_bear) else None,
+            "Lead (Days)": lead,
         })
-    return pd.DataFrame(rows).set_index("Krise")
+    return pd.DataFrame(rows).set_index("Crisis")
 
 
 # ------------------------------------------------------------
-# Kap. 4.3 — MCS: Endvermögen, Depletion-CI, H1/H2-Tests
+# Ch. 4.3: MCS: terminal wealth, depletion CI, H1/H2 tests
 # ------------------------------------------------------------
 def mcs_final_capitals(
     mcs_paths_collector: dict,
@@ -630,8 +630,8 @@ def mcs_final_capitals(
     strategies: list[str],
 ) -> dict:
     """
-    Aus dem Pfad-Collector je (Szenario, Strategie) die Endkapitale
-    als 1D-NumPy-Array rekonstruieren.
+    Reconstruct the terminal capitals per (scenario, strategy) from the
+    path collector as a 1D NumPy array.
     """
     finals = {}
     for sc in scenarios:
@@ -648,8 +648,8 @@ def depletion_rate_with_ci(
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
-    Wilson-CI fuer die Depletion Rate p = P(Endkapital <= 0).
-    Wilson statt Wald, weil bei p ~ 0 numerisch stabiler.
+    Wilson CI for the depletion rate p = P(terminal capital <= 0).
+    Wilson instead of Wald because it is numerically more stable for p ~ 0.
     """
     from scipy.stats import norm
     z = norm.ppf(1 - alpha / 2)
@@ -663,25 +663,25 @@ def depletion_rate_with_ci(
         center = (p + z**2 / (2 * n)) / denom
         half = (z * np.sqrt(p * (1 - p) / n + z**2 / (4 * n**2))) / denom
         rows.append({
-            "Szenario": sc,
-            "Strategie": s,
+            "Scenario": sc,
+            "Strategy": s,
             "Depletion Rate": f"{p:.2%}",
-            "95%-CI unten":  f"{max(0, center - half):.2%}",
-            "95%-CI oben":   f"{min(1, center + half):.2%}",
+            "95% CI Lower":  f"{max(0, center - half):.2%}",
+            "95% CI Upper":  f"{min(1, center + half):.2%}",
             "n_ruin / n_paths": f"{k}/{n}",
         })
-    return pd.DataFrame(rows).set_index(["Szenario", "Strategie"])
+    return pd.DataFrame(rows).set_index(["Scenario", "Strategy"])
 
 
 def mcs_path_maxdd(mcs_paths_collector: dict, prefix: str) -> np.ndarray:
-    """MaxDD je Pfad (für Hypothesentests)."""
+    """MaxDD per path (for hypothesis tests)."""
     dds = []
     for k, path in mcs_paths_collector.items():
         if not k.startswith(prefix):
             continue
         arr = np.asarray(path, dtype=float)
         cummax = np.maximum.accumulate(arr)
-        # Schutz vor Division durch 0 in Ruin-Pfaden
+        # Protection against division by 0 in ruin paths
         with np.errstate(divide="ignore", invalid="ignore"):
             dd = np.where(cummax > 0, arr / cummax - 1, -1.0)
         dds.append(dd.min())
@@ -696,8 +696,8 @@ def test_h1_drawdown(
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
-    H1: Regime-Switching reduziert MaxDD vs. Buy & Hold.
-    Gepaarter Wilcoxon-Test (gleiche Bootstrap-Indizes → gepaarte Pfade).
+    H1: Regime switching reduces MaxDD vs. buy and hold.
+    Paired Wilcoxon test (same bootstrap indices → paired paths).
     """
     from scipy.stats import wilcoxon
 
@@ -707,21 +707,21 @@ def test_h1_drawdown(
         dd_m = mcs_path_maxdd(mcs_paths_collector, f"{scenario}_{m}_path_")
         if len(dd_m) != len(dd_bh) or len(dd_m) == 0:
             continue
-        # H1: dd_m > dd_bh (weniger negativ) → einseitig "greater"
+        # H1: dd_m > dd_bh (less negative) → one-sided "greater"
         try:
             _, p = wilcoxon(dd_m, dd_bh, alternative="greater")
         except ValueError:
             p = np.nan
         rows.append({
-            "Modell": m,
-            "Median MaxDD (Modell)": f"{np.median(dd_m)*100:.2f}%",
-            "Median MaxDD (B&H)":    f"{np.median(dd_bh)*100:.2f}%",
-            "Δ Median":              f"{(np.median(dd_m) - np.median(dd_bh))*100:+.2f} pp",
-            "Wilcoxon p":            f"{p:.2e}" if not np.isnan(p) else "n/a",
-            f"H1 (α={alpha})":       ("bestätigt" if (not np.isnan(p) and p < alpha)
-                                      else "abgelehnt"),
+            "Model": m,
+            "Median MaxDD (Model)": f"{np.median(dd_m)*100:.2f}%",
+            "Median MaxDD (B&H)":   f"{np.median(dd_bh)*100:.2f}%",
+            "Δ Median":             f"{(np.median(dd_m) - np.median(dd_bh))*100:+.2f} pp",
+            "Wilcoxon p":           f"{p:.2e}" if not np.isnan(p) else "n/a",
+            f"H1 (α={alpha})":      ("confirmed" if (not np.isnan(p) and p < alpha)
+                                     else "rejected"),
         })
-    return pd.DataFrame(rows).set_index("Modell")
+    return pd.DataFrame(rows).set_index("Model")
 
 
 def test_h2_transformer(
@@ -732,8 +732,8 @@ def test_h2_transformer(
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
-    H2: Transformer schlägt Ökonometrie/LSTM im Endvermögen.
-    Gepaarter Wilcoxon-Test auf Endkapital (dieselben Pfade).
+    H2: The Transformer beats econometrics/LSTM in terminal wealth.
+    Paired Wilcoxon test on terminal capital (same paths).
     """
     from scipy.stats import wilcoxon
     w_ch = finals.get((scenario, challenger))
@@ -750,15 +750,15 @@ def test_h2_transformer(
         except ValueError:
             p = np.nan
         rows.append({
-            "Vergleich":        f"{challenger} vs. {c}",
+            "Comparison":       f"{challenger} vs. {c}",
             f"Median {challenger}": f"{np.median(w_ch):,.0f} €",
             f"Median {c}":          f"{np.median(w_c):,.0f} €",
             "Δ Median":         f"{(np.median(w_ch) - np.median(w_c)):+,.0f} €",
             "Wilcoxon p":       f"{p:.2e}" if not np.isnan(p) else "n/a",
-            f"H2 (α={alpha})":  ("bestätigt" if (not np.isnan(p) and p < alpha)
-                                 else "abgelehnt"),
+            f"H2 (α={alpha})":  ("confirmed" if (not np.isnan(p) and p < alpha)
+                                 else "rejected"),
         })
-    return pd.DataFrame(rows).set_index("Vergleich")
+    return pd.DataFrame(rows).set_index("Comparison")
 
 
 def plot_mcs_violins(
@@ -768,7 +768,7 @@ def plot_mcs_violins(
     color_map: dict,
     save_path_template: str,
 ) -> None:
-    """Violin-Plots je Szenario (zusätzlich zu den Boxplots)."""
+    """Violin plots per scenario (in addition to the boxplots)."""
     for sc in scenarios:
         data, labels, colors = [], [], []
         for s in strategies:
@@ -786,7 +786,7 @@ def plot_mcs_violins(
             body.set_facecolor(c); body.set_alpha(0.6)
         ax.set_xticks(range(1, len(labels) + 1))
         ax.set_xticklabels(labels, rotation=20)
-        ax.set_title(f"MCS Endvermögen — Szenario {sc}")
+        ax.set_title(f"MCS Terminal Wealth: Scenario {sc}")
         ax.axhline(y=0, color="red", linestyle="--", alpha=0.6)
         ax.grid(alpha=0.25)
         fig.savefig(save_path_template.format(sc.lower()),
@@ -795,7 +795,7 @@ def plot_mcs_violins(
 
 
 # ------------------------------------------------------------
-# Kap. 4.4 — Break-Even-Kosten + Entnahmeraten-Sensitivität
+# Ch. 4.4: break-even costs + withdrawal rate sensitivity
 # ------------------------------------------------------------
 def break_even_transaction_cost(
     test_df: pd.DataFrame,
@@ -806,9 +806,9 @@ def break_even_transaction_cost(
     signal_shift: int,
 ) -> tuple[pd.DataFrame, dict]:
     """
-    Pro Modell: Final-Wealth unter variierender Kostenquote.
-    Break-Even = kleinste Kostenquote, bei der Final-Wealth <= B&H.
-    Gibt (Summary-Tabelle, {Modell: Series(fee_bps -> final_wealth)}).
+    Per model: final wealth under varying cost rates.
+    Break-even = smallest cost rate at which final wealth <= B&H.
+    Returns (summary table, {model: Series(fee_bps -> final_wealth)}).
     """
     bh_final = float(benchmark_equity.iloc[-1])
     summary, curves = [], {}
@@ -827,12 +827,12 @@ def break_even_transaction_cost(
         below = curves[m][curves[m] <= bh_final]
         be_bps = int(below.index.min()) if not below.empty else None
         summary.append({
-            "Modell": m,
+            "Model": m,
             "Final @10bps": round(wealths.get(10, float("nan")), 3),
             "B&H Final":    round(bh_final, 3),
             "Break-Even (bps)": be_bps if be_bps is not None else ">max",
         })
-    return pd.DataFrame(summary).set_index("Modell"), curves
+    return pd.DataFrame(summary).set_index("Model"), curves
 
 
 def plot_break_even(
@@ -847,9 +847,9 @@ def plot_break_even(
                 color=color_map.get(m, None), label=m)
     ax.axhline(benchmark_final, color="black", linestyle="--",
                label=f"Buy & Hold ({benchmark_final:.2f})")
-    ax.set_xlabel("Transaktionskosten (bps)")
-    ax.set_ylabel("Final Wealth (kumuliert)")
-    ax.set_title("Break-Even-Analyse: Kostenquote vs. Endvermögen")
+    ax.set_xlabel("Transaction costs (bps)")
+    ax.set_ylabel("Final wealth (cumulative)")
+    ax.set_title("Break-Even Analysis: Cost Rate vs. Terminal Wealth")
     ax.legend(); ax.grid(alpha=0.25)
     fig.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -863,8 +863,8 @@ def withdrawal_sensitivity(
     rates: tuple = (0.035, 0.04, 0.05),
 ) -> pd.DataFrame:
     """
-    Identischer Start, variierende Jahres-Entnahmerate. Ergebnis:
-    Endkapital + Jahr-der-Erschöpfung pro Strategie × Rate.
+    Identical start, varying annual withdrawal rate. Result:
+    terminal capital + year of depletion per strategy × rate.
     """
     rows = []
     for r in rates:
@@ -876,25 +876,25 @@ def withdrawal_sensitivity(
         for col in sim.columns:
             final = float(sim[col].iloc[-1])
             if final > 0:
-                status = "Kapitalerhalt"
+                status = "Capital preserved"
             else:
                 depleted = sim[sim[col] <= 0].index[0]
-                status = f"Erschöpft ({depleted.strftime('%Y')})"
+                status = f"Depleted ({depleted.strftime('%Y')})"
             rows.append({
-                "Entnahmerate (p.a.)": f"{r:.1%}",
-                "Strategie": col,
-                "Endkapital": f"{final:,.0f} €",
+                "Withdrawal Rate (p.a.)": f"{r:.1%}",
+                "Strategy": col,
+                "Terminal Capital": f"{final:,.0f} €",
                 "Status": status,
             })
     return (
         pd.DataFrame(rows)
-        .pivot(index="Strategie", columns="Entnahmerate (p.a.)",
-               values=["Endkapital", "Status"])
+        .pivot(index="Strategy", columns="Withdrawal Rate (p.a.)",
+               values=["Terminal Capital", "Status"])
     )
 
 
 # ------------------------------------------------------------
-# Kap. 4.1 — Regime-Wahrscheinlichkeits-Heatmap
+# Ch. 4.1: regime probability heatmap
 # ------------------------------------------------------------
 def plot_regime_probability_heatmap(
     test_df: pd.DataFrame,
@@ -902,7 +902,7 @@ def plot_regime_probability_heatmap(
     save_path: str,
 ) -> None:
     """
-    Heatmap: y=Modell, x=Zeit, Farbe=Bear-Wahrscheinlichkeit (<Model>_Prob).
+    Heatmap: y=model, x=time, color=bear probability (<Model>_Prob).
     """
     probs = pd.DataFrame({
         m: test_df[f"{m}_Prob"] for m in models if f"{m}_Prob" in test_df.columns
@@ -919,7 +919,7 @@ def plot_regime_probability_heatmap(
                        rotation=30, ha="right")
     ax.set_yticks(range(len(probs.columns)))
     ax.set_yticklabels(probs.columns)
-    ax.set_title("Regime-Bear-Wahrscheinlichkeiten über OOS-Zeitraum")
+    ax.set_title("Regime bear probabilities over the OOS period")
     fig.colorbar(im, ax=ax, shrink=0.7, label="P(Bear)")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
