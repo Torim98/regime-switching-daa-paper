@@ -1,127 +1,127 @@
 # Limitations & Scope Boundaries
 
-Dieses Dokument beschreibt bewusste Abgrenzungen und Design-Entscheidungen der Implementierung, die bei der Interpretation der Ergebnisse berücksichtigt werden sollten.
+This document describes deliberate scope boundaries and design decisions of the implementation that should be considered when interpreting the results.
 
 ---
 
-## 1. Steuerliche Effekte (Tax Modeling)
+## 1. Tax Effects (Tax Modeling)
 
-**Status:** Bewusst ausgegrenzt (Thesis Tabelle 1: Out of Scope)
+**Status:** Deliberately excluded (thesis Table 1: out of scope)
 
-Die Backtesting-Simulation berücksichtigt **Transaktionskosten** (0,1% pro Rebalancing-Event), modelliert jedoch **keine steuerlichen Effekte** auf realisierte Kapitalerträge.
+The backtesting simulation accounts for **transaction costs** (0.1% per rebalancing event) but does **not model tax effects** on realized capital gains.
 
-### Begründung
+### Rationale
 
-1. **Relativer Vergleich bleibt valide:** Alle vier Modelle (MSM, HMM, LSTM, Transformer) sowie die Buy-&-Hold-Benchmark unterliegen identischen steuerlichen Rahmenbedingungen. Eine Kapitalertragsteuer würde die absoluten Renditen aller Strategien gleichermaßen reduzieren, ohne die relative Rangfolge der risikoadjustierten Metriken (Sharpe Ratio, Sortino Ratio, Calmar Ratio) zu verändern.
+1. **The relative comparison remains valid:** All four models (MSM, HMM, LSTM, Transformer) and the buy-and-hold benchmark operate under identical tax conditions. A capital gains tax would reduce the absolute returns of all strategies equally without changing the relative ranking of the risk-adjusted metrics (Sharpe ratio, Sortino ratio, Calmar ratio).
 
-2. **Jurisdiktions-Neutralität:** Steuerliche Regelungen unterscheiden sich erheblich zwischen Jurisdiktionen (z. B. deutsche Abgeltungssteuer 26,375% inkl. Solidaritätszuschlag vs. US Capital Gains Tax mit Short-/Long-Term-Differenzierung). Eine Modellierung würde die Ergebnisse an ein spezifisches Steuersystem binden und die Generalisierbarkeit einschränken.
+2. **Jurisdiction neutrality:** Tax regulations differ substantially between jurisdictions (e.g., the German flat-rate withholding tax of 26.375% incl. solidarity surcharge vs. US capital gains tax with short-/long-term differentiation). Modeling taxes would tie the results to a specific tax system and limit generalizability.
 
-### Einschränkung: Differenzielle Steuerbelastung durch Signalfrequenz
+### Limitation: Differential Tax Burden Due to Signal Frequency
 
-Modelle mit **höherer Signalfrequenz** (mehr Regime-Switches) generieren mehr steuerpflichtige Rebalancing-Events als Modelle mit stabilen Signalen:
+Models with **higher signal frequency** (more regime switches) generate more taxable rebalancing events than models with stable signals:
 
-| Modell | Signalstabilität | Steuerliche Betroffenheit |
+| Model | Signal stability | Tax exposure |
 |--------|-----------------|--------------------------|
-| HMM | Hohe Frequenz | Erhöht |
-| HMM_Uni | Hohe Frequenz | Erhöht |
-| MSM | Moderate Stabilität | Moderat |
-| LSTM | Tendenziell höhere Frequenz | Erhöht |
-| Transformer | Variabel | Variabel |
+| HMM | High frequency | Elevated |
+| HMM_Uni | High frequency | Elevated |
+| MSM | Moderate stability | Moderate |
+| LSTM | Tends toward higher frequency | Elevated |
+| Transformer | Variable | Variable |
 
-Würde eine Kapitalertragsteuer modelliert, würden Modelle mit vielen kurzen Regime-Wechseln relativ stärker belastet als stabile Modelle. Dies könnte die ohnehin in der Evaluation sichtbaren Transaktionskosten-Nachteile frequenter Switcher weiter verstärken.
+If a capital gains tax were modeled, models with many short regime switches would be taxed relatively more heavily than stable models. This could further amplify the transaction cost disadvantages of frequent switchers already visible in the evaluation.
 
-### Mögliche Erweiterung
+### Possible Extensions
 
-- Deutsche Abgeltungssteuer (26,375% inkl. Soli) auf realisierte Gewinne pro Rebalancing
-- US Short-Term vs. Long-Term Capital Gains Differenzierung (Haltedauer < / > 1 Jahr)
-- Steueroptimierte Rebalancing-Strategien (Tax-Loss Harvesting)
+- German flat-rate withholding tax (26.375% incl. solidarity surcharge) on realized gains per rebalancing
+- US short-term vs. long-term capital gains differentiation (holding period < / > 1 year)
+- Tax-optimized rebalancing strategies (tax-loss harvesting)
 
 ---
 
-## 2. Zwei-Regime-Annahme
+## 2. Two-Regime Assumption
 
-**Status:** Bewusste Design-Entscheidung
+**Status:** Deliberate design decision
 
-Alle Modelle operieren mit exakt **zwei Regimes** (Bull/Bear):
+All models operate with exactly **two regimes** (bull/bear):
 - MSM: `k_regimes: 2`
 - HMM: `n_components: 2`
 - HMM_Uni: `n_components: 2`
-- LSTM / Transformer: Binäre Klassifikation (Sigmoid-Output)
+- LSTM / Transformer: binary classification (sigmoid output)
 
-### Begründung
+### Rationale
 
-Die Zwei-Regime-Annahme folgt der dominierenden Literatur zu Markov-Switching-Modellen und ermöglicht eine klare, interpretierbare Handlungsregel (Risk-On vs. Risk-Off). Sie bildet die Grundlage für die binäre Allokationsstrategie (100% Equity vs. 100% Safe Haven).
+The two-regime assumption follows the dominant literature on Markov-switching models and enables a clear, interpretable trading rule (risk-on vs. risk-off). It forms the basis for the binary allocation strategy (100% equity vs. 100% safe haven).
 
-### Einschränkung
+### Limitation
 
-Finanzmärkte können mehr als zwei Zustände aufweisen (z. B. Bull, Bear, Seitwärts/Recovery). Eine höhere Regimeanzahl (k=3+) könnte granularere Allokationsstufen ermöglichen (z. B. 100% / 60% / 0% Equity), würde aber die Modellkomplexität und das Overfitting-Risiko erhöhen. Zudem wäre die direkte Vergleichbarkeit zwischen ökonometrischen und DL-Modellen erschwert, da die Label-Zuordnung bei k>2 nicht mehr trivial ist.
-
----
-
-## 3. Datenquelle Yahoo Finance
-
-**Status:** Bewusste Wahl mit bekannten Trade-offs
-
-Alle Marktdaten werden über die `yfinance`-Bibliothek bezogen (Yahoo Finance API).
-
-### Begründung
-
-Yahoo Finance bietet kostenfreien Zugang zu adjustierten historischen Kursdaten mit ausreichender Abdeckung des Untersuchungszeitraums (ab 1990). Für eine akademische Arbeit mit Fokus auf Methodenvergleich (nicht auf Live-Trading) ist die Datenqualität ausreichend.
-
-### Einschränkung
-
-- **Keine garantierte API-Stabilität:** Yahoo Finance bietet keine offizielle API; `yfinance` nutzt inoffizielle Endpunkte, die sich ändern können.
-- **Survivorship Bias:** Die verwendeten Indizes (S&P 500, VUSTX) unterliegen Survivorship Bias, da nur überlebende Unternehmen/Fonds enthalten sind.
-- **Adjustierte Kurse:** Die Adjustierung von Splits und Dividenden durch Yahoo ist nicht immer transparent dokumentiert.
-- **Keine Intraday-Daten:** Die Pipeline arbeitet mit Tagesschlusskursen. Intraday-Regime-Switches werden nicht erfasst.
-
-Für produktive Anwendungen wären institutionelle Datenanbieter (Bloomberg, Refinitiv) vorzuziehen.
-
-### Automatisierte Qualitätssicherung
-
-Seit Issue #2 erzeugt die Ingestion bei jedem Lauf einen Data-Quality-Report
-(`assets/data_quality_report.md`): Coverage gegen erwartete Handelstage, Missing-Value-Zählung
-auf den Rohdaten, Adjustment-Plausibilität (Tagessprünge gegen bekannte Krisentage) und den
-Zeilenverlust der Bereinigung. Dieser Report soll pot. Schwächen der Datenbasis sichtbar machen.
+Financial markets can exhibit more than two states (e.g., bull, bear, sideways/recovery). A higher number of regimes (k=3+) could enable more granular allocation levels (e.g., 100% / 60% / 0% equity) but would increase model complexity and the risk of overfitting. In addition, direct comparability between econometric and DL models would be more difficult, since the label assignment for k>2 is no longer trivial.
 
 ---
 
-## 4. Asset-Universum
+## 3. Data Source: Yahoo Finance
 
-**Status:** Bewusst eingeschränkt
+**Status:** Deliberate choice with known trade-offs
 
-Das Portfolio besteht aus zwei US-Assetklassen:
-- **Risk-Asset:** 60% S&P 500 (`^GSPC`) + 40% US Long-Term Bonds (`VUSTX`)
-- **Safe Haven:** 3-Monats-Treasury Bill Rate (`^IRX`) als Cash-Proxy
+All market data is obtained via the `yfinance` library (Yahoo Finance API).
 
-### Begründung
+### Rationale
 
-Das klassische 60/40-Portfolio dient als etablierter Benchmark in der Finanzliteratur und ermöglicht eine fokussierte Untersuchung der Regime-Switching-Wirkung ohne Interferenz durch Multi-Asset-Allokationsentscheidungen.
+Yahoo Finance provides free access to adjusted historical price data with sufficient coverage of the study period (from 1990). For an academic study focused on method comparison (not live trading), the data quality is sufficient.
 
-### Einschränkung
+### Limitation
 
-- **Nur US-Markt:** Ergebnisse sind nicht direkt auf andere Märkte (Europa, Emerging Markets) übertragbar, da Regime-Dynamiken regional variieren können.
-- **Nur 2 Assetklassen:** Diversifikationseffekte durch Rohstoffe, Immobilien, internationale Anleihen oder Kryptowährungen werden nicht abgebildet.
-- **Korrelationsannahme:** Die 2022er Periode (gleichzeitiger Einbruch von Aktien und Anleihen) zeigt, dass die historisch negative Korrelation nicht dauerhaft gelten muss.
+- **No guaranteed API stability:** Yahoo Finance offers no official API; `yfinance` uses unofficial endpoints that may change.
+- **Survivorship bias:** The indices used (S&P 500, VUSTX) are subject to survivorship bias, since only surviving companies/funds are included.
+- **Adjusted prices:** Yahoo's adjustment for splits and dividends is not always transparently documented.
+- **No intraday data:** The pipeline works with daily closing prices. Intraday regime switches are not captured.
+
+For production applications, institutional data providers (Bloomberg, Refinitiv) would be preferable.
+
+### Automated Quality Assurance
+
+Since Issue #2, the ingestion generates a data quality report on every run
+(`assets/data_quality_report.md`): coverage against expected trading days, missing-value counts
+on the raw data, adjustment plausibility (daily jumps against known crisis days), and the
+row loss from cleaning. This report is intended to expose potential weaknesses in the data basis.
 
 ---
 
-## 5. Walk-Forward-Konfiguration
+## 4. Asset Universe
 
-**Status:** Bewusste Parameterwahl mit Trade-offs
+**Status:** Deliberately restricted
 
-Die Walk-Forward-Validierung nutzt folgende Konfiguration:
-- **Modus:** Rolling Window (nicht expandierend)
-- **Train-Fenster:** 10 Jahre (`train_window_years: 10`)
-- **Test-Fenster:** 12 Monate (`test_window_months: 12`)
-- **Schrittweite:** 12 Monate (`step_months: 12`, nicht-überlappend)
+The portfolio consists of two US asset classes:
+- **Risk asset:** 60% S&P 500 (`^GSPC`) + 40% US long-term bonds (`VUSTX`)
+- **Safe haven:** 3-month Treasury bill rate (`^IRX`) as cash proxy
 
-### Begründung
+### Rationale
 
-Die 10J/12M/12M-Konfiguration balanciert zwischen ausreichend Trainingsdaten für stabile Modellschätzungen und genügend OOS-Folds für eine belastbare Evaluation. Nicht-überlappende Folds vermeiden Autokorrelation zwischen Test-Perioden.
+The classic 60/40 portfolio serves as an established benchmark in the finance literature and enables a focused analysis of the regime-switching effect without interference from multi-asset allocation decisions.
 
-### Einschränkung
+### Limitation
 
-- **Rolling vs. Expanding:** Ein expandierendes Fenster würde insbesondere den späteren Folds mehr Trainingsdaten geben, könnte aber ältere, weniger relevante Marktregimes übergewichten.
-- **DL-Modelle bei 10 Jahren Training:** LSTM und Transformer profitieren typischerweise von größeren Datensätzen. Längere Trainingsfenster könnten die DL-Performance verbessern, würden aber die Anzahl verfügbarer Folds reduzieren.
-- **12-Monats-Folds:** Kürzere Folds (z. B. 6 Monate) würden mehr Datenpunkte für die Evaluation liefern, erhöhen aber die Rechenzeit und das Risiko instabiler Schätzungen bei ökonometrischen Modellen.
+- **US market only:** Results are not directly transferable to other markets (Europe, emerging markets), since regime dynamics can vary regionally.
+- **Only 2 asset classes:** Diversification effects from commodities, real estate, international bonds, or cryptocurrencies are not represented.
+- **Correlation assumption:** The 2022 period (simultaneous decline of equities and bonds) shows that the historically negative correlation need not hold permanently.
+
+---
+
+## 5. Walk-Forward Configuration
+
+**Status:** Deliberate parameter choice with trade-offs
+
+The walk-forward validation uses the following configuration:
+- **Mode:** rolling window (not expanding)
+- **Training window:** 10 years (`train_window_years: 10`)
+- **Test window:** 12 months (`test_window_months: 12`)
+- **Step size:** 12 months (`step_months: 12`, non-overlapping)
+
+### Rationale
+
+The 10y/12m/12m configuration balances sufficient training data for stable model estimation against enough OOS folds for a robust evaluation. Non-overlapping folds avoid autocorrelation between test periods.
+
+### Limitation
+
+- **Rolling vs. expanding:** An expanding window would give the later folds in particular more training data, but could overweight older, less relevant market regimes.
+- **DL models with 10 years of training:** LSTM and Transformer typically benefit from larger datasets. Longer training windows could improve DL performance but would reduce the number of available folds.
+- **12-month folds:** Shorter folds (e.g., 6 months) would provide more data points for the evaluation but increase computation time and the risk of unstable estimates for the econometric models.

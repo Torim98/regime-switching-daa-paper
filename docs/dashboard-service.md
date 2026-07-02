@@ -1,134 +1,134 @@
 # Dashboard Service
 
-Der **Dashboard Service** (Port 8004) ist das interaktive Control- und Visualisierungs-Frontend des Projekts. Er deckt drei Aufgaben gleichzeitig ab:
+The **Dashboard Service** (port 8004) is the interactive control and visualization frontend of the project. It covers three tasks at once:
 
-1. **Visualisierung** aller Pipeline-Artefakte (EDA, Regime-Erkennung, Backtest, Evaluation, MCS): komplett interaktiv mit Plotly.js.
-2. **Control Hub**: alle FastAPI-Endpoints der drei Pipeline-Services (`data`, `model`, `backtest`) werden direkt aus der UI heraus aufgerufen.
-3. **Operativer Self-Service**: Konfiguration (`config.yaml`) editieren und Live-Logs der Container streamen, ohne den Terminal-Flow zu verlassen.
+1. **Visualization** of all pipeline artifacts (EDA, regime detection, backtest, evaluation, MCS): fully interactive with Plotly.js.
+2. **Control hub**: all FastAPI endpoints of the three pipeline services (`data`, `model`, `backtest`) can be called directly from the UI.
+3. **Operational self-service**: edit the configuration (`config.yaml`) and stream live container logs without leaving the browser.
 
-Der Service ist **dev-only** konzipiert und ausschließlich an `127.0.0.1` gebunden. Er bleibt bei jedem Pipeline-Lauf unangetastet. Keinerlei Write-Zugriffe außer auf `config/config.yaml` (mit Backup/Rollback).
+The service is designed **dev-only** and bound exclusively to `127.0.0.1`. It remains untouched by every pipeline run. No write access except to `config/config.yaml` (with backup/rollback).
 
 ---
 
-## Architektur
+## Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │  Browser  ──►  Dashboard Service (:8004)                       │
 │                                                                │
-│                ├─ HTML / Jinja2  (8 Seiten)                    │
-│                ├─ /api/*         (Parquet → Plotly-JSON)       │
-│                ├─ /api/hub/*     (httpx-Proxy)  ──► :8001/2/3  │
-│                ├─ /api/config/*  (YAML + Backup + Rollback)    │
-│                └─ /ws/logs/*     (WebSocket File-Tail)         │
+│                ├─ HTML / Jinja2  (8 pages)                     │
+│                ├─ /api/*         (Parquet → Plotly JSON)       │
+│                ├─ /api/hub/*     (httpx proxy)  ──► :8001/2/3  │
+│                ├─ /api/config/*  (YAML + backup + rollback)    │
+│                └─ /ws/logs/*     (WebSocket file tail)         │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Zero-Build-Frontend-Stack (alles per CDN, kein npm-Toolchain nötig):
+Zero-build frontend stack (everything via CDN, no npm toolchain required):
 
-- **Tailwind CSS** (Play-CDN) — Styling
-- **Plotly.js 2.35** — Interaktive Charts
-- **Alpine.js 3.x** — UI-State
-- **HTMX 1.9** — HTML-Partials
-- **Monaco Editor** — YAML-Editor mit Syntax-Highlighting
-- **marked.js** — Markdown-Rendering für Asset-Gallery
+- **Tailwind CSS** (Play CDN): styling
+- **Plotly.js 2.35**: interactive charts
+- **Alpine.js 3.x**: UI state
+- **HTMX 1.9**: HTML partials
+- **Monaco Editor**: YAML editor with syntax highlighting
+- **marked.js**: Markdown rendering for the asset gallery
 
 ---
 
-## Seitenstruktur
+## Page Structure
 
-| Route | Seite | Inhalt |
+| Route | Page | Content |
 |-------|-------|--------|
-| `/` | **Overview** | Status-Kacheln (End-Date, WF, Fast-Mode), Pipeline-Artefakt-Grid, Abdeckungs-Map zu `statistics.md` |
-| `/hub` | **Control Hub** | Dynamisch gerenderte Service-Cards aus `/api/hub/catalog`, Health-Tiles, Execute-Forms mit Spinner, JSON-Response-Viewer |
-| `/eda` | **EDA** | Returns-Chart (Spalten- & Smoothing-Picker), Feature-Korrelationsmatrix, 60/40-Kapitalkurve, PNG-Gallery aus `assets/` |
-| `/models` | **Modelle** | Regime-Overlay-Chart (MSM/HMM/HMM_Uni/LSTM/Transformer), Label-Konkordanz, Modell-Plots, Optuna-Heatmaps |
-| `/backtest` | **Backtest** | Equity Curves, Drawdown, Rolling-Sharpe (Fenster-Slider), annualisierte Metriken, Krisen-Perf, SORR-Szenarien, Pipeline-Timing |
-| `/evaluation` | **Evaluation** | Volle `statistics.md`-Abdeckung: Eval-Tabelle, Confusion/ROC/PR, Churning, Switch-Timing, Regime-Heatmap, Threshold-Sensitivity, TTR, MCS, Depletion-CI, H1/H2-Tests, Break-Even, Withdrawal-Sensitivity |
-| `/config` | **Config-Editor** | Monaco-basierter YAML-Editor (Ctrl+S, Dirty-State, Backup-Drawer, Restore-Funktionalität) |
-| `/logs` | **Live-Logs** | File-Tail via WebSocket, Datei-Dropdown, Regex-Filter, Autoscroll, Level-Coloring (ERROR/WARN/INFO/DEBUG) |
+| `/` | **Overview** | Status tiles (end date, WF, fast mode), pipeline artifact grid, coverage map for `statistics.md` |
+| `/hub` | **Control Hub** | Dynamically rendered service cards from `/api/hub/catalog`, health tiles, execute forms with spinner, JSON response viewer |
+| `/eda` | **EDA** | Returns chart (column & smoothing picker), feature correlation matrix, 60/40 capital curve, PNG gallery from `assets/` |
+| `/models` | **Models** | Regime overlay chart (MSM/HMM/HMM_Uni/LSTM/Transformer), label concordance, model plots, Optuna heatmaps |
+| `/backtest` | **Backtest** | Equity curves, drawdown, rolling Sharpe (window slider), annualized metrics, crisis performance, SORR scenarios, pipeline timing |
+| `/evaluation` | **Evaluation** | Full `statistics.md` coverage: evaluation table, confusion/ROC/PR, churning, switch timing, regime heatmap, threshold sensitivity, TTR, MCS, depletion CI, H1/H2 tests, break-even, withdrawal sensitivity |
+| `/config` | **Config editor** | Monaco-based YAML editor (Ctrl+S, dirty state, backup drawer, restore functionality) |
+| `/logs` | **Live logs** | File tail via WebSocket, file dropdown, regex filter, autoscroll, level coloring (ERROR/WARN/INFO/DEBUG) |
 
-Alle Seiten teilen `base.html` (Sidebar-Navigation, Dark-Mode-Toggle, Build-Info).
+All pages share `base.html` (sidebar navigation, dark mode toggle, build info).
 
 ---
 
-## API-Endpoints
+## API Endpoints
 
-### Data-Adapter (`/api/*`)
+### Data Adapters (`/api/*`)
 
-Liefert Pipeline-Artefakte als Plotly-kompatibles JSON. Keine Neuberechnungen. Alles basiert auf den Parquet-Dateien, die von der Pipeline geschrieben wurden.
+Deliver pipeline artifacts as Plotly-compatible JSON. No recomputation. Everything is based on the Parquet files written by the pipeline.
 
-| Methode | Pfad | Beschreibung |
+| Method | Path | Description |
 |---------|------|-------------|
-| GET | `/api/status` | Übersicht aller Pipeline-Artefakte (Existenz, Größe, mtime) |
-| GET | `/api/asset/{name}` | Liefert PNG/MD aus `assets/` aus (read-only) |
-| GET | `/api/markdown/{name}` | MD-Datei als JSON (für clientseitiges Rendering mit marked.js) |
-| GET | `/api/chart/returns?col=&smoothing=` | Renditen-Zeitreihe (beliebige Spalte, optionales MA-Smoothing) |
-| GET | `/api/chart/feature-correlation` | Korrelationsmatrix der Modell-Features |
-| GET | `/api/chart/capital-curve` | 60/40-Benchmark-Kapitalkurve |
-| GET | `/api/chart/equity-curves` | Equity Curves aller Strategien (OOS) |
-| GET | `/api/chart/drawdown` | Drawdown-Verlauf aller Strategien |
-| GET | `/api/chart/rolling-sharpe?window=` | Rolling Sharpe mit konfigurierbarem Fenster |
-| GET | `/api/chart/regime-overlay?model=` | Preis + Bear-Probability + Signal-Overlay pro Modell |
-| GET | `/api/chart/mcs-quantiles?scenario=&strategy=` | Quantil-Fächer (5/25/50/75/95%) der MCS-Pfade |
+| GET | `/api/status` | Overview of all pipeline artifacts (existence, size, mtime) |
+| GET | `/api/asset/{name}` | Serves PNG/MD from `assets/` (read-only) |
+| GET | `/api/markdown/{name}` | MD file as JSON (for client-side rendering with marked.js) |
+| GET | `/api/chart/returns?col=&smoothing=` | Return time series (any column, optional MA smoothing) |
+| GET | `/api/chart/feature-correlation` | Correlation matrix of the model features |
+| GET | `/api/chart/capital-curve` | 60/40 benchmark capital curve |
+| GET | `/api/chart/equity-curves` | Equity curves of all strategies (OOS) |
+| GET | `/api/chart/drawdown` | Drawdown paths of all strategies |
+| GET | `/api/chart/rolling-sharpe?window=` | Rolling Sharpe with configurable window |
+| GET | `/api/chart/regime-overlay?model=` | Price + bear probability + signal overlay per model |
+| GET | `/api/chart/mcs-quantiles?scenario=&strategy=` | Quantile fan (5/25/50/75/95%) of the MCS paths |
 
-### Control-Hub-Proxy (`/api/hub/*`)
+### Control Hub Proxy (`/api/hub/*`)
 
-Ruft per `httpx` die FastAPI-Endpoints der drei Pipeline-Services auf. Lange Read-Timeouts (8 h), damit `train-all` im Walk-Forward-Modus ohne Client-Abbruch durchläuft.
+Calls the FastAPI endpoints of the three pipeline services via `httpx`. Long read timeouts (8 h) so that `train-all` completes in walk-forward mode without client abort.
 
-| Methode | Pfad | Beschreibung |
+| Method | Path | Description |
 |---------|------|-------------|
-| GET | `/api/hub/catalog` | Liefert den Endpoint-Katalog für dynamisches UI-Rendering |
-| GET | `/api/hub/health` | Ping auf alle drei Services (OpenAPI-JSON als Marker) |
-| POST | `/api/hub/call?service=&path=&method=&query=` | Generischer Proxy-Call |
+| GET | `/api/hub/catalog` | Returns the endpoint catalog for dynamic UI rendering |
+| GET | `/api/hub/health` | Ping to all three services (OpenAPI JSON as marker) |
+| POST | `/api/hub/call?service=&path=&method=&query=` | Generic proxy call |
 
-Service-URLs via Environment-Variablen konfigurierbar:
-- `DATA_SERVICE_URL` (Default: `http://data-service:8001`)
-- `MODEL_SERVICE_URL` (Default: `http://model-service:8002`)
-- `BACKTEST_SERVICE_URL` (Default: `http://backtest-service:8003`)
+Service URLs configurable via environment variables:
+- `DATA_SERVICE_URL` (default: `http://data-service:8001`)
+- `MODEL_SERVICE_URL` (default: `http://model-service:8002`)
+- `BACKTEST_SERVICE_URL` (default: `http://backtest-service:8003`)
 
-### Config-Editor (`/api/config/*`)
+### Config Editor (`/api/config/*`)
 
-Schreibt `config/config.yaml` mit Sicherheitsnetz: YAML-Parse-Check → Pflicht-Sections-Check → Backup → Atomic Swap → Reload-Verifikation. Bei Fehlern im Reload-Schritt automatischer Rollback aus Backup.
+Writes `config/config.yaml` with a safety net: YAML parse check → required-sections check → backup → atomic swap → reload verification. On errors during the reload step, automatic rollback from the backup.
 
-| Methode | Pfad | Beschreibung |
+| Method | Path | Description |
 |---------|------|-------------|
-| GET | `/api/config` | Aktuelle `config.yaml` als Text + Meta (mtime, size) |
-| POST | `/api/config` | Speichern mit Body `{"content": "<YAML-Text>"}` |
-| GET | `/api/config/backups` | Liste aller `.bak`-Dateien (neueste zuerst) |
-| POST | `/api/config/restore` | Backup zurückspielen: `{"name": "config.YYYYMMDD-HHMMSS.bak"}` |
+| GET | `/api/config` | Current `config.yaml` as text + meta (mtime, size) |
+| POST | `/api/config` | Save with body `{"content": "<YAML text>"}` |
+| GET | `/api/config/backups` | List of all `.bak` files (newest first) |
+| POST | `/api/config/restore` | Restore a backup: `{"name": "config.YYYYMMDD-HHMMSS.bak"}` |
 
-Pflicht-Sections für erfolgreichen Save:
+Required sections for a successful save:
 `data`, `features`, `portfolio`, `models`, `backtesting`, `walk_forward`, `evaluation`, `paths`, `plotting`.
 
-### Live-Log-Streaming (`/ws/logs/*`)
+### Live Log Streaming (`/ws/logs/*`)
 
-WebSocket-basierter File-Tail. Portable Alternative zum Docker-Socket. Funktioniert überall, wo das `logs/`-Volume gemountet ist. Rotation und Truncation werden erkannt.
+WebSocket-based file tail. Portable alternative to the Docker socket. Works anywhere the `logs/` volume is mounted. Rotation and truncation are detected.
 
-| Methode | Pfad | Beschreibung |
+| Method | Path | Description |
 |---------|------|-------------|
-| GET | `/api/logs/files` | Liste aller `logs/*.log` inkl. Größe und mtime |
-| GET | `/api/logs/snapshot/{filename}?lines=` | Letzte N Zeilen ohne WebSocket (Initial-Load) |
-| WS | `/ws/logs/{filename}?tail=` | Streamt initial `tail` Zeilen, danach Live-Updates (~300 ms-Polling) |
+| GET | `/api/logs/files` | List of all `logs/*.log` incl. size and mtime |
+| GET | `/api/logs/snapshot/{filename}?lines=` | Last N lines without WebSocket (initial load) |
+| WS | `/ws/logs/{filename}?tail=` | Streams `tail` lines initially, then live updates (~300 ms polling) |
 
-Pfad-Traversal-Schutz: Nur Dateinamen innerhalb `logs/` werden zugelassen.
+Path traversal protection: only file names within `logs/` are allowed.
 
 ---
 
-## Sicherheit
+## Security
 
-- **Binding:** `127.0.0.1:8004:8004` in `docker-compose.yml`. Service ist **nicht** im Netz exponiert, nur lokal erreichbar.
-- **Write-Scope:** Einziger schreibender Pfad ist `config/config.yaml` (mit Backup + Rollback). Alle anderen Volumes (`data/`, `assets/`, `logs/`, `docs/`) sind read-only für das Dashboard.
-- **Path Traversal:** Sowohl der Asset-Endpoint als auch der WS-Log-Endpoint validieren Dateinamen gegen `..` und `/`.
-- **Proxy-Semantik:** Der Control-Hub-Proxy schränkt `service` per Regex auf `(data|model|backtest)` und `method` auf `(GET|POST)` ein; freie URL-Eingabe ist nicht möglich.
+- **Binding:** `127.0.0.1:8004:8004` in `docker-compose.yml`. The service is **not** exposed to the network, only reachable locally.
+- **Write scope:** The only writable path is `config/config.yaml` (with backup + rollback). All other volumes (`data/`, `assets/`, `logs/`, `docs/`) are read-only for the dashboard.
+- **Path traversal:** Both the asset endpoint and the WS log endpoint validate file names against `..` and `/`.
+- **Proxy semantics:** The control hub proxy restricts `service` via regex to `(data|model|backtest)` and `method` to `(GET|POST)`; free URL input is not possible.
 
-Für einen Produktions-Einsatz wären zusätzlich Auth (Basic / OIDC), CSRF-Token für die schreibenden Endpoints sowie Rate-Limiting vorzusehen. Im Thesis-Kontext genügt die lokale Bindung.
+For production use, authentication (Basic / OIDC), CSRF tokens for the writing endpoints, and rate limiting would additionally be required. In the thesis context, the local binding is sufficient.
 
 ---
 
 ## Dependencies
 
-Der Service ist bewusst schlank — keine ML-Libraries im Container. Installiert werden nur `[services]` + `[dashboard]` (siehe `pyproject.toml`):
+The service is deliberately lightweight, with no ML libraries in the container. Only `[services]` + `[dashboard]` are installed (see `pyproject.toml`):
 
 ```toml
 dashboard = [
@@ -139,34 +139,34 @@ dashboard = [
 ]
 ```
 
-Image-Größe: ca. 220 MB (vs. ~5 GB für den Model-Service mit TensorFlow + PyTorch).
+Image size: approx. 220 MB (vs. ~5 GB for the Model Service with TensorFlow + PyTorch).
 
 ---
 
 ## Volumes
 
-| Volume | Mode | Zweck |
+| Volume | Mode | Purpose |
 |--------|:----:|-------|
-| `./data` | R | Parquet-Artefakte aus Medallion |
-| `./assets` | R | PNG- und MD-Assets für die Gallery |
-| `./docs` | R | `statistics.md` für das Evaluation-Panel |
-| `./config` | R/W | `config.yaml` + `.bak`-Dateien |
-| `./logs` | R | Service- und Pipeline-Logs (File-Tail) |
+| `./data` | R | Parquet artifacts from the medallion architecture |
+| `./assets` | R | PNG and MD assets for the gallery |
+| `./docs` | R | `statistics.md` for the evaluation panel |
+| `./config` | R/W | `config.yaml` + `.bak` files |
+| `./logs` | R | Service and pipeline logs (file tail) |
 
 ---
 
-## Entwicklung
+## Development
 
-### Lokaler Start (ohne Docker)
+### Local Start (without Docker)
 
 ```bash
 pip install -e ".[services,dashboard]"
 uvicorn services.dashboard_service.main:app --reload --host 127.0.0.1 --port 8004
 ```
 
-Die drei Pipeline-Services müssen für den Control-Hub separat erreichbar sein (oder die Service-URLs über `DATA_SERVICE_URL` etc. auf `localhost:8001/2/3` zeigen).
+The three pipeline services must be reachable separately for the control hub (or the service URLs must point to `localhost:8001/2/3` via `DATA_SERVICE_URL` etc.).
 
-### Mit Docker Compose
+### With Docker Compose
 
 ```bash
 docker compose up -d --build dashboard-service
@@ -174,12 +174,12 @@ docker compose up -d --build dashboard-service
 # Swagger: http://localhost:8004/docs
 ```
 
-### Neue Chart-Endpoints hinzufügen
+### Adding New Chart Endpoints
 
-1. In [`data_adapters.py`](../services/dashboard_service/data_adapters.py) neuen `@router.get("/chart/...")`-Handler anlegen, Parquet lesen, Plotly-Figure bauen, `_fig_to_json(fig)` zurückgeben.
-2. Im Template (z.B. [`evaluation.html`](../services/dashboard_service/templates/evaluation.html)) einen `<div id="my-chart"></div>` ergänzen und via `renderChart('my-chart', '/api/chart/my-endpoint')` aus `common.js` laden.
-3. Dark-Mode funktioniert automatisch. Der MutationObserver in `common.js` ruft `Plotly.relayout()` auf allen Charts.
+1. Create a new `@router.get("/chart/...")` handler in [`data_adapters.py`](../services/dashboard_service/data_adapters.py), read the Parquet file, build the Plotly figure, and return `_fig_to_json(fig)`.
+2. In the template (e.g. [`evaluation.html`](../services/dashboard_service/templates/evaluation.html)), add a `<div id="my-chart"></div>` and load it via `renderChart('my-chart', '/api/chart/my-endpoint')` from `common.js`.
+3. Dark mode works automatically. The MutationObserver in `common.js` calls `Plotly.relayout()` on all charts.
 
-### Neue Control-Hub-Endpoints
+### Adding New Control Hub Endpoints
 
-Katalog in [`hub_api.py`](../services/dashboard_service/hub_api.py) erweitern. Das Frontend rendert die Forms dynamisch aus dem `_CATALOG`-Objekt. Neue Path-/Query-Params werden automatisch als Input-Felder dargestellt.
+Extend the catalog in [`hub_api.py`](../services/dashboard_service/hub_api.py). The frontend renders the forms dynamically from the `_CATALOG` object. New path/query parameters are automatically displayed as input fields.

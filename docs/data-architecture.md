@@ -1,30 +1,30 @@
-# Datenarchitektur – Medallion-Modell (Bronze / Silver / Gold)
+# Data Architecture: Medallion Model (Bronze / Silver / Gold)
 
-## Übersicht
+## Overview
 
-Die Datenablage folgt einem dreistufigen Medallion-Modell.
-Jede Stufe repräsentiert einen definierten Verarbeitungsgrad der Daten.
+Data storage follows a three-tier medallion model.
+Each tier represents a defined degree of data processing.
 
 ```
 Yahoo Finance API
        │
        ▼
   ┌──────────┐
-  │  Bronze  │  Rohdaten – unbereinigt, direkt von der Quelle
+  │  Bronze  │  Raw data: uncleaned, directly from the source
   └────┬─────┘
        │  POST /data/ingest
        ▼
   ┌──────────┐
-  │  Silver  │  Bereinigte, transformierte und feature-engineerte Daten
+  │  Silver  │  Cleaned, transformed, and feature-engineered data
   └────┬─────┘
        │  POST /backtest/run + /backtest/evaluate
        ▼
   ┌──────────┐
-  │   Gold   │  Ergebnisse: Backtesting, Monte-Carlo-Simulation
+  │   Gold   │  Results: backtesting, Monte Carlo simulation
   └──────────┘
 ```
 
-## Verzeichnisstruktur
+## Directory Structure
 
 ```
 data/
@@ -43,57 +43,56 @@ data/
     └── 06_mcs_data.parquet
 ```
 
-## Tier-Beschreibung
+## Tier Description
 
-### Bronze – Rohdaten
+### Bronze: Raw Data
 
-Unveränderte Marktdaten direkt aus der Yahoo-Finance-API.
-Enthält alle Original-NaNs und Lücken.
+Unmodified market data directly from the Yahoo Finance API.
+Contains all original NaNs and gaps.
 
-| Datei | Erzeugt von | Inhalt |
+| File | Created by | Content |
 |---|---|---|
-| `01_raw_data.parquet` | Data Service | Tägliche Schlusskurse aller Ticker (^GSPC, VUSTX, ^VIX, ^IRX, ^TNX) |
+| `01_raw_data.parquet` | Data Service | Daily closing prices of all tickers (^GSPC, VUSTX, ^VIX, ^IRX, ^TNX) |
 
-> Über den Bronze-Layer wird bei jedem `POST /data/ingest` ein Data-Quality-Report
-> (`assets/data_quality_report.md`) erzeugt, der Coverage, fehlende Werte (vor der
-> Bereinigung), Adjustment-Plausibilität und den Zeilenverlust Bronze → Silver dokumentiert.
+> On every `POST /data/ingest`, a data quality report
+> (`assets/data_quality_report.md`) is generated from the Bronze layer. It documents
+> coverage, missing values (before cleaning), adjustment plausibility, and the row loss from Bronze to Silver.
 
-### Silver – Bereinigte und transformierte Daten
+### Silver: Cleaned and Transformed Data
 
-Forward-Fill, Dropna, Log-Renditen, Feature-Engineering und
-Modell-Vorhersagen. Daten sind analyse-bereit, aber noch keine
-Endergebnisse.
+Forward fill, dropna, log returns, feature engineering, and
+model predictions. Data is analysis-ready but not yet a final result.
 
-| Datei | Erzeugt von | Inhalt |
+| File | Created by | Content |
 |---|---|---|
-| `02_preprocessed_data.parquet` | Data Service | Portfolio-Renditen, Cash-Renditen, VIX, Zinsen |
-| `03_feature_engineered_data.parquet` | Data Service | Zusätzliche Features: SMA, Volatilität, Momentum, Yield Spread |
-| `04_test_df_data.parquet` | Model Service | Test-Datensatz mit Regime-Vorhersagen aller Modelle |
-| `wf_cache.parquet` | Model Service | Walk-Forward OOS-Cache mit Fingerprint-Validierung (nur bei `walk_forward.cache_enabled: true`) |
+| `02_preprocessed_data.parquet` | Data Service | Portfolio returns, cash returns, VIX, interest rates |
+| `03_feature_engineered_data.parquet` | Data Service | Additional features: SMA, volatility, momentum, yield spread |
+| `04_test_df_data.parquet` | Model Service | Test dataset with regime predictions of all models |
+| `wf_cache.parquet` | Model Service | Walk-forward OOS cache with fingerprint validation (only with `walk_forward.cache_enabled: true`) |
 
-### Gold – Endergebnisse
+### Gold: Final Results
 
-Aggregierte Backtesting-Ergebnisse und Simulationen, die direkt
-in die Auswertung und Thesis einfließen.
+Aggregated backtesting results and simulations that feed directly
+into the evaluation and the thesis.
 
-| Datei | Erzeugt von | Inhalt |
+| File | Created by | Content |
 |---|---|---|
-| `05_backtesting_results_data.parquet` | Backtest Service | Equity-Kurven und Renditen aller Strategien |
-| `05_backtesting_transaction_costs_data.parquet` | Backtest Service | Transaktionskostenanalyse |
-| `05_backtesting_sorr_simulation.parquet` | Backtest Service | Sequence-of-Returns-Risk-Simulation |
-| `06_mcs_data.parquet` | Backtest Service | Monte-Carlo-Simulationspfade |
+| `05_backtesting_results_data.parquet` | Backtest Service | Equity curves and returns of all strategies |
+| `05_backtesting_transaction_costs_data.parquet` | Backtest Service | Transaction cost analysis |
+| `05_backtesting_sorr_simulation.parquet` | Backtest Service | Sequence-of-returns-risk simulation |
+| `06_mcs_data.parquet` | Backtest Service | Monte Carlo simulation paths |
 
-## Pfadverwaltung
+## Path Management
 
-Alle Dateipfade sind zentral in `config/config.yaml` unter `paths.files`
-definiert und werden über `cfg.data_path("<key>")` aufgelöst.
-Services referenzieren keine hart-kodierten Pfade.
+All file paths are defined centrally in `config/config.yaml` under `paths.files`
+and resolved via `cfg.data_path("<key>")`.
+Services do not reference hard-coded paths.
 
-## Microservice-Zugriff
+## Microservice Access
 
-Die Docker-basierte Microservice-Architektur (siehe [microservice-architecture.md](microservice-architecture.md)) erzeugt dieselben Dateien auf denselben Pfaden. Die `data/`-Verzeichnisse werden über Docker Volume-Mounts (`./data:/app/data`) zwischen Host und Containern geteilt. Dadurch sind die Parquet-Dateien sowohl lokal als auch im Container unter identischen relativen Pfaden erreichbar.
+The Docker-based microservice architecture (see [microservice-architecture.md](microservice-architecture.md)) creates the same files at the same paths. The `data/` directories are shared between host and containers via Docker volume mounts (`./data:/app/data`). The Parquet files are therefore accessible under identical relative paths both locally and inside the containers.
 
-| Service | Erzeugte Tier | Endpunkt |
+| Service | Tier created | Endpoint |
 |---|---|---|
 | Data Service (`:8001`) | Bronze + Silver | `POST /data/ingest` |
 | Model Service (`:8002`) | Silver | `POST /models/train/{model_name}` |

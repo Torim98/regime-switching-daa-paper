@@ -1,111 +1,111 @@
 # How to Add a New ML Model to the Research Pipeline
 
-> **Ziel:** Schritt-für-Schritt-Anleitung zur Integration eines neuen Regime-Switching-Modells in die bestehende Microservice-Pipeline. Der Guide nutzt die **Signal-Schnittstelle**, den **Dynamic-Matching-Mechanismus** und das **zentrale Konfigurationsmanagement** des Frameworks, sodass ein neues Modell automatisch in Backtesting, Evaluation und Reporting erscheint, ohne dass downstream Code angepasst werden muss.
+> **Goal:** Step-by-step guide for integrating a new regime-switching model into the existing microservice pipeline. The guide uses the framework's **signal interface**, the **dynamic matching mechanism**, and the **central configuration management**, so that a new model automatically appears in backtesting, evaluation, and reporting without requiring changes to downstream code.
 
 ---
 
-## Inhaltsverzeichnis
+## Table of Contents
 
-1. [Voraussetzungen](#1-voraussetzungen)
-2. [Die Signal-Schnittstelle (Interface-Spezifikation)](#2-die-signal-schnittstelle-interface-spezifikation)
-3. [Hyperparameter in der zentralen Config registrieren](#3-hyperparameter-in-der-zentralen-config-registrieren)
-4. [Schritt-für-Schritt-Anleitung](#4-schritt-für-schritt-anleitung)
-   - [Schritt 1: Config-Eintrag erstellen](#schritt-1-config-eintrag-erstellen)
-   - [Schritt 2: Trainingslogik in src/models/ implementieren](#schritt-2-trainingslogik-in-srcmodels-implementieren)
-   - [Schritt 3: Plot-Funktion in src/models/plots.py](#schritt-3-plot-funktion)
-   - [Schritt 4: Route im Model Service registrieren](#schritt-4-route-im-model-service-registrieren)
-   - [Schritt 5: In /train-all aufnehmen](#schritt-5-in-train-all-aufnehmen)
-   - [Schritt 6: Modell-Persistierung (optional)](#schritt-6-modell-persistierung-optional)
-   - [Schritt 7: Docker-Rebuild & Test](#schritt-7-docker-rebuild--test)
-5. [Warum das funktioniert: Dynamic Matching](#5-warum-das-funktioniert-dynamic-matching)
+1. [Prerequisites](#1-prerequisites)
+2. [The Signal Interface (Interface Specification)](#2-the-signal-interface-interface-specification)
+3. [Registering Hyperparameters in the Central Config](#3-registering-hyperparameters-in-the-central-config)
+4. [Step-by-Step Guide](#4-step-by-step-guide)
+   - [Step 1: Create a config entry](#step-1-create-a-config-entry)
+   - [Step 2: Implement the training logic in src/models/](#step-2-implement-the-training-logic-in-srcmodels)
+   - [Step 3: Plot function in src/models/plots.py](#step-3-plot-function)
+   - [Step 4: Register the route in the Model Service](#step-4-register-the-route-in-the-model-service)
+   - [Step 5: Include in /train-all](#step-5-include-in-train-all)
+   - [Step 6: Model persistence (optional)](#step-6-model-persistence-optional)
+   - [Step 7: Docker rebuild & test](#step-7-docker-rebuild--test)
+5. [Why This Works: Dynamic Matching](#5-why-this-works-dynamic-matching)
 6. [Look-Ahead Bias Prevention (T+1 Shift)](#6-look-ahead-bias-prevention-t1-shift)
-7. [Dokumentation aktualisieren](#7-dokumentation-aktualisieren)
-8. [Code-Template (Copy & Paste)](#8-code-template-copy--paste)
-9. [Validierungs-Checkliste](#9-validierungs-checkliste)
-10. [Referenz-Implementierungen](#10-referenz-implementierungen)
+7. [Updating the Documentation](#7-updating-the-documentation)
+8. [Code Template (Copy & Paste)](#8-code-template-copy--paste)
+9. [Validation Checklist](#9-validation-checklist)
+10. [Reference Implementations](#10-reference-implementations)
 11. [FAQ & Troubleshooting](#11-faq--troubleshooting)
 
 ---
 
-## 1. Voraussetzungen
+## 1. Prerequisites
 
-Bevor du ein neues Modell integrierst, stelle sicher, dass:
+Before integrating a new model, make sure that:
 
-- [ ] Der Data Service erfolgreich gelaufen ist (`POST /data/ingest`) und `data/silver/03_feature_engineered_data.parquet` existiert und aktuell ist
-- [ ] Die benötigten Python-Pakete für dein Modell in `pyproject.toml` ergänzt sind (`ml`-Extra für schwere Frameworks)
-- [ ] Du den Aufbau von `services/model_service/routes.py` und der Module unter `src/models/` grundlegend verstanden hast
+- [ ] The Data Service has run successfully (`POST /data/ingest`) and `data/silver/03_feature_engineered_data.parquet` exists and is up to date
+- [ ] The Python packages required for your model have been added to `pyproject.toml` (`ml` extra for heavy frameworks)
+- [ ] You have a basic understanding of the structure of `services/model_service/routes.py` and the modules under `src/models/`
 
 ---
 
-## 2. Die Signal-Schnittstelle (Interface-Spezifikation)
+## 2. The Signal Interface (Interface Specification)
 
-Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnittstelle**. Jedes Modell muss exakt **zwei Spalten** im gemeinsamen `test_df` DataFrame erzeugen:
+The central design principle of the pipeline is the **standardized signal interface**. Every model must produce exactly **two columns** in the shared `test_df` DataFrame:
 
-### Spalte 1: `<Modell>_Prob` (Regime-Wahrscheinlichkeit)
+### Column 1: `<Model>_Prob` (Regime Probability)
 
-| Eigenschaft | Spezifikation |
+| Property | Specification |
 |:---|:---|
-| **Namenskonvention** | `<Modellname>_Prob` |
-| **Datentyp** | `float64` |
-| **Wertebereich** | `0.0` bis `1.0` |
-| **Semantik** | Wahrscheinlichkeit, dass der aktuelle Tag ein **Bear-Regime** (Krise) ist |
-| **Beispiel** | `HMM_Prob`, `LSTM_Prob`, `Transformer_Prob` |
+| **Naming convention** | `<ModelName>_Prob` |
+| **Data type** | `float64` |
+| **Value range** | `0.0` to `1.0` |
+| **Semantics** | Probability that the current day is a **bear regime** (crisis) |
+| **Example** | `HMM_Prob`, `LSTM_Prob`, `Transformer_Prob` |
 
-### Spalte 2: `<Modell>_Signal` (Binäres Handelssignal)
+### Column 2: `<Model>_Signal` (Binary Trading Signal)
 
-| Eigenschaft | Spezifikation |
+| Property | Specification |
 |:---|:---|
-| **Namenskonvention** | `<Modellname>_Signal` |
-| **Datentyp** | `int` (0 oder 1) |
-| **Wertebereich** | `0` = **Bull** (investiert), `1` = **Bear** (Cash/Geldmarkt) |
-| **Semantik** | Binäre Entscheidung, abgeleitet aus `_Prob` mittels Threshold (i.d.R. `>= 0.5`) |
-| **Beispiel** | `HMM_Signal`, `LSTM_Signal`, `Transformer_Signal` |
+| **Naming convention** | `<ModelName>_Signal` |
+| **Data type** | `int` (0 or 1) |
+| **Value range** | `0` = **bull** (invested), `1` = **bear** (cash/money market) |
+| **Semantics** | Binary decision, derived from `_Prob` via threshold (usually `>= 0.5`) |
+| **Example** | `HMM_Signal`, `LSTM_Signal`, `Transformer_Signal` |
 
-### Namenskonvention
+### Naming Convention
 
 ```
-<Modellname>_Prob     →  z.B. MyModel_Prob
-<Modellname>_Signal   →  z.B. MyModel_Signal
+<ModelName>_Prob     →  e.g. MyModel_Prob
+<ModelName>_Signal   →  e.g. MyModel_Signal
 ```
 
-**Regeln für `<Modellname>`:**
-- Verwende **PascalCase** oder **Snake_Case** mit Großbuchstaben (z.B. , `MSM`, `HMM`, `Transformer`, `LSTM`)
-- **Keine Leerzeichen**, verwende stattdessen Unterstriche
-- Der Name muss **eindeutig** sein und darf nicht mit dem Namen eines bestehenden Modells kollidieren
-- Der Suffix `_Signal` ist **reserviert** und wird vom Dynamic-Matching-Algorithmus als Erkennungsmerkmal verwendet
+**Rules for `<ModelName>`:**
+- Use **PascalCase** or **Snake_Case** with capital letters (e.g. `MSM`, `HMM`, `Transformer`, `LSTM`)
+- **No spaces**; use underscores instead
+- The name must be **unique** and must not collide with the name of an existing model
+- The suffix `_Signal` is **reserved** and used by the dynamic matching algorithm as the detection marker
 
-### Bestehende Modelle als Referenz
+### Existing Models as Reference
 
-| Modellname        | `_Prob`-Spalte           | `_Signal`-Spalte           | Paradigma                  			|
+| Model name        | `_Prob` column           | `_Signal` column           | Paradigm                  			|
 | :---------------- | :----------------------- | :------------------------- | :------------------------- 			|
-| MSM               | `MSM_Prob`               | `MSM_Signal`               | Ökonometrie (Regression)   			|
-| HMM               | `HMM_Prob`               | `HMM_Signal`               | Ökonometrie (Unsupervised) 			|
-| HMM_Uni           | `HMM_Uni_Prob`           | `HMM_Uni_Signal`           | Ökonometrie (Unsupervised, Ablation)  |
-| LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            			|
-| Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     			|
+| MSM               | `MSM_Prob`               | `MSM_Signal`               | Econometrics (regression)   			|
+| HMM               | `HMM_Prob`               | `HMM_Signal`               | Econometrics (unsupervised) 			|
+| HMM_Uni           | `HMM_Uni_Prob`           | `HMM_Uni_Signal`           | Econometrics (unsupervised, ablation)  |
+| LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (supervised)            			|
+| Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (attention-based)     			|
 
 ---
 
-## 3. Hyperparameter in der zentralen Config registrieren
+## 3. Registering Hyperparameters in the Central Config
 
-> **Wichtig:** Seit [Issue #3](https://github.com/Torim98/regime-switching-daa/issues/3) werden **alle Pipeline-Parameter zentral** in [`config/config.yaml`](../config/config.yaml) verwaltet. Hardcoded Hyperparameter im Code sind nicht mehr erlaubt.
+> **Important:** Since [Issue #3](https://github.com/Torim98/regime-switching-daa/issues/3), **all pipeline parameters are managed centrally** in [`config/config.yaml`](../config/config.yaml). Hardcoded hyperparameters in code are no longer allowed.
 
-> **Hyperparameter-Optimierung:** Optuna kann `config.yaml`-Parameter programmatisch
-> überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)).
-> Um ein neues Modell in die Optimierung aufzunehmen, muss in `src/backtest/optimize.py`
-> eine `objective_<modell>`-Funktion mit den passenden `trial.suggest_*()`-Aufrufen
-> definiert und in `_OBJECTIVE_MAP` registriert werden.
+> **Hyperparameter optimization:** Optuna can programmatically override
+> `config.yaml` parameters ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)).
+> To include a new model in the optimization, define an `objective_<model>`
+> function with the appropriate `trial.suggest_*()` calls in `src/backtest/optimize.py`
+> and register it in `_OBJECTIVE_MAP`.
 
-### Architektur-Übersicht
+### Architecture Overview
 
 ```
 config/
-├── config.yaml          # Single Source of Truth — alle Parameter
-└── config_loader.py     # PipelineConfig-Klasse + Singleton `cfg`
-                         # Methoden: data_path(), asset_path(), model_path()
+├── config.yaml          # Single source of truth: all parameters
+└── config_loader.py     # PipelineConfig class + singleton `cfg`
+                         # Methods: data_path(), asset_path(), model_path()
 ```
 
-Die `config.yaml` ist hierarchisch nach Pipeline-Sektionen gegliedert:
+The `config.yaml` is structured hierarchically by pipeline section:
 
 ```yaml
 models:
@@ -117,18 +117,18 @@ models:
     window_size: 30
     epochs: 30
     ...
-  my_model:              # ← Dein neues Modell hier eintragen
+  my_model:              # ← Add your new model here
     param_1: value_1
     ...
 ```
 
-### So lädst du die Config in Code
+### How to Load the Config in Code
 
 ```python
-# In src/ oder services/ — Config laden
+# In src/ or services/: load the config
 from config.config_loader import cfg
 
-# Zugriff per Dot-Notation:
+# Access via dot notation:
 cfg.models.hmm.n_components          # → 2
 cfg.features.model_features          # → ['Returns', 'Vol_20', ...]
 cfg.asset_path("equity_curves")      # → ".../assets/equity_curves.png"
@@ -136,48 +136,48 @@ cfg.model_path("lstm")               # → ".../models/lstm_regime_model.keras"
 cfg.model_persistence.enabled        # → true/false
 ```
 
-### So fügst du dein Modell zur Config hinzu
+### How to Add Your Model to the Config
 
-**Schritt A:** Öffne `config/config.yaml` und ergänze unter der `models:`-Sektion einen neuen Block:
+**Step A:** Open `config/config.yaml` and add a new block under the `models:` section:
 
 ```yaml
 models:
-  # ... bestehende Modelle (msm, hmm, lstm, transformer) ...
+  # ... existing models (msm, hmm, lstm, transformer) ...
 
-  my_model:                    # ← Schlüsselname in snake_case
-    window_size: 20            # Beispiel-Hyperparameter
-    n_heads: 4                 # Beispiel für Transformer
+  my_model:                    # ← key name in snake_case
+    window_size: 20            # example hyperparameter
+    n_heads: 4                 # example for Transformer
     n_layers: 2
     d_model: 64
     dropout: 0.1
     epochs: 50
     batch_size: 32
     learning_rate: 0.001
-    threshold: *threshold       # Deckt sich mit den anderen Modellen; Bear-Signal wenn Prob >= threshold
+    threshold: *threshold       # matches the other models; bear signal if prob >= threshold
 ```
 
-### Farbe für Plots registrieren (optional)
+### Registering a Plot Color (Optional)
 
-Damit dein Modell in allen Plots eine konsistente Farbe erhält, ergänze unter `plotting.colors` einen Eintrag:
+To give your model a consistent color in all plots, add an entry under `plotting.colors`:
 
 ```yaml
 plotting:
   colors:
-    # ... bestehende Modelle ...
-    MyModel: "tab:cyan"        # ← Deine Modellfarbe
+    # ... existing models ...
+    MyModel: "tab:cyan"        # ← your model color
 ```
 
-> **Hinweis:** Dieser Schritt ist optional. Modelle ohne Eintrag erhalten 
-> automatisch eine Farbe aus dem matplotlib Default-Cycle. Die Farbe wird 
-> über `cfg.color_map` in allen Services konsistent verwendet.
+> **Note:** This step is optional. Models without an entry automatically
+> receive a color from the matplotlib default cycle. The color is used
+> consistently across all services via `cfg.color_map`.
 
-Verfügbare Farbnamen: Alle [matplotlib Named Colors](https://matplotlib.org/stable/gallery/color/named_colors.html) 
-und `tab:`-Palette (z.B. `tab:blue`, `tab:red`, `tab:cyan`).
+Available color names: all [matplotlib named colors](https://matplotlib.org/stable/gallery/color/named_colors.html)
+and the `tab:` palette (e.g. `tab:blue`, `tab:red`, `tab:cyan`).
 
-**Schritt B:** Greife im Code auf die Parameter zu:
+**Step B:** Access the parameters in code:
 
 ```python
-# Statt hardcoded: window_size = 20
+# Instead of hardcoded: window_size = 20
 my_cfg = cfg.models.my_model
 window_size = my_cfg.window_size      # → 20
 n_heads     = my_cfg.n_heads          # → 4
@@ -185,18 +185,18 @@ epochs      = my_cfg.epochs           # → 50
 threshold   = my_cfg.threshold        # → 0.5
 ```
 
-### Vorteile der zentralen Konfiguration
+### Advantages of the Central Configuration
 
-| Aspekt                         | Vorher (Hardcoded)                | Nachher (Config)                                                                                                              |
+| Aspect                         | Before (hardcoded)                | After (config)                                                                                                              |
 | :----------------------------- | :-------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| **Änderung eines Parameters**  | Code suchen, manuell ändern       | `config.yaml` editieren, propagiert automatisch                                                                               |
-| **Reproduzierbarkeit**         | Parameter über Module verstreut   | Alles an einer Stelle, versioniert in Git                                                                                     |
-| **Hyperparameter-Optimierung** | Manuell im Code anpassen          | Optuna kann `config.yaml` programmatisch überschreiben ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)) |
-| **Fast Mode (Entwicklung)**    | Jedes Modell einzeln anpassen     | `fast_mode.enabled: true` reduziert Epochs/MCS-Paths automatisch                                                              |
+| **Changing a parameter**  | Search code, change manually       | Edit `config.yaml`, propagates automatically                                                                               |
+| **Reproducibility**         | Parameters scattered across modules   | Everything in one place, versioned in Git                                                                                     |
+| **Hyperparameter optimization** | Adjust manually in code          | Optuna can override `config.yaml` programmatically ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)) |
+| **Fast mode (development)**    | Adjust each model individually     | `fast_mode.enabled: true` reduces epochs/MCS paths automatically                                                              |
 
-### Fast Mode für neue Modelle (optional)
+### Fast Mode for New Models (Optional)
 
-Falls du einen Fast-Mode-Override für dein Modell hinzufügen möchtest:
+If you want to add a fast-mode override for your model:
 
 ```yaml
 fast_mode:
@@ -204,32 +204,32 @@ fast_mode:
   overrides:
     lstm_epochs: 5
     mcs_n_paths: 100
-    my_model_epochs: 5          # ← Neuer Override
+    my_model_epochs: 5          # ← new override
 ```
 
-Dann im `config_loader.py` (Klasse `PipelineConfig.__init__`) ergänzen:
+Then add to `config_loader.py` (class `PipelineConfig.__init__`):
 
 ```python
 if self.fast_mode.enabled:
-    # ... bestehende overrides ...
+    # ... existing overrides ...
     self.models.my_model.epochs = self.fast_mode.overrides.my_model_epochs
 ```
 
 ---
 
-## 4. Schritt-für-Schritt-Anleitung
+## 4. Step-by-Step Guide
 
-Alle Änderungen erfolgen in **vier Stellen**: `config/config.yaml` (Hyperparameter), `src/models/<name>.py` (Trainingslogik), `src/models/plots.py` (Regime-Plot) und `services/model_service/routes.py` (Service-Route).
+All changes take place in **four locations**: `config/config.yaml` (hyperparameters), `src/models/<name>.py` (training logic), `src/models/plots.py` (regime plot), and `services/model_service/routes.py` (service route).
 
-> **Prinzip — Shared Business Logic:** Die Fachlogik lebt in `src/`, die Service-Route ruft sie nur auf. Dupliziere niemals Trainingslogik in der Route selbst.
+> **Principle: shared business logic.** The domain logic lives in `src/`; the service route only calls it. Never duplicate training logic in the route itself.
 
-### Schritt 1: Config-Eintrag erstellen
+### Step 1: Create a Config Entry
 
-Ergänze `config/config.yaml` unter `models:` mit den Hyperparametern deines Modells:
+Add your model's hyperparameters to `config/config.yaml` under `models:`:
 
 ```yaml
 models:
-  # ... bestehende Modelle ...
+  # ... existing models ...
 
   my_model:
     window_size: 20
@@ -238,25 +238,25 @@ models:
     learning_rate: 0.001
     dropout: 0.1
     threshold: 0.5
-    # ... weitere modellspezifische Parameter ...
+    # ... further model-specific parameters ...
 ```
 
-### Schritt 2: Trainingslogik in src/models/ implementieren
+### Step 2: Implement the Training Logic in src/models/
 
-Lege ein neues Modul `src/models/my_model.py` an. Die Funktion lädt alle Hyperparameter aus der Config (**kein Hardcoding!**), trainiert das Modell und schreibt die beiden Signal-Spalten in den DataFrame:
+Create a new module `src/models/my_model.py`. The function loads all hyperparameters from the config (**no hardcoding!**), trains the model, and writes the two signal columns into the DataFrame:
 
 ```python
 # src/models/my_model.py
 from my_model_library import MyModel
 
 def train_my_model(df, feature_cols, cfg):
-    """Trainiert MyModel und schreibt MyModel_Prob / MyModel_Signal in df."""
+    """Trains MyModel and writes MyModel_Prob / MyModel_Signal into df."""
     my_cfg = cfg.models.my_model
 
-    # Feature-Matrix vorbereiten
+    # Prepare the feature matrix
     X = df[feature_cols].dropna()
 
-    # Modell initialisieren — alle Parameter aus config.yaml
+    # Initialize the model: all parameters from config.yaml
     model = MyModel(
         window_size=my_cfg.window_size,
         epochs=my_cfg.epochs,
@@ -266,34 +266,34 @@ def train_my_model(df, feature_cols, cfg):
     )
     model.fit(X)
 
-    # Bear-Wahrscheinlichkeit (hohe Werte = Krise) + binäres Signal ableiten
+    # Bear probability (high values = crisis) + derive binary signal
     df["MyModel_Prob"] = model.predict_proba(X)
     df["MyModel_Signal"] = (df["MyModel_Prob"] >= my_cfg.threshold).astype(int)
     return df, model
 ```
 
-> **Wichtig:** Stelle sicher, dass `_Prob` die **Bear-Wahrscheinlichkeit** enthält (hohe Werte = Krise). Falls dein Modell die Bull-Wahrscheinlichkeit ausgibt, invertiere sie: `bear_prob = 1 - bull_prob`.
+> **Important:** Make sure that `_Prob` contains the **bear probability** (high values = crisis). If your model outputs the bull probability, invert it: `bear_prob = 1 - bull_prob`.
 
-> **Features:** `feature_cols` stammt aus `cfg.features.model_features` (`['Returns', 'Vol_20', 'Distance_SMA', 'Momentum', 'VIX', 'Yield_Spread']`). Du kannst eine Teilmenge nutzen oder im Data Service zusätzliche Features berechnen und die Liste in `config.yaml` erweitern.
+> **Features:** `feature_cols` comes from `cfg.features.model_features` (`['Returns', 'Vol_20', 'Distance_SMA', 'Momentum', 'VIX', 'Yield_Spread']`). You can use a subset, or compute additional features in the Data Service and extend the list in `config.yaml`.
 
-### Schritt 3: Plot-Funktion in src/models/plots.py
+### Step 3: Plot Function
 
-Ergänze eine `matplotlib.use("Agg")`-kompatible Plot-Funktion (kein `plt.show()`, stattdessen `plt.savefig()` + `plt.close(fig)`):
+Add a `matplotlib.use("Agg")`-compatible plot function in `src/models/plots.py` (no `plt.show()`; use `plt.savefig()` + `plt.close(fig)` instead):
 
 ```python
-# In src/models/plots.py ergänzen:
+# Add to src/models/plots.py:
 
 def plot_my_model(df, model_name, color, save_path):
-    """Regime-Plot für MyModel."""
+    """Regime plot for MyModel."""
     fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
-    # ... Plotting-Logik ...
+    # ... plotting logic ...
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 ```
 
-### Schritt 4: Route im Model Service registrieren
+### Step 4: Register the Route in the Model Service
 
-Öffne `services/model_service/routes.py`, importiere deine Funktionen und ergänze im `train_model()`-Endpoint (`POST /train/{model_name}`) einen `elif`-Block — analog zu den bestehenden Modellen (`if model_name == "msm": ... elif ...`):
+Open `services/model_service/routes.py`, import your functions, and add an `elif` block in the `train_model()` endpoint (`POST /train/{model_name}`), analogous to the existing models (`if model_name == "msm": ... elif ...`):
 
 ```python
 from src.models.my_model import train_my_model
@@ -318,13 +318,13 @@ def train_model(model_name: str):
         )
 ```
 
-> **`validate_regime_signal`** (aus `src/models/common.py`) gibt Regime-Statistiken aus (Returns, VIX, Yield_Spread pro Signal), prüft Plausibilität (Bear-Regime `1` muss niedrigere Returns haben als Bull `0`) mit automatischer Label-Inversion (`auto_invert=True`) und führt formale Assertions durch (Spaltenexistenz, Wertebereich `[0,1]`, keine NaN).
+> **`validate_regime_signal`** (from `src/models/common.py`) prints regime statistics (returns, VIX, yield spread per signal), checks plausibility (bear regime `1` must have lower returns than bull `0`) with automatic label inversion (`auto_invert=True`), and performs formal assertions (column existence, value range `[0,1]`, no NaN).
 
-> **Persistierung der Signale:** Die bestehenden Modelle schreiben ihre Signal-Spalten zurück in `feature_engineered` (`df.to_parquet(cfg.data_path("feature_engineered"))`). Der Backtest Service liest dieselbe Datei und erkennt deine `_Signal`-Spalte per Dynamic Matching automatisch — du musst nichts downstream anpassen.
+> **Signal persistence:** The existing models write their signal columns back to `feature_engineered` (`df.to_parquet(cfg.data_path("feature_engineered"))`). The Backtest Service reads the same file and detects your `_Signal` column automatically via dynamic matching; nothing needs to be adapted downstream.
 
-### Schritt 5: In /train-all aufnehmen
+### Step 5: Include in /train-all
 
-Damit dein Modell bei `POST /models/train-all` mitläuft, nimm es in die Trainingsreihenfolge auf:
+To make your model run with `POST /models/train-all`, add it to the training order:
 
 ```python
 @router.post("/train-all")
@@ -335,15 +335,15 @@ def train_all():
     return results
 ```
 
-> **Beachte die Reihenfolge:** Falls dein Modell auf vordefinierten Labels angewiesen ist (wie LSTM und Transformer auf Pagan-Sossounov), müssen diese Labels bereits im `feature_engineered_data` verfügbar sein (wird vom Data Service erzeugt).
+> **Mind the order:** If your model depends on predefined labels (like LSTM and Transformer on Pagan-Sossounov), these labels must already be available in `feature_engineered_data` (created by the Data Service).
 
-### Schritt 6: Modell-Persistierung (optional)
+### Step 6: Model Persistence (Optional)
 
-Trainierte Modelle können im Ordner `models/` zwischengespeichert werden. Dies ist besonders nützlich, wenn das Training rechenintensiv ist (z.B. LSTM, Transformer).
+Trained models can be cached in the `models/` directory. This is particularly useful when training is computationally expensive (e.g. LSTM, Transformer).
 
-#### Voraussetzung
+#### Prerequisite
 
-In `config/config.yaml` existiert die Sektion `model_persistence`:
+The `model_persistence` section exists in `config/config.yaml`:
 
 ```yaml
 model_persistence:
@@ -358,21 +358,21 @@ model_persistence:
     transformer: "transformer_regime_model.pt"
 ```
 
-#### So fügst du dein Modell hinzu
+#### How to Add Your Model
 
-**1.** Ergänze unter `model_persistence.files` einen Eintrag für dein Modell:
+**1.** Add an entry for your model under `model_persistence.files`:
 
 ```yaml
 model_persistence:
   files:
-    # ... bestehende Einträge ...
-    my_model: "my_model.pkl"           # ← Dateiname deines Modells
-    scaler_my_model: "my_model_scaler.pkl"  # ← Falls ein Scaler nötig ist
+    # ... existing entries ...
+    my_model: "my_model.pkl"           # ← file name of your model
+    scaler_my_model: "my_model_scaler.pkl"  # ← if a scaler is required
 ```
 
-**2.** Nutze in `src/models/my_model.py` `cfg.model_path("my_model")`, um den vollständigen Pfad zu erhalten.
+**2.** In `src/models/my_model.py`, use `cfg.model_path("my_model")` to obtain the full path.
 
-**3.** Umschließe Training und Laden in deiner Trainingsfunktion mit einem `if/else`-Block:
+**3.** Wrap training and loading in your training function with an `if/else` block:
 
 ```python
 import os
@@ -382,193 +382,192 @@ persist = cfg.model_persistence
 model_file = cfg.model_path("my_model")
 
 if persist.enabled and os.path.exists(model_file):
-    # MODUS A: Gespeichertes Modell laden
+    # MODE A: load the saved model
     model = load_my_model(model_file)
 else:
-    # MODUS B: Normal trainieren + speichern
+    # MODE B: train normally + save
     model = train_my_model_impl(...)
 
     Path(persist.models_dir).mkdir(parents=True, exist_ok=True)
     save_my_model(model, model_file)
 ```
 
-**4.** Falls dein Modell einen Scaler benötigt (z.B. `StandardScaler`, `MinMaxScaler`), persistiere diesen ebenfalls. Beim Laden **unbedingt** `transform()` statt `fit_transform()` verwenden!
+**4.** If your model requires a scaler (e.g. `StandardScaler`, `MinMaxScaler`), persist it as well. When loading, **always** use `transform()` instead of `fit_transform()`!
 
-#### Serialisierungs-Formate nach Bibliothek
+#### Serialization Formats by Library
 
-| Bibliothek | Speichern | Laden | Dateiendung |
+| Library | Save | Load | File extension |
 |:---|:---|:---|:---|
 | `statsmodels` | `results.save(path)` | `sm.load(path)` | `.pkl` |
 | `hmmlearn` / `sklearn` | `joblib.dump(model, path)` | `joblib.load(path)` | `.pkl` |
 | `TensorFlow/Keras` | `model.save(path)` | `load_model(path)` | `.keras` |
 | `PyTorch` | `torch.save(model.state_dict(), path)` | `model.load_state_dict(torch.load(path))` | `.pt` |
 
-> **Hinweis:** Der Ordner `models/` ist in `.gitignore` eingetragen und wird beim ersten Speichern automatisch via `Path(...).mkdir(parents=True, exist_ok=True)` angelegt.
+> **Note:** The `models/` directory is listed in `.gitignore` and is created automatically on first save via `Path(...).mkdir(parents=True, exist_ok=True)`.
 
-### Schritt 7: Docker-Rebuild & Test
+### Step 7: Docker Rebuild & Test
 
 ```bash
-docker-compose build model-service     # src/ wird via COPY src/ src/ ins Image übernommen
+docker-compose build model-service     # src/ is copied into the image via COPY src/ src/
 docker-compose up -d model-service
 
-# Einzelnes Modell trainieren:
+# Train a single model:
 curl -X POST http://localhost:8002/models/train/my_model
 
-# Oder alle Modelle:
+# Or all models:
 curl -X POST http://localhost:8002/models/train-all
 ```
 
-> Da die Trainingslogik in `src/` liegt und `src/` bereits im Dockerfile kopiert wird (`COPY src/ src/`), sind **keine Änderungen am Dockerfile nötig**.
+> Since the training logic lives in `src/` and `src/` is already copied in the Dockerfile (`COPY src/ src/`), **no Dockerfile changes are required**.
 
 ---
 
-## 5. Warum das funktioniert: Dynamic Matching
+## 5. Why This Works: Dynamic Matching
 
-Die nachgelagerten Schritte (Backtest Service, Evaluation, Reporting) nutzen einen **dynamischen Such-Algorithmus**, der alle Modell-Signale automatisch erkennt:
+The downstream steps (Backtest Service, evaluation, reporting) use a **dynamic matching algorithm** that detects all model signals automatically:
 
 ```python
-# Aus src/backtest/engine.py (run_all_backtests) — Kernlogik des Dynamic Matching:
+# From src/backtest/engine.py (run_all_backtests): core logic of dynamic matching
 signal_cols = [col for col in test_df.columns if col.endswith("_Signal")]
 
 for sig_col in signal_cols:
-    model_name = sig_col.rsplit("_", 1)[0]  # Extrahiert "HMM" aus "HMM_Signal"
+    model_name = sig_col.rsplit("_", 1)[0]  # Extracts "HMM" from "HMM_Signal"
     backtesting_results[model_name] = backtest(
         test_df, sig_col, signal_shift=cfg.backtesting.signal_shift,
         fee=cfg.transaction_cost_rate,
     )
 ```
 
-**Das bedeutet:**
-1. **Backtesting** erkennt jede Spalte, die auf `_Signal` endet, und führt einen vollständigen Backtest durch
-2. **Evaluation** berechnet für jedes erkannte Modell automatisch alle Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown etc.)
-3. **Reporting** generiert Equity Curves, Statistik-Tabellen und SORR-Simulationen für alle Modelle
+**This means:**
+1. **Backtesting** detects every column ending in `_Signal` and runs a full backtest
+2. **Evaluation** automatically computes all metrics (Sharpe, Sortino, Calmar, max drawdown, etc.) for every detected model
+3. **Reporting** generates equity curves, statistics tables, and SORR simulations for all models
 
-**Du musst keinen Code im Backtest Service, in der Evaluation oder im Reporting (`src/backtest/`) anpassen.** Es genügt, die Signal-Schnittstelle korrekt zu implementieren und die Hyperparameter in der Config zu registrieren.
+**You do not need to change any code in the Backtest Service, the evaluation, or the reporting (`src/backtest/`).** It is sufficient to implement the signal interface correctly and register the hyperparameters in the config.
 
 ---
 
 ## 6. Look-Ahead Bias Prevention (T+1 Shift)
 
-Ein kritisches Konzept, das das Backtesting-Modul automatisch handhabt:
+A critical concept that the backtesting module handles automatically:
 
 ```python
-# Aus src/backtest/engine.py — Automatischer T+1 Shift:
+# From src/backtest/engine.py: automatic T+1 shift
 trading_signal = df[signal_col].shift(signal_shift).fillna(0)
-# signal_shift ist in config.yaml definiert (Standard: 1)
+# signal_shift is defined in config.yaml (default: 1)
 ```
 
-**Was passiert hier?**
-- Das Backtesting verschiebt jedes Signal um **einen Handelstag** in die Zukunft (`shift(1)`)
-- Ein Signal, das am Tag `T` berechnet wurde, wird erst am Tag `T+1` als Handelsentscheidung angewandt
-- Dies verhindert **Look-Ahead Bias**: Entscheidungen basieren ausschließlich auf historisch verfügbaren Informationen
-- Der Shift-Wert ist über `backtesting.signal_shift` in der `config.yaml` konfigurierbar (Standard: `1`)
+**What happens here?**
+- The backtesting shifts every signal by **one trading day** into the future (`shift(1)`)
+- A signal computed on day `T` is applied as a trading decision only on day `T+1`
+- This prevents **look-ahead bias**: decisions are based exclusively on historically available information
+- The shift value is configurable via `backtesting.signal_shift` in `config.yaml` (default: `1`)
 
-**Das bedeutet für dich:**
-- Du musst den Shift **NICHT** selbst implementieren, das Backtesting erledigt das
-- Du darfst den Shift **NICHT** doppelt anwenden (also nicht schon in `src/models/<name>.py`)
-- Die Spalten `_Prob` und `_Signal` enthalten die Werte **zum Zeitpunkt der Berechnung** (Tag `T`)
+**What this means for you:**
+- You do **NOT** need to implement the shift yourself; the backtesting takes care of it
+- You must **NOT** apply the shift twice (i.e. not already in `src/models/<name>.py`)
+- The columns `_Prob` and `_Signal` contain the values **at the time of computation** (day `T`)
 
 ---
 
-## 7. Dokumentation aktualisieren
+## 7. Updating the Documentation
 
-Nach der erfolgreichen Integration des Modells in die Pipeline (Schritte 1–7) müssen **drei Dokumentationsebenen** aktualisiert werden, damit das neue Modell korrekt in der Projektdokumentation erscheint.
+After successfully integrating the model into the pipeline (steps 1–7), **three documentation levels** must be updated so that the new model appears correctly in the project documentation.
 
-> **Hinweis:** Die quantitativen Tabellen (Performance Summary, Evaluation-Matrix, SORR-Summary, MCS-Summary) und die meisten Plots (Equity Curves, Regime Comparison, MCS-Boxplots) werden dank Dynamic Matching **automatisch** generiert. Die folgenden Schritte betreffen ausschließlich die **manuellen** Dokumentationsanpassungen.
+> **Note:** The quantitative tables (performance summary, evaluation matrix, SORR summary, MCS summary) and most plots (equity curves, regime comparison, MCS boxplots) are generated **automatically** thanks to dynamic matching. The following steps concern only the **manual** documentation adjustments.
 
-### Schritt A: Asset-Pfad in `config.yaml` registrieren
+### Step A: Register the Asset Path in `config.yaml`
 
-Damit das Reporting den Modell-Plot referenzieren kann, muss unter `paths.assets` ein Eintrag hinzugefügt werden:
+For the reporting to reference the model plot, an entry must be added under `paths.assets`:
 
 ```yaml
 paths:
   assets:
-    # ... bestehende Einträge ...
-    my_model: "my_model.png"           # ← Dateiname des Regime-Plots
+    # ... existing entries ...
+    my_model: "my_model.png"           # ← file name of the regime plot
 ```
 
-> Der Plot selbst wird in `src/models/plots.py` erzeugt und unter `assets/` gespeichert. Die Config definiert lediglich den Dateinamen, über den `src/backtest/reporting.py` den Plot einbettet.
+> The plot itself is created in `src/models/plots.py` and stored under `assets/`. The config only defines the file name through which `src/backtest/reporting.py` embeds the plot.
 
-### Schritt B: Modell-Abschnitt im Reporting ergänzen (`statistics.md`)
+### Step B: Add a Model Section to the Reporting (`statistics.md`)
 
-Die Datei `docs/statistics.md` wird **vollständig automatisch** durch `src/backtest/reporting.py` generiert. Die Sektion **"Regime-Erkennung der Einzelmodelle"** enthält jedoch für jedes Modell einen manuell gepflegten Absatz mit Beschreibung und Bildverweis im f-String-Template.
+The file `docs/statistics.md` is generated **fully automatically** by `src/backtest/reporting.py`. However, the section **"Regime detection of the individual models"** contains a manually maintained paragraph for each model with a description and image reference in the f-string template.
 
-Öffne `src/backtest/reporting.py` und füge innerhalb des f-Strings (`stats_md_content`) an der passenden Stelle einen neuen Unterabschnitt ein:
+Open `src/backtest/reporting.py` and insert a new subsection at the appropriate position within the f-string (`stats_md_content`):
 
 ```python
-### G. <Modellname> (<Paradigma>)
-<Kurzbeschreibung des Modells: Ansatz, Besonderheit, Trainings-Setting.>
-![<Modellname> Model](../assets/{cfg.paths.assets.my_model})
+### G. <ModelName> (<Paradigm>)
+<Short description of the model: approach, distinctive feature, training setting.>
+![<ModelName> Model](../assets/{cfg.paths.assets.my_model})
 ```
 
-**Orientierung:** Die bestehenden Abschnitte folgen der Reihenfolge Ökonometrie → ML (Supervised) → Attention-basiert. Ordne dein Modell entsprechend ein.
+**Orientation:** The existing sections follow the order econometrics → ML (supervised) → attention-based. Place your model accordingly.
 
-> **Wichtig:** Bearbeite **niemals** `docs/statistics.md` direkt. Die Datei wird beim nächsten `POST /backtest/evaluate` überschrieben. Alle Änderungen müssen in `src/backtest/reporting.py` im f-String-Template erfolgen.
+> **Important:** **Never** edit `docs/statistics.md` directly. The file is overwritten on the next `POST /backtest/evaluate`. All changes must be made in the f-string template in `src/backtest/reporting.py`.
 
-### Schritt C: README.md aktualisieren
+### Step C: Update README.md
 
-Die `README.md` enthält im Abschnitt **"Methodik & Modelle"** eine Beschreibung aller Modellkategorien. Ergänze dort einen Eintrag für dein neues Modell:
+The `README.md` contains a description of all model categories in the section **"Methodology & Models"**. Add an entry for your new model there:
 
-- **Unter Punkt 1 (Ökonometrische Modelle)** — wenn es sich um ein statistisches Verfahren handelt
-- **Unter Punkt 2 (Machine-Learning-Verfahren)** — wenn es sich um ein ML-/DL-Modell handelt
+- **Under item 1 (econometric models)** if it is a statistical method
+- **Under item 2 (machine-learning methods)** if it is an ML/DL model
 
-Verwende den Stil und Detailgrad der bestehenden Modellbeschreibungen als Vorlage. Ein Eintrag sollte mindestens enthalten:
-1. **Modellname** und Architektur-Typ (fett)
-2. Kurzbeschreibung des Ansatzes (1–2 Sätze)
-3. Trainings-Setting (Supervised / Unsupervised) und ggf. Label-Quelle
+Use the style and level of detail of the existing model descriptions as a template. An entry should contain at least:
+1. **Model name** and architecture type (bold)
+2. Short description of the approach (1–2 sentences)
+3. Training setting (supervised / unsupervised) and, if applicable, label source
 
-### Schritt D (optional): Architektur-Dokumentation in `docs/`
+### Step D (Optional): Architecture Documentation in `docs/`
 
-Für komplexe Modelle (insb. neuronale Netze) empfiehlt es sich, eine dedizierte Architektur-Beschreibung unter `docs/` abzulegen.
+For complex models (especially neural networks), it is recommended to add a dedicated architecture description under `docs/`.
 
-Eine solche Datei sollte enthalten:
-- Schematische Darstellung der Schichten / Module (als Text-Diagramm oder Bild)
-- Input-/Output-Dimensionen
-- Verweis auf den zugehörigen Config-Key (`cfg.models.<name>`)
+Such a file should contain:
+- Schematic representation of the layers / modules (as text diagram or image)
+- Input/output dimensions
+- Reference to the corresponding config key (`cfg.models.<name>`)
 
-### Schritt E (optional): Plot-Farbe in `config.yaml` registrieren
+### Step E (Optional): Register the Plot Color in `config.yaml`
 
-Ergänze unter `plotting.colors` eine Farbe für dein Modell, damit es in 
-allen Vergleichsplots (Equity Curves, Regime Comparison, MCS) konsistent 
-dargestellt wird.
+Add a color for your model under `plotting.colors` so that it is displayed
+consistently in all comparison plots (equity curves, regime comparison, MCS).
 
 ---
 
-## 8. Code-Template (Copy & Paste)
+## 8. Code Template (Copy & Paste)
 
-### A. Config-Eintrag (`config/config.yaml`)
+### A. Config Entry (`config/config.yaml`)
 
 ```yaml
 models:
-  # ... bestehende Modelle ...
-  my_model:                       # ← snake_case Schlüsselname
-    # --- Architektur ---
-    window_size: 20               # Input-Sequenzlänge
-    units: 64                     # Modellgröße (z.B. Hidden Units, d_model)
-    dropout: 0.1                  # Regularisierung
+  # ... existing models ...
+  my_model:                       # ← snake_case key name
+    # --- Architecture ---
+    window_size: 20               # input sequence length
+    units: 64                     # model size (e.g. hidden units, d_model)
+    dropout: 0.1                  # regularization
     # --- Training ---
     epochs: 50
     batch_size: 32
     learning_rate: 0.001
     validation_split: 0.1
     # --- Signal ---
-    threshold: 0.5                # Bear-Signal wenn Prob >= threshold
+    threshold: 0.5                # bear signal if prob >= threshold
 
 plotting:
   colors:
-    # ... bestehende Modelle ...
-    MyModel: "tab:cyan"           # ← Plot-Farbe (optional)
+    # ... existing models ...
+    MyModel: "tab:cyan"           # ← plot color (optional)
 ```
 
-### B. Service-Modul (`src/models/my_model.py`)
+### B. Service Module (`src/models/my_model.py`)
 
-Lege das Trainingsmodul an (Signatur analog zu den bestehenden Modellen):
+Create the training module (signature analogous to the existing models):
 
 ```python
 from my_model_library import MyModel
 
 def train_my_model(df, feature_cols, cfg):
-    """Trainiert MyModel und schreibt MyModel_Prob / MyModel_Signal in df."""
+    """Trains MyModel and writes MyModel_Prob / MyModel_Signal into df."""
     my_cfg = cfg.models.my_model
     X = df[feature_cols].dropna()
     model = MyModel(
@@ -582,62 +581,62 @@ def train_my_model(df, feature_cols, cfg):
     return df, model
 ```
 
-Die Registrierung im Model Service (`elif`-Block + `validate_regime_signal` + Plot) erfolgt wie in [Abschnitt 4, Schritt 4](#schritt-4-route-im-model-service-registrieren).
+Registration in the Model Service (`elif` block + `validate_regime_signal` + plot) follows [Section 4, Step 4](#step-4-register-the-route-in-the-model-service).
 
 ---
 
-## 9. Validierungs-Checkliste
+## 9. Validation Checklist
 
-Führe nach der Integration folgende Prüfungen durch:
+After integration, perform the following checks:
 
-### Formale Prüfungen
-- [ ] Die Spalte `<Modell>_Prob` existiert im DataFrame und enthält `float`-Werte zwischen `0.0` und `1.0`
-- [ ] Die Spalte `<Modell>_Signal` existiert im DataFrame und enthält ausschließlich `0` oder `1`
-- [ ] Keine `NaN`-Werte in `<Modell>_Signal` (im Testzeitraum)
-- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`MSM`, `HMM`, `HMM_Uni`, `LSTM`, `Transformer`)
+### Formal Checks
+- [ ] The column `<Model>_Prob` exists in the DataFrame and contains `float` values between `0.0` and `1.0`
+- [ ] The column `<Model>_Signal` exists in the DataFrame and contains only `0` or `1`
+- [ ] No `NaN` values in `<Model>_Signal` (within the test period)
+- [ ] The model name does not collide with existing names (`MSM`, `HMM`, `HMM_Uni`, `LSTM`, `Transformer`)
 
-### Config-Prüfungen
-- [ ] Neuer Eintrag unter `models:` in `config/config.yaml` angelegt
-- [ ] **Keine** Hyperparameter hardcoded im Code, alles kommt aus `cfg.models.<name>`
-- [ ] Config-Key stimmt mit dem Zugriff im Code überein (z.B. `cfg.models.my_model`)
-- [ ] Falls Fast-Mode-Override gewünscht: Eintrag in `fast_mode.overrides` und `config_loader.py` ergänzt
+### Config Checks
+- [ ] New entry created under `models:` in `config/config.yaml`
+- [ ] **No** hyperparameters hardcoded in code; everything comes from `cfg.models.<name>`
+- [ ] Config key matches the access in code (e.g. `cfg.models.my_model`)
+- [ ] If a fast-mode override is desired: entry added in `fast_mode.overrides` and `config_loader.py`
 
-### Persistierungs-Prüfungen (optional)
-- [ ] Eintrag unter `model_persistence.files` in `config.yaml` angelegt (falls Persistierung gewünscht)
-- [ ] `if/else`-Block für Load/Train in `src/models/<name>.py` implementiert
-- [ ] Scaler wird bei Laden mit `transform()` statt `fit_transform()` verwendet
-- [ ] `Path(persist.models_dir).mkdir(parents=True, exist_ok=True)` vor dem ersten Speichern aufgerufen
+### Persistence Checks (Optional)
+- [ ] Entry created under `model_persistence.files` in `config.yaml` (if persistence is desired)
+- [ ] `if/else` block for load/train implemented in `src/models/<name>.py`
+- [ ] Scaler is used with `transform()` instead of `fit_transform()` when loading
+- [ ] `Path(persist.models_dir).mkdir(parents=True, exist_ok=True)` called before the first save
 
-### Inhaltliche Prüfungen
-- [ ] Bear-Regime (Signal = 1) weist im Durchschnitt **niedrigere Returns** auf als Bull-Regime (Signal = 0)
-- [ ] Bear-Regime weist im Durchschnitt **höheren VIX** auf als Bull-Regime
-- [ ] Die Signalverteilung ist plausibel (nicht 99% ein Regime)
+### Content Checks
+- [ ] Bear regime (signal = 1) shows **lower average returns** than bull regime (signal = 0)
+- [ ] Bear regime shows a **higher average VIX** than bull regime
+- [ ] The signal distribution is plausible (not 99% one regime)
 
-### Dokumentations-Prüfungen
-- [ ] Asset-Pfad für den Modell-Plot in `config.yaml` unter `paths.assets` registriert
-- [ ] (Optional) Plot-Farbe unter `plotting.colors` in `config.yaml` registriert
-- [ ] Neuer Abschnitt im Reporting (`src/backtest/reporting.py`, f-String-Template) eingefügt
-- [ ] `README.md` — Modell in "Methodik & Modelle" beschrieben
-- [ ] (Optional) Architektur-Dokumentation unter `docs/` angelegt
-- [ ] `docs/statistics.md` enthält nach Pipeline-Durchlauf den neuen Modell-Abschnitt mit korrektem Bild
+### Documentation Checks
+- [ ] Asset path for the model plot registered in `config.yaml` under `paths.assets`
+- [ ] (Optional) Plot color registered under `plotting.colors` in `config.yaml`
+- [ ] New section inserted in the reporting (`src/backtest/reporting.py`, f-string template)
+- [ ] `README.md`: model described in "Methodology & Models"
+- [ ] (Optional) Architecture documentation created under `docs/`
+- [ ] `docs/statistics.md` contains the new model section with the correct image after a pipeline run
 
-### Implementierungs-Prüfungen (Model Service)
-- [ ] Trainingslogik in `src/models/` als wiederverwendbares Modul implementiert (nicht inline in der Service-Route)
-- [ ] Plot-Funktion in `src/models/plots.py` mit `plt.close(fig)` (kein `plt.show()`)
-- [ ] `elif model_name == "my_model":` Block in `services/model_service/routes.py` ergänzt
-- [ ] Modell in der `train_all()`-Funktion des Model Service registriert
-- [ ] Docker-Image neu gebaut (`docker-compose build model-service`)
-- [ ] Endpunkt `POST /models/train/my_model` liefert HTTP 200
+### Implementation Checks (Model Service)
+- [ ] Training logic implemented in `src/models/` as a reusable module (not inline in the service route)
+- [ ] Plot function in `src/models/plots.py` with `plt.close(fig)` (no `plt.show()`)
+- [ ] `elif model_name == "my_model":` block added in `services/model_service/routes.py`
+- [ ] Model registered in the `train_all()` function of the Model Service
+- [ ] Docker image rebuilt (`docker-compose build model-service`)
+- [ ] Endpoint `POST /models/train/my_model` returns HTTP 200
 
-### Pipeline-Integration
-- [ ] `POST /models/train/my_model` (bzw. `/train-all`) aktualisiert `data/silver/03_feature_engineered_data.parquet` mit `MyModel_Prob`/`MyModel_Signal`
-- [ ] `POST /backtest/run` erkennt das neue Modell automatisch (Dynamic Matching) und berechnet Equity Curves
-- [ ] `POST /backtest/evaluate` berechnet Kennzahlen (Sharpe, Sortino, Calmar, Max Drawdown) und generiert `statistics.md` mit dem neuen Modell
-- [ ] Die Grafiken in `assets/` (Equity Curves, Regime Comparison, MCS Boxplots etc.) enthalten das neue Modell
+### Pipeline Integration
+- [ ] `POST /models/train/my_model` (or `/train-all`) updates `data/silver/03_feature_engineered_data.parquet` with `MyModel_Prob`/`MyModel_Signal`
+- [ ] `POST /backtest/run` detects the new model automatically (dynamic matching) and computes equity curves
+- [ ] `POST /backtest/evaluate` computes metrics (Sharpe, Sortino, Calmar, max drawdown) and generates `statistics.md` with the new model
+- [ ] The figures in `assets/` (equity curves, regime comparison, MCS boxplots, etc.) include the new model
 
-### End-to-End Test (empfohlen)
+### End-to-End Test (Recommended)
 ```bash
-# Vollständigen Pipeline-Durchlauf via Microservices:
+# Full pipeline run via microservices:
 docker-compose up --build -d
 curl -X POST http://localhost:8001/data/ingest
 curl -X POST http://localhost:8002/models/train-all
@@ -647,98 +646,98 @@ curl -X POST http://localhost:8003/backtest/evaluate
 
 ---
 
-## 10. Referenz-Implementierungen
+## 10. Reference Implementations
 
-Die folgenden bestehenden Modelle in `src/models/` (`msm.py`, `hmm.py`, `lstm.py`, `transformer.py`) dienen als Referenz. Alle laden ihre Hyperparameter aus der zentralen `config.yaml`:
+The following existing models in `src/models/` (`msm.py`, `hmm.py`, `lstm.py`, `transformer.py`) serve as references. All load their hyperparameters from the central `config.yaml`:
 
-### A. Markov-Switching (MSM) — Ökonometrie
-- **Bibliothek:** `statsmodels` (MarkovRegression)
-- **Ansatz:** Univariates Regressionsmodell mit zustandsabhängigen Parametern (switching variance)
+### A. Markov-Switching (MSM): Econometrics
+- **Library:** `statsmodels` (MarkovRegression)
+- **Approach:** Univariate regression model with state-dependent parameters (switching variance)
 - **Output:** `MSM_Prob`, `MSM_Signal`
-- **Config-Key:** `models.msm` (k_regimes, switching_variance)
+- **Config key:** `models.msm` (k_regimes, switching_variance)
 
-### B. HMM (Hidden Markov Model) — Unsupervised, Ökonometrie
-- **Bibliothek:** `hmmlearn`
-- **Ansatz:** Identifiziert Cluster in den Datenverteilungen ohne gelabelte Daten
+### B. HMM (Hidden Markov Model): Unsupervised, Econometrics
+- **Library:** `hmmlearn`
+- **Approach:** Identifies clusters in the data distributions without labeled data
 - **Output:** `HMM_Prob`, `HMM_Signal`
-- **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
-- **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
+- **Config key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
+- **Distinctive feature:** Requires a post-training check whether regime 0 or 1 corresponds to the bear regime (label alignment)
 
-### B2. HMM_Uni (Univariates HMM) — Ablationsvariante, Ökonometrie
-- **Bibliothek:** `hmmlearn` (identischer Code wie HMM: `src/models/hmm.py`, `train_hmm_fold` ist feature-agnostisch)
-- **Ansatz:** Wie HMM, aber ausschließlich `Returns` als Input. Identischer Input-Raum wie das MSM. Trennt den Architektureffekt vom Feature-Beitrag
+### B2. HMM_Uni (Univariate HMM): Ablation Variant, Econometrics
+- **Library:** `hmmlearn` (identical code to HMM: `src/models/hmm.py`, `train_hmm_fold` is feature-agnostic)
+- **Approach:** Like HMM, but with only `Returns` as input. Identical input space to the MSM. Separates the architectural effect from the feature contribution
 - **Output:** `HMM_Uni_Prob`, `HMM_Uni_Signal`
-- **Config-Key:** `models.hmm_uni` (features, n_components, covariance_type, n_iter, random_state, threshold)
-- **Besonderheit:** Kein eigenes Modul nötig, nur ein zweiter Config-Block, der durch dieselbe Fold-Funktion läuft (`_run_hmm_fold` in `src/backtest/parallel.py`). Referenzfall dafür, dass ein neues Modell rein über Konfiguration + Orchestrierung integrierbar ist.
+- **Config key:** `models.hmm_uni` (features, n_components, covariance_type, n_iter, random_state, threshold)
+- **Distinctive feature:** No dedicated module required; only a second config block that runs through the same fold function (`_run_hmm_fold` in `src/backtest/parallel.py`). Reference case showing that a new model can be integrated purely via configuration + orchestration.
 
-### C. LSTM (Supervised) — Machine Learning
-- **Bibliothek:** `TensorFlow` / `Keras`
-- **Ansatz:** Supervised Learning auf Pagan-Sossounov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
+### C. LSTM (Supervised): Machine Learning
+- **Library:** `TensorFlow` / `Keras`
+- **Approach:** Supervised learning on Pagan-Sossounov labels; learns regime switches from time-series sequences (windows)
 - **Output:** `LSTM_Prob`, `LSTM_Signal`
-- **Config-Key:** `models.lstm` (window_size, units_l1, units_l2, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose)
-- **Besonderheit:** Nutzt ein rollierendes Fenster (`window_size`) als Input-Sequenz. Labels stammen aus dem Pagan-Sossounov-Algorithmus (konfigurierbar via `labels.supervised_label_source`; Vergleich der Label-Quellen via `POST /data/label-analysis`)
+- **Config key:** `models.lstm` (window_size, units_l1, units_l2, epochs, batch_size, learning_rate, dropout, activation, optimizer, loss, metrics, validation_split, verbose)
+- **Distinctive feature:** Uses a rolling window (`window_size`) as input sequence. Labels come from the Pagan-Sossounov algorithm (configurable via `labels.supervised_label_source`; comparison of the label sources via `POST /data/label-analysis`)
 
-### D. Transformer (Supervised, Attention-basiert) — Machine Learning
-- **Bibliothek:** `PyTorch` (`torch.nn.TransformerEncoder`)
-- **Ansatz:** Transformer-Encoder mit Positional Encoding und Multi-Head Self-Attention für zeitreihenbasierte Regime-Klassifikation; Supervised auf Pagan-Sossounov-Labels
+### D. Transformer (Supervised, Attention-Based): Machine Learning
+- **Library:** `PyTorch` (`torch.nn.TransformerEncoder`)
+- **Approach:** Transformer encoder with positional encoding and multi-head self-attention for time-series-based regime classification; supervised on Pagan-Sossounov labels
 - **Output:** `Transformer_Prob`, `Transformer_Signal`
-- **Config-Key:** `models.transformer` (window_size, d_model, n_heads, n_layers, dim_feedforward, dropout, epochs, batch_size, learning_rate, threshold, pos_weight_auto)
-- **Besonderheit:** Nutzt BCEWithLogitsLoss mit automatischer Class-Balance-Gewichtung (sqrt pos_weight). Testet Hypothese H2 (Attention-Mechanismus vs. ökonometrische MSM). Dient als **Referenz-Implementierung** für die guide-konforme Signal-Schnittstelle (vollständiger Sanity Check, Assertions, Config-only Hyperparameter).
+- **Config key:** `models.transformer` (window_size, d_model, n_heads, n_layers, dim_feedforward, dropout, epochs, batch_size, learning_rate, threshold, pos_weight_auto)
+- **Distinctive feature:** Uses BCEWithLogitsLoss with automatic class-balance weighting (sqrt pos_weight). Tests hypothesis H2 (attention mechanism vs. econometric MSM). Serves as the **reference implementation** for the guide-compliant signal interface (full sanity check, assertions, config-only hyperparameters).
 
-### Config-Mapping Übersicht
+### Config Mapping Overview
 
-| Modell | Config-Key | Wichtigste Parameter |
+| Model | Config key | Most important parameters |
 |:---|:---|:---|
 | MSM | `cfg.models.msm` | `k_regimes`, `switching_variance` |
 | HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
 | HMM_Uni | `cfg.models.hmm_uni` | `n_components`, `covariance_type`, `threshold` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units_l1`, `units_l2`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
-| **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |
+| **Your model** | `cfg.models.my_model` | *your parameters* |
 
 ---
 
 ## 11. FAQ & Troubleshooting
 
-### Mein Modell taucht nicht im Backtesting auf
-**Ursache:** Die Signal-Spalte endet nicht exakt auf `_Signal` oder enthält `NaN`-Werte.
-**Lösung:** Prüfe den Spaltennamen und stelle sicher, dass keine fehlenden Werte vorhanden sind:
+### My model does not appear in the backtesting
+**Cause:** The signal column does not end exactly in `_Signal` or contains `NaN` values.
+**Solution:** Check the column name and make sure there are no missing values:
 ```python
-assert df['MyModel_Signal'].isna().sum() == 0, "NaN-Werte im Signal gefunden!"
-assert df['MyModel_Signal'].isin([0, 1]).all(), "Signal enthält Werte außerhalb von {0, 1}!"
+assert df['MyModel_Signal'].isna().sum() == 0, "NaN values found in signal!"
+assert df['MyModel_Signal'].isin([0, 1]).all(), "Signal contains values outside {0, 1}!"
 ```
 
-### Die Equity Curve meines Modells ist identisch mit Buy & Hold
-**Ursache:** Das Modell gibt fast ausschließlich Signal `0` (Bull) aus.
-**Lösung:** Prüfe die Signalverteilung und den Threshold:
+### My model's equity curve is identical to buy & hold
+**Cause:** The model outputs almost exclusively signal `0` (bull).
+**Solution:** Check the signal distribution and the threshold:
 ```python
 print(df['MyModel_Signal'].value_counts(normalize=True))
-# Ggf. Threshold in config.yaml anpassen: models.my_model.threshold
+# If necessary, adjust the threshold in config.yaml: models.my_model.threshold
 ```
 
-### Bear-Regime hat höhere Returns als Bull-Regime
-**Ursache:** Die Labels sind vertauscht (häufig bei Unsupervised-Modellen).
-**Lösung:** `validate_regime_signal()` erkennt und korrigiert dies automatisch 
-(`auto_invert=True`). Falls du die automatische Inversion deaktivieren möchtest:
+### The bear regime has higher returns than the bull regime
+**Cause:** The labels are swapped (common with unsupervised models).
+**Solution:** `validate_regime_signal()` detects and corrects this automatically
+(`auto_invert=True`). If you want to disable the automatic inversion:
 ```python
 validate_regime_signal(df, MODEL_NAME, auto_invert=False)
 ```
 
-### Config-Fehler: `AttributeError: 'SimpleNamespace' object has no attribute 'my_model'`
-**Ursache:** Der Config-Eintrag in `config.yaml` fehlt oder der Key-Name stimmt nicht überein.
-**Lösung:** Prüfe, dass unter `models:` ein Eintrag `my_model:` existiert (snake_case, korrekte Einrückung mit 2 Spaces). Starte ggf. den Service neu (`docker-compose restart model-service`), damit `cfg` neu geladen wird.
+### Config error: `AttributeError: 'SimpleNamespace' object has no attribute 'my_model'`
+**Cause:** The config entry in `config.yaml` is missing or the key name does not match.
+**Solution:** Check that an entry `my_model:` exists under `models:` (snake_case, correct indentation with 2 spaces). If necessary, restart the service (`docker-compose restart model-service`) so that `cfg` is reloaded.
 
-### Wie ändere ich einen Hyperparameter für einen erneuten Lauf?
-**Lösung:** Editiere **nur** `config/config.yaml` — z.B. `models.my_model.epochs: 100`. Starte dann die Pipeline neu. Die Änderung propagiert automatisch über `cfg` in alle Services.
+### How do I change a hyperparameter for a new run?
+**Solution:** Edit **only** `config/config.yaml`, e.g. `models.my_model.epochs: 100`. Then restart the pipeline. The change propagates automatically via `cfg` into all services.
 
-### Mein Modell braucht zusätzliche Features, die noch nicht existieren
-**Lösung:** Erweitere das Feature-Engineering im Data Service (`src/data/feature_engineering.py`) um die neuen Features und ergänze sie in `config.yaml` unter `features.model_features`. Stelle sicher, dass die Features im `feature_engineered_data` persistiert werden.
+### My model needs additional features that do not exist yet
+**Solution:** Extend the feature engineering in the Data Service (`src/data/feature_engineering.py`) with the new features and add them to `config.yaml` under `features.model_features`. Make sure the features are persisted in `feature_engineered_data`.
 
-### Wie viele Modelle kann die Pipeline verarbeiten?
-**Antwort:** Es gibt kein technisches Limit. Der Dynamic-Matching-Algorithmus erkennt beliebig viele `_Signal`-Spalten. Beachte jedoch, dass mehr Modelle die Laufzeit der Evaluation (insb. Monte-Carlo-Simulation mit `evaluation.mcs.n_paths` Pfaden) verlängern. Nutze `fast_mode.enabled: true` in der Config für schnellere Entwicklungszyklen.
+### How many models can the pipeline handle?
+**Answer:** There is no technical limit. The dynamic matching algorithm detects any number of `_Signal` columns. Note, however, that more models increase the runtime of the evaluation (especially the Monte Carlo simulation with `evaluation.mcs.n_paths` paths). Use `fast_mode.enabled: true` in the config for faster development cycles.
 
-### Kann ich den Fast Mode für Entwicklung nutzen?
-**Antwort:** Ja! Setze in `config.yaml`:
+### Can I use fast mode for development?
+**Answer:** Yes. Set in `config.yaml`:
 ```yaml
 fast_mode:
   enabled: true
@@ -746,11 +745,11 @@ fast_mode:
     lstm_epochs: 5
     mcs_n_paths: 100
 ```
-Dies reduziert Training-Epochs und MCS-Pfade automatisch. Vergiss nicht, vor dem finalen Run `fast_mode.enabled: false` zu setzen.
+This automatically reduces training epochs and MCS paths. Do not forget to set `fast_mode.enabled: false` before the final run.
 
-### Ich habe Hyperparameter geändert, aber die Ergebnisse sind identisch
-**Ursache:** `model_persistence.enabled` ist `true` und ein altes Modell liegt noch unter `models/`.
-**Lösung:** Lösche die betroffene Modelldatei aus `models/` (oder den gesamten Ordner), damit das Modell mit den neuen Parametern neu trainiert wird. Alternativ setze `model_persistence.enabled: false` in der `config.yaml`.
+### I changed hyperparameters, but the results are identical
+**Cause:** `model_persistence.enabled` is `true` and an old model still exists under `models/`.
+**Solution:** Delete the affected model file from `models/` (or the entire directory) so that the model is retrained with the new parameters. Alternatively, set `model_persistence.enabled: false` in `config.yaml`.
 
-### Wie kann ich ein einzelnes Modell neu trainieren, ohne alle zu löschen?
-**Lösung:** Lösche nur die spezifische Datei (z.B. `models/lstm_regime_model.keras`). Beim nächsten Pipeline-Run wird nur dieses Modell neu trainiert, alle anderen werden weiterhin aus dem Cache geladen.
+### How can I retrain a single model without deleting all of them?
+**Solution:** Delete only the specific file (e.g. `models/lstm_regime_model.keras`). On the next pipeline run, only this model is retrained; all others continue to be loaded from the cache.

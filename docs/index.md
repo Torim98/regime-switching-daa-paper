@@ -1,238 +1,238 @@
 # Repository Index
 
-Navigations-Hub für das Repository: kategorisierte Auflistung aller versionierten Dateien mit einzeiliger Beschreibung. Pfade sind relativ zum Repo-Root.
+Navigation hub for the repository: categorized listing of all versioned files with a one-line description. Paths are relative to the repo root.
 
-> Artefakte, die bei Pipeline-Läufen entstehen (`data/`, `models/`, `logs/`), werden nur
-> unter ihrem *Verzeichnis* gelistet. Die konkreten Dateinamen folgen der Pipeline-Stage
-> und werden zur Laufzeit erzeugt.
-
----
-
-## 1. Projekt-Meta & Dokumentation
-
-| Datei | Beschreibung |
-|-------|-------------|
-| [README.md](../README.md) | Hauptübersicht: Motivation, Methodik, Architektur, Quickstart, Ergebnisse |
-| [LICENSE](../LICENSE) | MIT-Lizenz |
-| [docs/index.md](./index.md) | Dieses Dokument; Repository-Index |
-| [docs/data-architecture.md](./data-architecture.md) | Medallion-Datenarchitektur (Bronze / Silver / Gold) |
-| [docs/microservice-architecture.md](./microservice-architecture.md) | FastAPI-Services, Volumes, Logging, Deployment |
-| [docs/microservice-sequence-diagram.md](./microservice-sequence-diagram.md) | Mermaid-Sequenzdiagramm der Microservice-Pipeline |
-| [docs/dashboard-service.md](./dashboard-service.md) | Dashboard: Seitenstruktur, Control Hub, Config-Editor, WebSocket-Logs |
-| [docs/fastapi-endpoints.md](./fastapi-endpoints.md) | API-Routen und Parameter aller vier Services |
-| [docs/how-to-add-ml-model.md](./how-to-add-ml-model.md) | Schritt-für-Schritt-Integration eines neuen Modells |
-| [docs/statistics.md](./statistics.md) | Auto-generierter Master-Report (Ergebnisse & Tabellen) |
-| [docs/limitations.md](./limitations.md) | Bewusst ausgeklammerte Einflussfaktoren und Scope-Grenzen |
-
-### GitHub-Meta
-
-| Datei | Beschreibung |
-|-------|-------------|
-| [.github/ISSUE_TEMPLATE/bug_report.md](../.github/ISSUE_TEMPLATE/bug_report.md) | Issue-Template für Bug-Reports |
-| [.github/ISSUE_TEMPLATE/feature_request.md](../.github/ISSUE_TEMPLATE/feature_request.md) | Issue-Template für Feature-Requests |
-| [.github/ISSUE_TEMPLATE/task.md](../.github/ISSUE_TEMPLATE/task.md) | Issue-Template für Tasks |
-| [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) | Pull-Request-Template |
+> Artifacts created during pipeline runs (`data/`, `models/`, `logs/`) are listed only
+> by their *directory*. The concrete file names follow the pipeline stage and are
+> created at runtime.
 
 ---
 
-## 2. Konfiguration & Build
+## 1. Project Meta & Documentation
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [pyproject.toml](../pyproject.toml) | Python-Projekt-Metadaten, Abhängigkeiten, Packaging |
-| [docker-compose.yml](../docker-compose.yml) | Orchestrierung der vier FastAPI-Services + Volumes |
-| [.dockerignore](../.dockerignore) | Ausschlüsse für Docker-Build-Kontexte |
-| [.editorconfig](../.editorconfig) | Editor-übergreifende Formatierungs-Defaults |
-| [.gitattributes](../.gitattributes) | Git-Attribut-Regeln (u. a. Jupyter-Notebook-Diffs, LFS) |
-| [.gitignore](../.gitignore) | Git-Ausschlüsse für Artefakte, Cache, Secrets |
-| [config/config.yaml](../config/config.yaml) | Zentrale YAML-Konfiguration (Daten, Modelle, Backtest, Evaluation) |
-| [config/config_loader.py](../config/config_loader.py) | Pydantic-basierter Loader + Validierung für `config.yaml` |
+| [README.md](../README.md) | Main overview: motivation, methodology, architecture, quickstart, results |
+| [LICENSE](../LICENSE) | MIT license |
+| [docs/index.md](./index.md) | This document; repository index |
+| [docs/data-architecture.md](./data-architecture.md) | Medallion data architecture (Bronze / Silver / Gold) |
+| [docs/microservice-architecture.md](./microservice-architecture.md) | FastAPI services, volumes, logging, deployment |
+| [docs/microservice-sequence-diagram.md](./microservice-sequence-diagram.md) | Mermaid sequence diagram of the microservice pipeline |
+| [docs/dashboard-service.md](./dashboard-service.md) | Dashboard: page structure, control hub, config editor, WebSocket logs |
+| [docs/fastapi-endpoints.md](./fastapi-endpoints.md) | API routes and parameters of all four services |
+| [docs/how-to-add-ml-model.md](./how-to-add-ml-model.md) | Step-by-step integration of a new model |
+| [docs/statistics.md](./statistics.md) | Auto-generated master report (results & tables) |
+| [docs/limitations.md](./limitations.md) | Deliberately excluded influencing factors and scope boundaries |
+
+### GitHub Meta
+
+| File | Description |
+|-------|-------------|
+| [.github/ISSUE_TEMPLATE/bug_report.md](../.github/ISSUE_TEMPLATE/bug_report.md) | Issue template for bug reports |
+| [.github/ISSUE_TEMPLATE/feature_request.md](../.github/ISSUE_TEMPLATE/feature_request.md) | Issue template for feature requests |
+| [.github/ISSUE_TEMPLATE/task.md](../.github/ISSUE_TEMPLATE/task.md) | Issue template for tasks |
+| [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) | Pull request template |
+
+---
+
+## 2. Configuration & Build
+
+| File | Description |
+|-------|-------------|
+| [pyproject.toml](../pyproject.toml) | Python project metadata, dependencies, packaging |
+| [docker-compose.yml](../docker-compose.yml) | Orchestration of the four FastAPI services + volumes |
+| [.dockerignore](../.dockerignore) | Exclusions for Docker build contexts |
+| [.editorconfig](../.editorconfig) | Cross-editor formatting defaults |
+| [.gitattributes](../.gitattributes) | Git attribute rules (incl. Jupyter notebook diffs, LFS) |
+| [.gitignore](../.gitignore) | Git exclusions for artifacts, cache, secrets |
+| [config/config.yaml](../config/config.yaml) | Central YAML configuration (data, models, backtest, evaluation) |
+| [config/config_loader.py](../config/config_loader.py) | Pydantic-based loader + validation for `config.yaml` |
 
 ---
 
 ## 3. Shared Business Logic (`src/`)
 
-Projekt-weit geteilter Python-Code. Die Microservices importieren aus `src/`.
+Project-wide shared Python code. The microservices import from `src/`.
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [src/\_\_init\_\_.py](../src/__init__.py) | Package-Marker |
+| [src/\_\_init\_\_.py](../src/__init__.py) | Package marker |
 
-### 3.1 Daten-Pipeline (`src/data/`)
+### 3.1 Data Pipeline (`src/data/`)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [src/data/\_\_init\_\_.py](../src/data/__init__.py) | Package-Marker |
-| [src/data/ingestion.py](../src/data/ingestion.py) | Yahoo-Finance-Download und Rohdaten-Persistierung (Bronze Layer) |
-| [src/data/preprocessing.py](../src/data/preprocessing.py) | Portfolio-Konstruktion, Renditeberechnung, Datenbereinigung |
-| [src/data/feature_engineering.py](../src/data/feature_engineering.py) | Rolling-Window-Features für Regime-Erkennung |
-| [src/data/eda.py](../src/data/eda.py) | Deskriptive Statistik, ADF-Stationaritätstests |
-| [src/data/plots.py](../src/data/plots.py) | EDA- und Preprocessing-Plots (Volatilitäts-Cluster, Drawdowns etc.) |
+| [src/data/\_\_init\_\_.py](../src/data/__init__.py) | Package marker |
+| [src/data/ingestion.py](../src/data/ingestion.py) | Yahoo Finance download and raw-data persistence (Bronze layer) |
+| [src/data/preprocessing.py](../src/data/preprocessing.py) | Portfolio construction, return calculation, data cleaning |
+| [src/data/feature_engineering.py](../src/data/feature_engineering.py) | Rolling-window features for regime detection |
+| [src/data/eda.py](../src/data/eda.py) | Descriptive statistics, ADF stationarity tests |
+| [src/data/plots.py](../src/data/plots.py) | EDA and preprocessing plots (volatility clusters, drawdowns, etc.) |
 
-### 3.2 Regime-Labeling (`src/data/labels/`)
+### 3.2 Regime Labeling (`src/data/labels/`)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [src/data/labels/\_\_init\_\_.py](../src/data/labels/__init__.py) | Package-Marker |
-| [src/data/labels/peak_to_trough.py](../src/data/labels/peak_to_trough.py) | Klassische 20%-Regel für Bullen-/Bären-Phasen |
-| [src/data/labels/pagan_sossounov.py](../src/data/labels/pagan_sossounov.py) | Pagan-Sossounov (2003) Bull/Bear-Market-Labeling |
-| [src/data/labels/lunde_timmermann.py](../src/data/labels/lunde_timmermann.py) | Lunde-Timmermann (2004) Duration-Dependence-Labeling |
-| [src/data/labels/nber.py](../src/data/labels/nber.py) | NBER-Rezessionsdaten via FRED (USREC-Serie) |
-| [src/data/labels/concordance.py](../src/data/labels/concordance.py) | Concordance-Analyse und Timeline-Visualisierung der Label-Schemata |
-| [src/data/labels/resolver.py](../src/data/labels/resolver.py) | Zentrale Auflösung der Supervised-Label-Quelle aus der Config |
-| [src/data/labels/test_labels.py](../src/data/labels/test_labels.py) | Unit-Tests für Label-Schemata |
+| [src/data/labels/\_\_init\_\_.py](../src/data/labels/__init__.py) | Package marker |
+| [src/data/labels/peak_to_trough.py](../src/data/labels/peak_to_trough.py) | Classic 20% rule for bull/bear phases |
+| [src/data/labels/pagan_sossounov.py](../src/data/labels/pagan_sossounov.py) | Pagan-Sossounov (2003) bull/bear market labeling |
+| [src/data/labels/lunde_timmermann.py](../src/data/labels/lunde_timmermann.py) | Lunde-Timmermann (2004) duration-dependence labeling |
+| [src/data/labels/nber.py](../src/data/labels/nber.py) | NBER recession data via FRED (USREC series) |
+| [src/data/labels/concordance.py](../src/data/labels/concordance.py) | Concordance analysis and timeline visualization of the label schemes |
+| [src/data/labels/resolver.py](../src/data/labels/resolver.py) | Central resolution of the supervised label source from the config |
+| [src/data/labels/test_labels.py](../src/data/labels/test_labels.py) | Unit tests for label schemes |
 
-### 3.3 Modelle (`src/models/`)
+### 3.3 Models (`src/models/`)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [src/models/\_\_init\_\_.py](../src/models/__init__.py) | Package-Marker |
-| [src/models/common.py](../src/models/common.py) | Gemeinsame Modell-Hilfsfunktionen und Konstanten |
-| [src/models/msm.py](../src/models/msm.py) | Markov-Switching-Modell (statsmodels) |
-| [src/models/hmm.py](../src/models/hmm.py) | Hidden Markov Model (hmmlearn, Gaussian-Emissions) |
-| [src/models/lstm.py](../src/models/lstm.py) | LSTM-Netzwerk; Supervised Regime Classification (TF/Keras) |
-| [src/models/transformer.py](../src/models/transformer.py) | Transformer; Multi-Head Self-Attention Regime-Detection (PyTorch) |
-| [src/models/plots.py](../src/models/plots.py) | Regime-Visualisierung je Modell |
+| [src/models/\_\_init\_\_.py](../src/models/__init__.py) | Package marker |
+| [src/models/common.py](../src/models/common.py) | Shared model helper functions and constants |
+| [src/models/msm.py](../src/models/msm.py) | Markov-switching model (statsmodels) |
+| [src/models/hmm.py](../src/models/hmm.py) | Hidden Markov model (hmmlearn, Gaussian emissions) |
+| [src/models/lstm.py](../src/models/lstm.py) | LSTM network; supervised regime classification (TF/Keras) |
+| [src/models/transformer.py](../src/models/transformer.py) | Transformer; multi-head self-attention regime detection (PyTorch) |
+| [src/models/plots.py](../src/models/plots.py) | Regime visualization per model |
 
 ### 3.4 Backtesting & Evaluation (`src/backtest/`)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [src/backtest/\_\_init\_\_.py](../src/backtest/__init__.py) | Package-Marker |
-| [src/backtest/engine.py](../src/backtest/engine.py) | Backtesting-Engine mit Transaktionskosten |
-| [src/backtest/walk_forward.py](../src/backtest/walk_forward.py) | Walk-Forward-Splitter und OOS-Helper |
-| [src/backtest/parallel.py](../src/backtest/parallel.py) | Parallele Fold-Ausführung (joblib) für CPU-bound Modelle |
-| [src/backtest/optimize.py](../src/backtest/optimize.py) | Optuna Hyperparameter-Optimierung mit Walk-Forward-CV |
-| [src/backtest/evaluation.py](../src/backtest/evaluation.py) | Performance-Metriken, MCS, H1/H2-Tests, Churning, Time-to-Recovery |
-| [src/backtest/sorr.py](../src/backtest/sorr.py) | Sequence-of-Returns-Risk Simulation der Entnahmephase |
-| [src/backtest/reporting.py](../src/backtest/reporting.py) | Generierung des `statistics.md` Master-Reports |
-| [src/backtest/plots.py](../src/backtest/plots.py) | Backtest- und SORR-Visualisierungen |
+| [src/backtest/\_\_init\_\_.py](../src/backtest/__init__.py) | Package marker |
+| [src/backtest/engine.py](../src/backtest/engine.py) | Backtesting engine with transaction costs |
+| [src/backtest/walk_forward.py](../src/backtest/walk_forward.py) | Walk-forward splitter and OOS helpers |
+| [src/backtest/parallel.py](../src/backtest/parallel.py) | Parallel fold execution (joblib) for CPU-bound models |
+| [src/backtest/optimize.py](../src/backtest/optimize.py) | Optuna hyperparameter optimization with walk-forward CV |
+| [src/backtest/evaluation.py](../src/backtest/evaluation.py) | Performance metrics, MCS, H1/H2 tests, churning, time-to-recovery |
+| [src/backtest/sorr.py](../src/backtest/sorr.py) | Sequence-of-returns-risk simulation of the withdrawal phase |
+| [src/backtest/reporting.py](../src/backtest/reporting.py) | Generation of the `statistics.md` master report |
+| [src/backtest/plots.py](../src/backtest/plots.py) | Backtest and SORR visualizations |
 
 ---
 
 ## 4. Microservices (`services/`)
 
-Vier containerisierte FastAPI-Services + gemeinsame Infrastruktur.
+Four containerized FastAPI services + shared infrastructure.
 
-### 4.1 Gemeinsame Infrastruktur
+### 4.1 Shared Infrastructure
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/\_\_init\_\_.py](../services/__init__.py) | Package-Marker |
-| [services/logging_config.py](../services/logging_config.py) | Zentrales Logging-Setup für alle Services |
-| [services/warnings_config.py](../services/warnings_config.py) | Globale Warning-Suppression (statsmodels, Keras, TF) |
+| [services/\_\_init\_\_.py](../services/__init__.py) | Package marker |
+| [services/logging_config.py](../services/logging_config.py) | Central logging setup for all services |
+| [services/warnings_config.py](../services/warnings_config.py) | Global warning suppression (statsmodels, Keras, TF) |
 
 ### 4.2 Data Service (Port 8001)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/data_service/\_\_init\_\_.py](../services/data_service/__init__.py) | Package-Marker |
-| [services/data_service/main.py](../services/data_service/main.py) | FastAPI-App-Entry: Ingestion, Preprocessing, Feature-Eng., EDA |
-| [services/data_service/routes.py](../services/data_service/routes.py) | HTTP-Routen des Data Service |
-| [services/data_service/Dockerfile](../services/data_service/Dockerfile) | Container-Image-Definition Data Service |
+| [services/data_service/\_\_init\_\_.py](../services/data_service/__init__.py) | Package marker |
+| [services/data_service/main.py](../services/data_service/main.py) | FastAPI app entry: ingestion, preprocessing, feature engineering, EDA |
+| [services/data_service/routes.py](../services/data_service/routes.py) | HTTP routes of the Data Service |
+| [services/data_service/Dockerfile](../services/data_service/Dockerfile) | Container image definition, Data Service |
 
 ### 4.3 Model Service (Port 8002)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/model_service/\_\_init\_\_.py](../services/model_service/__init__.py) | Package-Marker |
-| [services/model_service/main.py](../services/model_service/main.py) | FastAPI-App-Entry: Training & Inference (MSM/HMM/LSTM/Transformer) |
-| [services/model_service/routes.py](../services/model_service/routes.py) | HTTP-Routen des Model Service |
-| [services/model_service/Dockerfile](../services/model_service/Dockerfile) | Container-Image-Definition Model Service |
-| [services/model_service/tests/test_walk_forward_snapshot.py](../services/model_service/tests/test_walk_forward_snapshot.py) | Snapshot-Test der Walk-Forward-Ergebnisse |
+| [services/model_service/\_\_init\_\_.py](../services/model_service/__init__.py) | Package marker |
+| [services/model_service/main.py](../services/model_service/main.py) | FastAPI app entry: training & inference (MSM/HMM/LSTM/Transformer) |
+| [services/model_service/routes.py](../services/model_service/routes.py) | HTTP routes of the Model Service |
+| [services/model_service/Dockerfile](../services/model_service/Dockerfile) | Container image definition, Model Service |
+| [services/model_service/tests/test_walk_forward_snapshot.py](../services/model_service/tests/test_walk_forward_snapshot.py) | Snapshot test of the walk-forward results |
 
 ### 4.4 Backtest Service (Port 8003)
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/backtest_service/\_\_init\_\_.py](../services/backtest_service/__init__.py) | Package-Marker |
-| [services/backtest_service/main.py](../services/backtest_service/main.py) | FastAPI-App-Entry: Backtesting, SORR, MCS, Reporting |
-| [services/backtest_service/routes.py](../services/backtest_service/routes.py) | HTTP-Routen des Backtest Service |
-| [services/backtest_service/Dockerfile](../services/backtest_service/Dockerfile) | Container-Image-Definition Backtest Service |
+| [services/backtest_service/\_\_init\_\_.py](../services/backtest_service/__init__.py) | Package marker |
+| [services/backtest_service/main.py](../services/backtest_service/main.py) | FastAPI app entry: backtesting, SORR, MCS, reporting |
+| [services/backtest_service/routes.py](../services/backtest_service/routes.py) | HTTP routes of the Backtest Service |
+| [services/backtest_service/Dockerfile](../services/backtest_service/Dockerfile) | Container image definition, Backtest Service |
 
 ### 4.5 Dashboard Service (Port 8004)
 
-Interaktives UI, Control Hub, Config-Editor, Live-Log-Streaming.
+Interactive UI, control hub, config editor, live log streaming.
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/dashboard_service/\_\_init\_\_.py](../services/dashboard_service/__init__.py) | Package-Marker |
-| [services/dashboard_service/main.py](../services/dashboard_service/main.py) | FastAPI-App-Entry: UI + Control Hub |
-| [services/dashboard_service/routes.py](../services/dashboard_service/routes.py) | HTML-Seiten-Routen |
-| [services/dashboard_service/data_adapters.py](../services/dashboard_service/data_adapters.py) | Parquet/MD → Plotly-JSON-Adapter für die UI |
-| [services/dashboard_service/config_api.py](../services/dashboard_service/config_api.py) | Config-Editor-API (Read/Write `config.yaml`) |
-| [services/dashboard_service/hub_api.py](../services/dashboard_service/hub_api.py) | Control-Hub-Proxy zu data/model/backtest-Services via httpx |
-| [services/dashboard_service/websockets.py](../services/dashboard_service/websockets.py) | WebSocket-Tailing der `logs/*.log`-Dateien |
-| [services/dashboard_service/Dockerfile](../services/dashboard_service/Dockerfile) | Container-Image-Definition Dashboard Service |
+| [services/dashboard_service/\_\_init\_\_.py](../services/dashboard_service/__init__.py) | Package marker |
+| [services/dashboard_service/main.py](../services/dashboard_service/main.py) | FastAPI app entry: UI + control hub |
+| [services/dashboard_service/routes.py](../services/dashboard_service/routes.py) | HTML page routes |
+| [services/dashboard_service/data_adapters.py](../services/dashboard_service/data_adapters.py) | Parquet/MD to Plotly JSON adapters for the UI |
+| [services/dashboard_service/config_api.py](../services/dashboard_service/config_api.py) | Config editor API (read/write `config.yaml`) |
+| [services/dashboard_service/hub_api.py](../services/dashboard_service/hub_api.py) | Control hub proxy to the data/model/backtest services via httpx |
+| [services/dashboard_service/websockets.py](../services/dashboard_service/websockets.py) | WebSocket tailing of the `logs/*.log` files |
+| [services/dashboard_service/Dockerfile](../services/dashboard_service/Dockerfile) | Container image definition, Dashboard Service |
 
 #### Templates
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/dashboard_service/templates/base.html](../services/dashboard_service/templates/base.html) | Basis-Layout (Header, Sidebar, Footer) |
-| [services/dashboard_service/templates/index.html](../services/dashboard_service/templates/index.html) | Startseite/Übersicht |
-| [services/dashboard_service/templates/hub.html](../services/dashboard_service/templates/hub.html) | Control Hub zum Auslösen von Pipeline-Stages |
-| [services/dashboard_service/templates/config_editor.html](../services/dashboard_service/templates/config_editor.html) | YAML-Config-Editor |
-| [services/dashboard_service/templates/eda.html](../services/dashboard_service/templates/eda.html) | EDA-Visualisierungen |
-| [services/dashboard_service/templates/models.html](../services/dashboard_service/templates/models.html) | Modell-Vergleich (Regime-Klassifikation, Metriken) |
-| [services/dashboard_service/templates/backtest.html](../services/dashboard_service/templates/backtest.html) | Backtest- und SORR-Ergebnisse |
-| [services/dashboard_service/templates/evaluation.html](../services/dashboard_service/templates/evaluation.html) | Evaluation: Confusion-Matrizen, ROC, H1/H2, MCS |
-| [services/dashboard_service/templates/logs.html](../services/dashboard_service/templates/logs.html) | Live-Log-Viewer (WebSocket-gestreamt) |
+| [services/dashboard_service/templates/base.html](../services/dashboard_service/templates/base.html) | Base layout (header, sidebar, footer) |
+| [services/dashboard_service/templates/index.html](../services/dashboard_service/templates/index.html) | Landing page/overview |
+| [services/dashboard_service/templates/hub.html](../services/dashboard_service/templates/hub.html) | Control hub for triggering pipeline stages |
+| [services/dashboard_service/templates/config_editor.html](../services/dashboard_service/templates/config_editor.html) | YAML config editor |
+| [services/dashboard_service/templates/eda.html](../services/dashboard_service/templates/eda.html) | EDA visualizations |
+| [services/dashboard_service/templates/models.html](../services/dashboard_service/templates/models.html) | Model comparison (regime classification, metrics) |
+| [services/dashboard_service/templates/backtest.html](../services/dashboard_service/templates/backtest.html) | Backtest and SORR results |
+| [services/dashboard_service/templates/evaluation.html](../services/dashboard_service/templates/evaluation.html) | Evaluation: confusion matrices, ROC, H1/H2, MCS |
+| [services/dashboard_service/templates/logs.html](../services/dashboard_service/templates/logs.html) | Live log viewer (WebSocket-streamed) |
 
 #### Static Assets
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [services/dashboard_service/static/css/dashboard.css](../services/dashboard_service/static/css/dashboard.css) | Dashboard-Styles |
-| [services/dashboard_service/static/js/common.js](../services/dashboard_service/static/js/common.js) | Geteilte Client-seitige Logik (Plotly-Renderer, Fetch-Helfer) |
+| [services/dashboard_service/static/css/dashboard.css](../services/dashboard_service/static/css/dashboard.css) | Dashboard styles |
+| [services/dashboard_service/static/js/common.js](../services/dashboard_service/static/js/common.js) | Shared client-side logic (Plotly renderer, fetch helpers) |
 
 ---
 
-## 5. Explorative Jupyter Notebooks (`jupyter/`)
+## 5. Exploratory Jupyter Notebooks (`jupyter/`)
 
-| Notebook | Beschreibung |
+| Notebook | Description |
 |----------|-------------|
-| [jupyter/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetrische Korrelation nach Ang & Chen |
-| [jupyter/Concept_matrix_venn.ipynb](../jupyter/Concept_matrix_venn.ipynb) | Konzept-Venn-Diagramm für die Thesis |
-| [jupyter/S&P500_NBER-recessions.ipynb](../jupyter/S&P500_NBER-recessions.ipynb) | S&P-500-Verlauf mit NBER-Rezessionsperioden |
-| [jupyter/SORR.ipynb](../jupyter/SORR.ipynb) | Explorative SORR-Illustration |
+| [jupyter/Asymmetric_correlation_Ang_Chen.ipynb](../jupyter/Asymmetric_correlation_Ang_Chen.ipynb) | Asymmetric correlation following Ang & Chen |
+| [jupyter/Concept_matrix_venn.ipynb](../jupyter/Concept_matrix_venn.ipynb) | Concept Venn diagram for the thesis |
+| [jupyter/S&P500_NBER-recessions.ipynb](../jupyter/S&P500_NBER-recessions.ipynb) | S&P 500 history with NBER recession periods |
+| [jupyter/SORR.ipynb](../jupyter/SORR.ipynb) | Exploratory SORR illustration |
 
 ---
 
-## 6. Daten-Artefakte (`data/` — Medallion)
+## 6. Data Artifacts (`data/`, Medallion)
 
-Details siehe [docs/data-architecture.md](./data-architecture.md).
+For details, see [docs/data-architecture.md](./data-architecture.md).
 
-| Layer | Inhalt |
+| Layer | Content |
 |-------|--------|
-| [data/bronze/](../data/bronze/) | Rohdaten — `01_raw_data.parquet` (Yahoo-Finance-Download) |
-| [data/silver/](../data/silver/) | Bereinigte & feature-engineerte Daten (`02_preprocessed`, `03_feature_engineered`, `04_test_df`, `wf_cache`) |
-| [data/gold/](../data/gold/) | Ergebnisartefakte für Reporting (Backtest-Results, Transaktionskosten, SORR-Simulation, MCS) |
+| [data/bronze/](../data/bronze/) | Raw data: `01_raw_data.parquet` (Yahoo Finance download) |
+| [data/silver/](../data/silver/) | Cleaned & feature-engineered data (`02_preprocessed`, `03_feature_engineered`, `04_test_df`, `wf_cache`) |
+| [data/gold/](../data/gold/) | Result artifacts for reporting (backtest results, transaction costs, SORR simulation, MCS) |
 
 ---
 
-## 7. Modelle (`models/`)
+## 7. Models (`models/`)
 
-Artefakte aus dem Training — versioniert via Git LFS bzw. zur Laufzeit erzeugt.
+Training artifacts, versioned via Git LFS or created at runtime.
 
-| Datei / Pattern | Beschreibung |
+| File / Pattern | Description |
 |-----------------|-------------|
-| `models/optuna_studies.db` | Persistente Optuna-Studies (SQLite) |
-| `models/msm_regime_model.pkl` | Trainiertes MSM-Gewicht |
-| `models/hmm_regime_model.pkl` | Trainiertes HMM-Gewicht |
-| `models/hmm_scaler.pkl` | Feature-Scaler zum HMM |
-| `models/lstm_regime_model.keras` | Trainiertes LSTM-Gewicht |
-| `models/tlstm_scaler.pkl` | Feature-Scaler zum LSTM-Modell |
-| `models/transformer_regime_model.pt` | Trainiertes Transformer-Gewicht |
-| `models/transformer_scaler.pkl` | Feature-Scaler zum Transformer |
+| `models/optuna_studies.db` | Persistent Optuna studies (SQLite) |
+| `models/msm_regime_model.pkl` | Trained MSM weights |
+| `models/hmm_regime_model.pkl` | Trained HMM weights |
+| `models/hmm_scaler.pkl` | Feature scaler for the HMM |
+| `models/lstm_regime_model.keras` | Trained LSTM weights |
+| `models/tlstm_scaler.pkl` | Feature scaler for the LSTM model |
+| `models/transformer_regime_model.pt` | Trained Transformer weights |
+| `models/transformer_scaler.pkl` | Feature scaler for the Transformer |
 
 ---
 
 ## 8. Logs (`logs/`)
 
-Laufzeit-Logs; werden bei jeder Pipeline-/Service-Ausführung neu geschrieben.
+Runtime logs; rewritten on every pipeline/service execution.
 
-| Datei-Pattern | Quelle |
+| File Pattern | Source |
 |---------------|--------|
 | `logs/data_service.log` | FastAPI Data Service |
 | `logs/model_service.log` | FastAPI Model Service |
@@ -243,160 +243,160 @@ Laufzeit-Logs; werden bei jeder Pipeline-/Service-Ausführung neu geschrieben.
 
 ## 9. Assets (`assets/`)
 
-Von den Notebooks bzw. Services generierte Plots und Markdown-Tabellen.
-Jedes Artefakt wird in `docs/statistics.md` und/oder im Dashboard eingebettet.
+Plots and Markdown tables generated by the notebooks and services.
+Each artifact is embedded in `docs/statistics.md` and/or in the dashboard.
 
 ### 9.1 EDA & Preprocessing
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/SORR_schema.png](../assets/SORR_schema.png) | SORR-Schema |
-| [assets/eda_descriptive_stats.md](../assets/eda_descriptive_stats.md) | Deskriptive Statistik der Inputs |
-| [assets/eda_adf_tests.md](../assets/eda_adf_tests.md) | ADF-Stationaritätstests |
-| [assets/eda_historical_drawdowns.png](../assets/eda_historical_drawdowns.png) | Historische Drawdowns des Aktien-Portfolios |
-| [assets/eda_volatility_clusters.png](../assets/eda_volatility_clusters.png) | Volatilitäts-Cluster (ARCH-Effekte) |
-| [assets/feature_correlation_matrix.png](../assets/feature_correlation_matrix.png) | Feature-Korrelationsmatrix (Plot) |
-| [assets/feature_correlation_table.md](../assets/feature_correlation_table.md) | Feature-Korrelationsmatrix (Tabelle) |
-| [assets/concept_matrix_venn.png](../assets/concept_matrix_venn.png) | Konzept-Venn-Diagramm (Thesis) |
-| [assets/asymmetric_correlation_ang_chen.png](../assets/asymmetric_correlation_ang_chen.png) | Asymmetrische Korrelation (Ang & Chen) |
-| [assets/data_quality_report.md](../assets/data_quality_report.md) | Data-Quality-Report |
+| [assets/SORR_schema.png](../assets/SORR_schema.png) | SORR schema |
+| [assets/eda_descriptive_stats.md](../assets/eda_descriptive_stats.md) | Descriptive statistics of the inputs |
+| [assets/eda_adf_tests.md](../assets/eda_adf_tests.md) | ADF stationarity tests |
+| [assets/eda_historical_drawdowns.png](../assets/eda_historical_drawdowns.png) | Historical drawdowns of the equity portfolio |
+| [assets/eda_volatility_clusters.png](../assets/eda_volatility_clusters.png) | Volatility clusters (ARCH effects) |
+| [assets/feature_correlation_matrix.png](../assets/feature_correlation_matrix.png) | Feature correlation matrix (plot) |
+| [assets/feature_correlation_table.md](../assets/feature_correlation_table.md) | Feature correlation matrix (table) |
+| [assets/concept_matrix_venn.png](../assets/concept_matrix_venn.png) | Concept Venn diagram (thesis) |
+| [assets/asymmetric_correlation_ang_chen.png](../assets/asymmetric_correlation_ang_chen.png) | Asymmetric correlation (Ang & Chen) |
+| [assets/data_quality_report.md](../assets/data_quality_report.md) | Data quality report |
 
-### 9.2 Label-Analyse
+### 9.2 Label Analysis
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/label_timeline_comparison.png](../assets/label_timeline_comparison.png) | Timeline-Vergleich Label-Schemata |
-| [assets/label_concordance_matrix.png](../assets/label_concordance_matrix.png) | Concordance-Matrix der Label-Schemata |
-| [assets/label_kappa_matrix.png](../assets/label_kappa_matrix.png) | Cohen's-κ-Matrix der Label-Schemata |
+| [assets/label_timeline_comparison.png](../assets/label_timeline_comparison.png) | Timeline comparison of the label schemes |
+| [assets/label_concordance_matrix.png](../assets/label_concordance_matrix.png) | Concordance matrix of the label schemes |
+| [assets/label_kappa_matrix.png](../assets/label_kappa_matrix.png) | Cohen's kappa matrix of the label schemes |
 
-### 9.3 Modell-Visualisierungen
+### 9.3 Model Visualizations
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/walk_forward_schema.png](../assets/walk_forward_schema.png) | Walk-Forward Schema |
-| [assets/hmm_regimes.png](../assets/hmm_regimes.png) | Von HMM identifizierte Regimes |
-| [assets/hmm_uni_regimes.png](../assets/hmm_uni_regimes.png) | Von HMM (univariat) identifizierte Regimes |
-| [assets/msm_regimes.png](../assets/msm_regimes.png) | Von MSM identifizierte Regimes |
-| [assets/lstm_model.png](../assets/lstm_model.png) | LSTM-Architekturskizze |
-| [assets/transformer_model.png](../assets/transformer_model.png) | Transformer-Architekturskizze |
-| [assets/regime_comparison.png](../assets/regime_comparison.png) | Modell-übergreifender Regime-Vergleich |
-| [assets/regime_probability_heatmap.png](../assets/regime_probability_heatmap.png) | Regime-Wahrscheinlichkeiten als Heatmap |
+| [assets/walk_forward_schema.png](../assets/walk_forward_schema.png) | Walk-forward schema |
+| [assets/hmm_regimes.png](../assets/hmm_regimes.png) | Regimes identified by the HMM |
+| [assets/hmm_uni_regimes.png](../assets/hmm_uni_regimes.png) | Regimes identified by the HMM (univariate) |
+| [assets/msm_regimes.png](../assets/msm_regimes.png) | Regimes identified by the MSM |
+| [assets/lstm_model.png](../assets/lstm_model.png) | LSTM architecture sketch |
+| [assets/transformer_model.png](../assets/transformer_model.png) | Transformer architecture sketch |
+| [assets/regime_comparison.png](../assets/regime_comparison.png) | Cross-model regime comparison |
+| [assets/regime_probability_heatmap.png](../assets/regime_probability_heatmap.png) | Regime probabilities as heatmap |
 
-### 9.4 Optuna-Hyperparameter-Optimierung
+### 9.4 Optuna Hyperparameter Optimization
 
-Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
+Four standard plots per model (history / importance / contour / slice):
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/optuna_MSM_history.png](../assets/optuna_MSM_history.png) | MSM — Optuna Trial-History |
-| [assets/optuna_MSM_importance.png](../assets/optuna_MSM_importance.png) | MSM — Parameter-Importance |
-| [assets/optuna_MSM_slice.png](../assets/optuna_MSM_slice.png) | MSM — Parameter-Slice |
-| [assets/optuna_HMM_history.png](../assets/optuna_HMM_history.png) | HMM — Optuna Trial-History |
-| [assets/optuna_HMM_importance.png](../assets/optuna_HMM_importance.png) | HMM — Parameter-Importance |
-| [assets/optuna_HMM_contour.png](../assets/optuna_HMM_contour.png) | HMM — Parameter-Contour |
-| [assets/optuna_HMM_slice.png](../assets/optuna_HMM_slice.png) | HMM — Parameter-Slice |
-| [assets/optuna_LSTM_history.png](../assets/optuna_LSTM_history.png) | LSTM — Optuna Trial-History |
-| [assets/optuna_LSTM_importance.png](../assets/optuna_LSTM_importance.png) | LSTM — Parameter-Importance |
-| [assets/optuna_LSTM_contour.png](../assets/optuna_LSTM_contour.png) | LSTM — Parameter-Contour |
-| [assets/optuna_LSTM_slice.png](../assets/optuna_LSTM_slice.png) | LSTM — Parameter-Slice |
-| [assets/optuna_Transformer_history.png](../assets/optuna_Transformer_history.png) | Transformer — Optuna Trial-History |
-| [assets/optuna_Transformer_importance.png](../assets/optuna_Transformer_importance.png) | Transformer — Parameter-Importance |
-| [assets/optuna_Transformer_contour.png](../assets/optuna_Transformer_contour.png) | Transformer — Parameter-Contour |
-| [assets/optuna_Transformer_slice.png](../assets/optuna_Transformer_slice.png) | Transformer — Parameter-Slice |
-| [assets/optuna_importance_values.json](../assets/optuna_importance_values.json) | fANOVA-Importance-Cache (Dashboard liest daraus, um 1:1 mit PNG zu matchen. fANOVA ist stochastisch und würde bei Re-Computation abweichen) |
+| [assets/optuna_MSM_history.png](../assets/optuna_MSM_history.png) | MSM: Optuna trial history |
+| [assets/optuna_MSM_importance.png](../assets/optuna_MSM_importance.png) | MSM: parameter importance |
+| [assets/optuna_MSM_slice.png](../assets/optuna_MSM_slice.png) | MSM: parameter slice |
+| [assets/optuna_HMM_history.png](../assets/optuna_HMM_history.png) | HMM: Optuna trial history |
+| [assets/optuna_HMM_importance.png](../assets/optuna_HMM_importance.png) | HMM: parameter importance |
+| [assets/optuna_HMM_contour.png](../assets/optuna_HMM_contour.png) | HMM: parameter contour |
+| [assets/optuna_HMM_slice.png](../assets/optuna_HMM_slice.png) | HMM: parameter slice |
+| [assets/optuna_LSTM_history.png](../assets/optuna_LSTM_history.png) | LSTM: Optuna trial history |
+| [assets/optuna_LSTM_importance.png](../assets/optuna_LSTM_importance.png) | LSTM: parameter importance |
+| [assets/optuna_LSTM_contour.png](../assets/optuna_LSTM_contour.png) | LSTM: parameter contour |
+| [assets/optuna_LSTM_slice.png](../assets/optuna_LSTM_slice.png) | LSTM: parameter slice |
+| [assets/optuna_Transformer_history.png](../assets/optuna_Transformer_history.png) | Transformer: Optuna trial history |
+| [assets/optuna_Transformer_importance.png](../assets/optuna_Transformer_importance.png) | Transformer: parameter importance |
+| [assets/optuna_Transformer_contour.png](../assets/optuna_Transformer_contour.png) | Transformer: parameter contour |
+| [assets/optuna_Transformer_slice.png](../assets/optuna_Transformer_slice.png) | Transformer: parameter slice |
+| [assets/optuna_importance_values.json](../assets/optuna_importance_values.json) | fANOVA importance cache (the dashboard reads from it to match the PNG exactly; fANOVA is stochastic and would deviate on re-computation) |
 
 ### 9.5 Backtest & Performance
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/equity_curves.png](../assets/equity_curves.png) | Equity-Kurven aller Strategien |
-| [assets/capital_curve.png](../assets/capital_curve.png) | Kapitalkurve (aggregiert) |
-| [assets/drawdown.png](../assets/drawdown.png) | Drawdown-Pfade |
-| [assets/rolling_sharpe.png](../assets/rolling_sharpe.png) | Rolling Sharpe Ratio |
-| [assets/transaction_costs.png](../assets/transaction_costs.png) | Transaktionskosten je Strategie |
-| [assets/annualized_metrics.md](../assets/annualized_metrics.md) | Annualisierte Performance-Metriken |
-| [assets/performance_summary.md](../assets/performance_summary.md) | Gesamt-Performance-Zusammenfassung |
-| [assets/crisis_performance.md](../assets/crisis_performance.md) | Performance während Krisenphasen |
-| [assets/break_even_costs.md](../assets/break_even_costs.md) | Break-Even-Transaktionskosten (Tabelle) |
-| [assets/break_even_costs.png](../assets/break_even_costs.png) | Break-Even-Transaktionskosten (Plot) |
+| [assets/equity_curves.png](../assets/equity_curves.png) | Equity curves of all strategies |
+| [assets/capital_curve.png](../assets/capital_curve.png) | Capital curve (aggregated) |
+| [assets/drawdown.png](../assets/drawdown.png) | Drawdown paths |
+| [assets/rolling_sharpe.png](../assets/rolling_sharpe.png) | Rolling Sharpe ratio |
+| [assets/transaction_costs.png](../assets/transaction_costs.png) | Transaction costs per strategy |
+| [assets/annualized_metrics.md](../assets/annualized_metrics.md) | Annualized performance metrics |
+| [assets/performance_summary.md](../assets/performance_summary.md) | Overall performance summary |
+| [assets/crisis_performance.md](../assets/crisis_performance.md) | Performance during crisis periods |
+| [assets/break_even_costs.md](../assets/break_even_costs.md) | Break-even transaction costs (table) |
+| [assets/break_even_costs.png](../assets/break_even_costs.png) | Break-even transaction costs (plot) |
 
-### 9.6 Evaluation & Klassifikation
+### 9.6 Evaluation & Classification
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/classification_metrics.md](../assets/classification_metrics.md) | Klassifikations-Metriken je Modell |
-| [assets/confusion_matrices.png](../assets/confusion_matrices.png) | Confusion-Matrizen der Modelle |
-| [assets/roc_curves.png](../assets/roc_curves.png) | ROC-Kurven |
-| [assets/pr_curves.png](../assets/pr_curves.png) | Precision-Recall-Kurven |
-| [assets/evaluation_table.md](../assets/evaluation_table.md) | Gesamt-Evaluationstabelle |
-| [assets/churning_stats.md](../assets/churning_stats.md) | Whipsaw- / Churning-Statistiken |
-| [assets/switch_timing.md](../assets/switch_timing.md) | Timing der Regime-Wechsel |
+| [assets/classification_metrics.md](../assets/classification_metrics.md) | Classification metrics per model |
+| [assets/confusion_matrices.png](../assets/confusion_matrices.png) | Confusion matrices of the models |
+| [assets/roc_curves.png](../assets/roc_curves.png) | ROC curves |
+| [assets/pr_curves.png](../assets/pr_curves.png) | Precision-recall curves |
+| [assets/evaluation_table.md](../assets/evaluation_table.md) | Overall evaluation table |
+| [assets/churning_stats.md](../assets/churning_stats.md) | Whipsaw / churning statistics |
+| [assets/switch_timing.md](../assets/switch_timing.md) | Timing of the regime switches |
 
-#### Threshold-Sensitivität
+#### Threshold Sensitivity
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/threshold_sensitivity_MSM.md](../assets/threshold_sensitivity_MSM.md) | MSM — Threshold-Sensitivität |
-| [assets/threshold_sensitivity_HMM.md](../assets/threshold_sensitivity_HMM.md) | HMM — Threshold-Sensitivität |
-| [assets/threshold_sensitivity_HMM_Uni.md](../assets/threshold_sensitivity_HMM_Uni.md) | HMM (univariat) — Threshold-Sensitivität |
-| [assets/threshold_sensitivity_LSTM.md](../assets/threshold_sensitivity_LSTM.md) | LSTM — Threshold-Sensitivität |
-| [assets/threshold_sensitivity_Transformer.md](../assets/threshold_sensitivity_Transformer.md) | Transformer — Threshold-Sensitivität |
+| [assets/threshold_sensitivity_MSM.md](../assets/threshold_sensitivity_MSM.md) | MSM: threshold sensitivity |
+| [assets/threshold_sensitivity_HMM.md](../assets/threshold_sensitivity_HMM.md) | HMM: threshold sensitivity |
+| [assets/threshold_sensitivity_HMM_Uni.md](../assets/threshold_sensitivity_HMM_Uni.md) | HMM (univariate): threshold sensitivity |
+| [assets/threshold_sensitivity_LSTM.md](../assets/threshold_sensitivity_LSTM.md) | LSTM: threshold sensitivity |
+| [assets/threshold_sensitivity_Transformer.md](../assets/threshold_sensitivity_Transformer.md) | Transformer: threshold sensitivity |
 
 #### Time-to-Recovery
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/time_to_recovery_Buy_Hold.md](../assets/time_to_recovery_Buy_Hold.md) | Buy-&-Hold — Time-to-Recovery |
-| [assets/time_to_recovery_MSM.md](../assets/time_to_recovery_MSM.md) | MSM — Time-to-Recovery |
-| [assets/time_to_recovery_HMM.md](../assets/time_to_recovery_HMM.md) | HMM — Time-to-Recovery |
-| [assets/time_to_recovery_HMM_Uni.md](../assets/time_to_recovery_HMM_Uni.md) | HMM (univariat) — Time-to-Recovery |
-| [assets/time_to_recovery_LSTM.md](../assets/time_to_recovery_LSTM.md) | LSTM — Time-to-Recovery |
-| [assets/time_to_recovery_Transformer.md](../assets/time_to_recovery_Transformer.md) | Transformer — Time-to-Recovery |
+| [assets/time_to_recovery_Buy_Hold.md](../assets/time_to_recovery_Buy_Hold.md) | Buy & hold: time-to-recovery |
+| [assets/time_to_recovery_MSM.md](../assets/time_to_recovery_MSM.md) | MSM: time-to-recovery |
+| [assets/time_to_recovery_HMM.md](../assets/time_to_recovery_HMM.md) | HMM: time-to-recovery |
+| [assets/time_to_recovery_HMM_Uni.md](../assets/time_to_recovery_HMM_Uni.md) | HMM (univariate): time-to-recovery |
+| [assets/time_to_recovery_LSTM.md](../assets/time_to_recovery_LSTM.md) | LSTM: time-to-recovery |
+| [assets/time_to_recovery_Transformer.md](../assets/time_to_recovery_Transformer.md) | Transformer: time-to-recovery |
 
-### 9.7 Hypothesentests
+### 9.7 Hypothesis Tests
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/h1_drawdown_test.md](../assets/h1_drawdown_test.md) | H1 — Drawdown-Reduktion (signifikant?) |
-| [assets/mcs_h1_mdd_forest.png](../assets/mcs_h1_mdd_forest.png) | H1 - Forest-Plot H1/MDD |
-| [assets/h2_transformer_test.md](../assets/h2_transformer_test.md) | H2 — Transformer-Überlegenheit (signifikant?) |
-| [assets/mcs_h2_endkapital_forest.png](../assets/mcs_h2_endkapital_forest.png) | H2 — Forest-Plot H2/Endkapital |
+| [assets/h1_drawdown_test.md](../assets/h1_drawdown_test.md) | H1: drawdown reduction (significant?) |
+| [assets/mcs_h1_mdd_forest.png](../assets/mcs_h1_mdd_forest.png) | H1: forest plot H1/MDD |
+| [assets/h2_transformer_test.md](../assets/h2_transformer_test.md) | H2: Transformer superiority (significant?) |
+| [assets/mcs_h2_endkapital_forest.png](../assets/mcs_h2_endkapital_forest.png) | H2: forest plot H2/terminal capital |
 
-### 9.8 SORR- und Monte-Carlo-Simulation
+### 9.8 SORR and Monte Carlo Simulation
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/sorr_summary.md](../assets/sorr_summary.md) | SORR-Ergebnisübersicht |
-| [assets/sorr_sim_standard.png](../assets/sorr_sim_standard.png) | SORR-Simulation — Standard-Entnahme |
-| [assets/sorr_sim_aggressive.png](../assets/sorr_sim_aggressive.png) | SORR-Simulation — aggressive Entnahme |
-| [assets/sorr_sim_low_capital.png](../assets/sorr_sim_low_capital.png) | SORR-Simulation — niedriges Startkapital |
-| [assets/withdrawal_sensitivity.md](../assets/withdrawal_sensitivity.md) | Sensitivität gegenüber Entnahmeraten |
-| [assets/depletion_rate_ci.md](../assets/depletion_rate_ci.md) | Depletion-Rate mit Konfidenzintervall |
-| [assets/mcs_depletion_rate_forest.png](../assets/mcs_depletion_rate_forest.png) | Forest-Plot Depletion Rate
-| [assets/mcs_summary.md](../assets/mcs_summary.md) | Monte-Carlo-Simulation — Zusammenfassung |
-| [assets/mcs_paths.png](../assets/mcs_paths.png) | MCS-Pfade |
-| [assets/mcs_quantiles.png](../assets/mcs_quantiles.png) | MCS-Quantile |
-| [assets/mcs_boxplot_standard.png](../assets/mcs_boxplot_standard.png) | MCS-Boxplot — Standard-Entnahme |
-| [assets/mcs_boxplot_aggressive.png](../assets/mcs_boxplot_aggressive.png) | MCS-Boxplot — aggressive Entnahme |
-| [assets/mcs_boxplot_low_capital.png](../assets/mcs_boxplot_low_capital.png) | MCS-Boxplot — niedriges Startkapital |
-| [assets/mcs_violin_standard.png](../assets/mcs_violin_standard.png) | MCS-Violin — Standard-Entnahme |
-| [assets/mcs_violin_aggressive.png](../assets/mcs_violin_aggressive.png) | MCS-Violin — aggressive Entnahme |
-| [assets/mcs_violin_low_capital.png](../assets/mcs_violin_low_capital.png) | MCS-Violin — niedriges Startkapital |
-| [assets/risk_return_positioning.png](../assets/risk_return_positioning.png) | Risiko-Rendite-Positionierung |
+| [assets/sorr_summary.md](../assets/sorr_summary.md) | SORR results overview |
+| [assets/sorr_sim_standard.png](../assets/sorr_sim_standard.png) | SORR simulation: standard withdrawal |
+| [assets/sorr_sim_aggressive.png](../assets/sorr_sim_aggressive.png) | SORR simulation: aggressive withdrawal |
+| [assets/sorr_sim_low_capital.png](../assets/sorr_sim_low_capital.png) | SORR simulation: low initial capital |
+| [assets/withdrawal_sensitivity.md](../assets/withdrawal_sensitivity.md) | Sensitivity to withdrawal rates |
+| [assets/depletion_rate_ci.md](../assets/depletion_rate_ci.md) | Depletion rate with confidence interval |
+| [assets/mcs_depletion_rate_forest.png](../assets/mcs_depletion_rate_forest.png) | Forest plot, depletion rate
+| [assets/mcs_summary.md](../assets/mcs_summary.md) | Monte Carlo simulation: summary |
+| [assets/mcs_paths.png](../assets/mcs_paths.png) | MCS paths |
+| [assets/mcs_quantiles.png](../assets/mcs_quantiles.png) | MCS quantiles |
+| [assets/mcs_boxplot_standard.png](../assets/mcs_boxplot_standard.png) | MCS boxplot: standard withdrawal |
+| [assets/mcs_boxplot_aggressive.png](../assets/mcs_boxplot_aggressive.png) | MCS boxplot: aggressive withdrawal |
+| [assets/mcs_boxplot_low_capital.png](../assets/mcs_boxplot_low_capital.png) | MCS boxplot: low initial capital |
+| [assets/mcs_violin_standard.png](../assets/mcs_violin_standard.png) | MCS violin plot: standard withdrawal |
+| [assets/mcs_violin_aggressive.png](../assets/mcs_violin_aggressive.png) | MCS violin plot: aggressive withdrawal |
+| [assets/mcs_violin_low_capital.png](../assets/mcs_violin_low_capital.png) | MCS violin plot: low initial capital |
+| [assets/risk_return_positioning.png](../assets/risk_return_positioning.png) | Risk-return positioning |
 
-### 9.9 Dashboard-Screenshots
+### 9.9 Dashboard Screenshots
 
-| Datei | Beschreibung |
+| File | Description |
 |-------|-------------|
-| [assets/screenshots/dashboard_overview.png](../assets/screenshots/dashboard_overview.png) | Dashboard — Übersichtsseite |
-| [assets/screenshots/dashboard_control-hub.png](../assets/screenshots/dashboard_control-hub.png) | Dashboard — Control Hub |
-| [assets/screenshots/dashboard_config.png](../assets/screenshots/dashboard_config.png) | Dashboard — Config-Editor |
-| [assets/screenshots/dashboard_evaluation.png](../assets/screenshots/dashboard_evaluation.png) | Dashboard — Evaluation-Seite |
+| [assets/screenshots/dashboard_overview.png](../assets/screenshots/dashboard_overview.png) | Dashboard: overview page |
+| [assets/screenshots/dashboard_control-hub.png](../assets/screenshots/dashboard_control-hub.png) | Dashboard: control hub |
+| [assets/screenshots/dashboard_config.png](../assets/screenshots/dashboard_config.png) | Dashboard: config editor |
+| [assets/screenshots/dashboard_evaluation.png](../assets/screenshots/dashboard_evaluation.png) | Dashboard: evaluation page |
 
 ---
 
-## Pflege
+## Maintenance
 
-Dieser Index wird manuell gepflegt. Bei Strukturänderungen bitte hier nachziehen
-(oder künftig per Skript aus `git ls-files` generieren; siehe Issue #7,
+This index is maintained manually. Please update it when the structure changes
+(or generate it from `git ls-files` via script in the future; see Issue #7,
 *Additional Notes*).

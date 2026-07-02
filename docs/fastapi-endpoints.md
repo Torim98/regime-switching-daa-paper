@@ -1,161 +1,161 @@
-# FastAPI Endpoints Dokumentation
+# FastAPI Endpoints Documentation
 
-Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur: drei containerisierte FastAPI-Services bilden die quantitative Pipeline ab, ein vierter (Dashboard) stellt das interaktive Frontend mit Control Hub, Config-Editor und Live-Logs bereit.
+The `regime-switching-daa` project uses a microservice architecture: three containerized FastAPI services cover the quantitative pipeline; a fourth (dashboard) provides the interactive frontend with control hub, config editor, and live logs.
 
 ---
 
 ## Data Service (Port: 8001)
-*Zuständig für Datenbeschaffung, Aufbereitung, Feature Engineering und explorative Datenanalyse (EDA).*
+*Responsible for data acquisition, preparation, feature engineering, and exploratory data analysis (EDA).*
 
 ### `POST /data/ingest`
-- **Beschreibung**: Startet die gesamte Daten-Pipeline. Lädt historische Marktdaten via `yfinance` herunter, führt Portfolio-Konstruktionen durch (Preprocessing) und generiert Indikatoren/Features (Volatility, SMA, Momentum). Führt zudem eine EDA (Deskriptive Statistik, ADF-Tests) durch, erstellt diverse Plots und speichert die Zwischenergebnisse (Parquet-Format) nach der Medallion-Architektur ab.
-- Erzeugt zusätzlich einen **Data-Quality-Report** (`assets/data_quality_report.md`): Coverage gegen erwartete Handelstage, Missing-Value-Zählung auf den Rohdaten (vor ffill/dropna), Adjustment-Plausibilität (Tagessprünge) und die Auswirkung der Bereinigung (Bronze → Silver).
+- **Description**: Starts the entire data pipeline. Downloads historical market data via `yfinance`, performs portfolio construction (preprocessing), and generates indicators/features (volatility, SMA, momentum). Also runs an EDA (descriptive statistics, ADF tests), creates various plots, and stores the intermediate results (Parquet format) according to the medallion architecture.
+- Additionally generates a **data quality report** (`assets/data_quality_report.md`): coverage against expected trading days, missing-value counts on the raw data (before ffill/dropna), adjustment plausibility (daily jumps), and the effect of cleaning (Bronze → Silver).
 
 ### `POST /data/label-analysis`
-- **Beschreibung**: Berechnet die Konkordanz-Matrix und Switch-Statistiken für alle Regime-Labeler (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) auf dem `test_df`. Schreibt die Plots `label_concordance_matrix.png` und `label_timeline_comparison.png` nach `assets/` und liefert die numerischen Ergebnisse als JSON (`{status, elapsed_s, concordance, switch_stats}`). Dient der Begründung der Label-Wahl (Pagan-Sossounov) für LSTM/Transformer. Setzt voraus, dass `/data/ingest` und ein anschließender Modell-Trainingslauf bereits ausgeführt wurden (benötigt `test_df`).
+- **Description**: Computes the concordance matrix and switch statistics for all regime labelers (MSM, HMM, Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) on the `test_df`. Writes the plots `label_concordance_matrix.png` and `label_timeline_comparison.png` to `assets/` and returns the numerical results as JSON (`{status, elapsed_s, concordance, switch_stats}`). Serves to justify the label choice (Pagan-Sossounov) for LSTM/Transformer. Requires that `/data/ingest` and a subsequent model training run have already been executed (needs `test_df`).
 
 ### `GET /data/features`
-- **Beschreibung**: Gibt den vollständig aufbereiteten Datensatz inklusive aller berechneten Features (den "Feature-Engineered" DataFrame) als JSON-Struktur (`orient="split"`) zurück. Setzt voraus, dass `/data/ingest` zuvor ausgeführt wurde.
+- **Description**: Returns the fully prepared dataset including all computed features (the "feature-engineered" DataFrame) as a JSON structure (`orient="split"`). Requires that `/data/ingest` has been executed beforehand.
 
 ---
 
 ## Model Service (Port: 8002)
-*Zuständig für das Training, die Prädiktion und die Persistierung der vier eingesetzten Machine Learning- und Ökonometrie-Modelle.*
+*Responsible for training, prediction, and persistence of the four machine learning and econometric models.*
 
 ### `POST /models/train/{model_name}`
-- **Parameter**: `model_name` (String: `msm` | `hmm` | `lstm` | `transformer`)
-- **Beschreibung**: Trainiert ein einzelnes, spezifiziertes Modell. **Nur verfügbar bei `walk_forward.enabled: false`.** Im Walk-Forward-Modus gibt dieser Endpoint HTTP 400 zurück mit dem Hinweis, `/models/train-all` zu verwenden.
+- **Parameters**: `model_name` (string: `msm` | `hmm` | `lstm` | `transformer`)
+- **Description**: Trains a single, specified model. **Only available with `walk_forward.enabled: false`.** In walk-forward mode, this endpoint returns HTTP 400 with a hint to use `/models/train-all`.
 
 ### `POST /models/train-all`
-- **Beschreibung**: Trainiert alle vier Modelle. Bei `walk_forward.enabled: false` sequentiell im Single-Split-Modus. Bei `walk_forward.enabled: true` über die Walk-Forward-Engine (`run_walk_forward`) mit rollierenden Folds, fingerprint-basiertem Cache und OOS-Aggregation. Gibt im Walk-Forward-Modus zusätzlich `folds` und `oos_days` zurück.
+- **Description**: Trains all four models. With `walk_forward.enabled: false`, sequentially in single-split mode. With `walk_forward.enabled: true`, via the walk-forward engine (`run_walk_forward`) with rolling folds, fingerprint-based cache, and OOS aggregation. In walk-forward mode, additionally returns `folds` and `oos_days`.
 
 ### `POST /models/optimize/{model_name}`
-- **Parameter**: `model_name` (String: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`)
-- **Beschreibung**: Führt eine Optuna-Hyperparameter-Optimierung für das angegebene Modell durch. Nutzt Walk-Forward-Splits als innere Cross-Validation. `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` (`optimization.n_trials_per_model` bzw. `optimization.every_nth_fold_per_model`) gelesen. Keine API-Overrides, damit die Thesis-Konfiguration reproduzierbar bleibt. Erfordert `walk_forward.enabled: true`. Ergebnisse werden in `models/optuna_studies.db` persistiert. Gibt `best_sharpe`, `best_params` und `n_trials` zurück.
+- **Parameters**: `model_name` (string: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`)
+- **Description**: Runs an Optuna hyperparameter optimization for the specified model. Uses walk-forward splits as inner cross-validation. `n_trials` and `every_nth_fold` are read per model from `config.yaml` (`optimization.n_trials_per_model` and `optimization.every_nth_fold_per_model`). No API overrides, so that the thesis configuration remains reproducible. Requires `walk_forward.enabled: true`. Results are persisted in `models/optuna_studies.db`. Returns `best_sharpe`, `best_params`, and `n_trials`.
 
 ### `POST /models/optimize-all`
-- **Parameter**: keine
-- **Beschreibung**: Optimiert alle fünf Modelle sequenziell (MSM → HMM → HMM_Uni → LSTM → Transformer). `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` gelesen (Thesis-Default: 50 Trials / `every_nth_fold=2` für MSM & HMM (+HMM_Uni), 30 / 2 für LSTM & Transformer). Gibt ein Dict mit `best_sharpe` und `best_params` pro Modell zurück.
+- **Parameters**: none
+- **Description**: Optimizes all five models sequentially (MSM → HMM → HMM_Uni → LSTM → Transformer). `n_trials` and `every_nth_fold` are read per model from `config.yaml` (thesis default: 50 trials / `every_nth_fold=2` for MSM & HMM (+HMM_Uni), 30 / 2 for LSTM & Transformer). Returns a dict with `best_sharpe` and `best_params` per model.
 
 ### `GET /models/status`
-- **Beschreibung**: Überprüft das Dateisystem und gibt für jedes der vier Modelle als Boolean (`true`/`false`) zurück, ob das jeweilige Modell bereits trainiert und erfolgreich auf der Festplatte persistiert wurde.
+- **Description**: Checks the filesystem and returns a boolean (`true`/`false`) for each of the four models indicating whether the model has already been trained and successfully persisted to disk.
 
 ---
 
 ## Backtest Service (Port: 8003)
-*Zuständig für die Strategie-Evaluation, Monte Carlo Simulationen und das finale Reporting.*
+*Responsible for strategy evaluation, Monte Carlo simulations, and the final reporting.*
 
 ### `POST /backtest/run`
-- **Beschreibung**: Führt das historische Backtesting durch. Im Walk-Forward-Modus wird `test_df` auf das gemeinsame OOS-Fenster beschnitten (`dropna(how="any")`). Erzeugt neben Equity Curves und Transaktionskosten auch annualisierte Metriken, Krisen-Performance-Tabelle, Rolling-Sharpe-Plot und Drawdown-Plot. Führt SORR-Simulationen für alle konfigurierten Szenarien durch.
+- **Description**: Runs the historical backtesting. In walk-forward mode, `test_df` is trimmed to the common OOS window (`dropna(how="any")`). In addition to equity curves and transaction costs, produces annualized metrics, a crisis performance table, a rolling Sharpe plot, and a drawdown plot. Runs SORR simulations for all configured scenarios.
 
 ### `POST /backtest/evaluate`
-- **Beschreibung**: Evaluiert alle Strategien tiefgreifend. Führt eine Block-Bootstrap Monte Carlo Simulation durch, um die Robustheit der Strategien zu testen. Erstellt detaillierte Performance-Metriken, Boxplots, Quantil-Visualisierungen und MCS-Pfade. Stößt am Ende automatisiert die Report-Erstellung an.
+- **Description**: Evaluates all strategies in depth. Runs a block-bootstrap Monte Carlo simulation to test the robustness of the strategies. Produces detailed performance metrics, boxplots, quantile visualizations, and MCS paths. Automatically triggers the report generation at the end.
 
 ### `POST /backtest/report`
-- **Beschreibung**: Sammelt alle generierten Tabellen, Metriken und Markdown-Schnipsel und kombiniert sie in einen finalen Statistik-Report (üblicherweise `statistics.md`), der im `assets/` oder `docs/` Verzeichnis zur Verfügung gestellt wird.
+- **Description**: Collects all generated tables, metrics, and Markdown snippets and combines them into a final statistics report (usually `statistics.md`), made available in the `assets/` or `docs/` directory.
 
 ### `GET /backtest/results`
-- **Beschreibung**: Gibt die Ergebnisse der Strategie-Evaluation (die finale Performance-Tabelle) als reinen Text/Markdown im JSON-Format zurück, um die Resultate über die API abfragen zu können. Setzt eine erfolgreiche Ausführung von `/backtest/evaluate` voraus.
+- **Description**: Returns the results of the strategy evaluation (the final performance table) as plain text/Markdown in JSON format, so that the results can be queried via the API. Requires a successful run of `/backtest/evaluate`.
 
 ---
 
 ## Dashboard Service (Port: 8004)
-*Interaktives Frontend mit Visualisierung, Control Hub, Config-Editor und Live-Log-Streaming. Dev-only an `127.0.0.1` gebunden. Ausführliche Beschreibung: [Dashboard Service](dashboard-service.md).*
+*Interactive frontend with visualization, control hub, config editor, and live log streaming. Dev-only, bound to `127.0.0.1`. Detailed description: [Dashboard Service](dashboard-service.md).*
 
-### HTML-Seiten (Jinja2)
+### HTML Pages (Jinja2)
 
-| Pfad | Seite |
+| Path | Page |
 |------|-------|
-| `GET /` | Overview (Status-Kacheln, Artefakt-Grid, Coverage-Map) |
-| `GET /hub` | Control Hub (alle Pipeline-Endpoints per Klick) |
-| `GET /eda` | EDA-Charts + PNG-Gallery |
-| `GET /models` | Regime-Erkennung, Label-Konkordanz, Optuna-Heatmaps |
-| `GET /backtest` | Equity Curves, Drawdown, Rolling Sharpe, SORR, Krisen-Perf |
-| `GET /evaluation` | Vollständige `statistics.md`-Abdeckung (MCS, H1/H2, Break-Even, ...) |
-| `GET /config` | Monaco-YAML-Editor für `config.yaml` |
-| `GET /logs` | Live-Log-Stream (WebSocket) |
+| `GET /` | Overview (status tiles, artifact grid, coverage map) |
+| `GET /hub` | Control hub (all pipeline endpoints per click) |
+| `GET /eda` | EDA charts + PNG gallery |
+| `GET /models` | Regime detection, label concordance, Optuna heatmaps |
+| `GET /backtest` | Equity curves, drawdown, rolling Sharpe, SORR, crisis performance |
+| `GET /evaluation` | Full `statistics.md` coverage (MCS, H1/H2, break-even, ...) |
+| `GET /config` | Monaco YAML editor for `config.yaml` |
+| `GET /logs` | Live log stream (WebSocket) |
 
-### Data-Adapter — Parquet → Plotly-JSON
+### Data Adapters: Parquet to Plotly JSON
 
-Alle Chart-Endpoints liefern Plotly-kompatibles JSON, das clientseitig mit Plotly.js gerendert wird. Keine Neuberechnungen, alle Werte stammen aus den Parquet-Artefakten der Pipeline.
+All chart endpoints deliver Plotly-compatible JSON that is rendered client-side with Plotly.js. No recomputation; all values come from the Parquet artifacts of the pipeline.
 
 #### `GET /api/status`
-- **Beschreibung**: Übersicht aller Pipeline-Artefakte (Existenz, Größe in MB, mtime) plus Meta-Info (End-Date, Walk-Forward-Flag, Fast-Mode-Flag). Basis für die Status-Kacheln und das Artefakt-Grid auf der Overview-Seite.
+- **Description**: Overview of all pipeline artifacts (existence, size in MB, mtime) plus meta info (end date, walk-forward flag, fast-mode flag). Basis for the status tiles and the artifact grid on the overview page.
 
 #### `GET /api/asset/{name}` / `GET /api/markdown/{name}`
-- **Beschreibung**: Read-only-Auslieferung eines PNG- oder MD-Assets aus `assets/`. Path-Traversal-Schutz integriert. `GET /api/markdown/{name}` liefert MD-Inhalte als JSON-Payload für clientseitiges Rendering mit marked.js.
+- **Description**: Read-only delivery of a PNG or MD asset from `assets/`. Path traversal protection included. `GET /api/markdown/{name}` returns MD content as a JSON payload for client-side rendering with marked.js.
 
 #### `GET /api/chart/returns`
-- **Parameter**: `col` (str, default: `Returns`), `smoothing` (int 0–252, default: 0)
-- **Beschreibung**: Zeitreihe einer beliebigen Spalte aus `feature_engineered_data.parquet` mit optionalem Moving-Average-Smoothing.
+- **Parameters**: `col` (str, default: `Returns`), `smoothing` (int 0–252, default: 0)
+- **Description**: Time series of any column from `feature_engineered_data.parquet` with optional moving-average smoothing.
 
 #### `GET /api/chart/feature-correlation`
-- **Beschreibung**: Korrelationsmatrix (Pearson) über die in `features.model_features` konfigurierten Spalten.
+- **Description**: Correlation matrix (Pearson) over the columns configured in `features.model_features`.
 
 #### `GET /api/chart/capital-curve`
-- **Beschreibung**: 60/40-Benchmark-Kapitalkurve (kumulierte Returns).
+- **Description**: 60/40 benchmark capital curve (cumulative returns).
 
 #### `GET /api/chart/equity-curves`
-- **Beschreibung**: Equity Curves aller Strategien aus `backtesting_results.parquet`. Setzt `/backtest/run` voraus.
+- **Description**: Equity curves of all strategies from `backtesting_results.parquet`. Requires `/backtest/run`.
 
 #### `GET /api/chart/drawdown`
-- **Beschreibung**: Drawdown-Verlauf aller Strategien.
+- **Description**: Drawdown paths of all strategies.
 
 #### `GET /api/chart/rolling-sharpe`
-- **Parameter**: `window` (int 21–1260, default: 252)
-- **Beschreibung**: Rolling Sharpe Ratio mit konfigurierbarem Fenster.
+- **Parameters**: `window` (int 21–1260, default: 252)
+- **Description**: Rolling Sharpe ratio with configurable window.
 
 #### `GET /api/chart/regime-overlay`
-- **Parameter**: `model` (str: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`, default: `MSM`)
-- **Beschreibung**: 60/40-Kurs mit Bear-Probability und Bear-Signal-Bändern (rote Shapes) überlagert. Zeigt, wann und wo das ausgewählte Modell Bärenmarkt-Phasen erkannt hat.
+- **Parameters**: `model` (str: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`, default: `MSM`)
+- **Description**: 60/40 price overlaid with bear probability and bear-signal bands (red shapes). Shows when and where the selected model detected bear market phases.
 
 #### `GET /api/chart/mcs-quantiles`
-- **Parameter**: `scenario` (str, default: `Standard`), `strategy` (str, default: `Transformer`)
-- **Beschreibung**: Quantil-Fächer (5 / 25 / 50 / 75 / 95 %) der Monte-Carlo-Simulation-Pfade. Setzt `/backtest/evaluate` voraus.
+- **Parameters**: `scenario` (str, default: `Standard`), `strategy` (str, default: `Transformer`)
+- **Description**: Quantile fan (5 / 25 / 50 / 75 / 95%) of the Monte Carlo simulation paths. Requires `/backtest/evaluate`.
 
-### Control-Hub-Proxy
+### Control Hub Proxy
 
-Ruft die Pipeline-Services per `httpx` auf. Read-Timeout: 8 h (für Walk-Forward-Train-All). Service-URLs über Env-Vars konfigurierbar (`DATA_SERVICE_URL`, `MODEL_SERVICE_URL`, `BACKTEST_SERVICE_URL`).
+Calls the pipeline services via `httpx`. Read timeout: 8 h (for walk-forward train-all). Service URLs configurable via environment variables (`DATA_SERVICE_URL`, `MODEL_SERVICE_URL`, `BACKTEST_SERVICE_URL`).
 
 #### `GET /api/hub/catalog`
-- **Beschreibung**: Liefert den kompletten Endpoint-Katalog (Service, Pfad, Methode, Label, Beschreibung, Parameter-Schema, Danger-Flag) für das dynamische UI-Rendering der Control-Hub-Seite.
+- **Description**: Returns the complete endpoint catalog (service, path, method, label, description, parameter schema, danger flag) for the dynamic UI rendering of the control hub page.
 
 #### `GET /api/hub/health`
-- **Beschreibung**: Ping-Check auf alle drei Pipeline-Services (`/openapi.json` als Marker). Liefert `{up, status, url}` je Service für die Health-Tiles.
+- **Description**: Ping check on all three pipeline services (`/openapi.json` as marker). Returns `{up, status, url}` per service for the health tiles.
 
 #### `POST /api/hub/call`
-- **Parameter**: `service` (`data` | `model` | `backtest`), `path` (z.B. `/data/ingest`), `method` (`GET` | `POST`), `query` (optional: JSON-String mit Query-Params)
-- **Beschreibung**: Generischer Proxy-Call. Nutzt die UI, um beliebige Endpoints der Pipeline-Services auszulösen. Response: `{status_code, ok, body}` — bei Non-JSON-Responses wird der Body als `{"text": ...}` verpackt.
+- **Parameters**: `service` (`data` | `model` | `backtest`), `path` (e.g. `/data/ingest`), `method` (`GET` | `POST`), `query` (optional: JSON string with query params)
+- **Description**: Generic proxy call. Used by the UI to trigger any endpoint of the pipeline services. Response: `{status_code, ok, body}`; for non-JSON responses, the body is wrapped as `{"text": ...}`.
 
-### Config-Editor
+### Config Editor
 
-Sicherheitsnetz beim Schreiben: (1) YAML-Parse → (2) Pflicht-Sections-Check → (3) `.bak`-Backup → (4) Atomic Swap via tempfile → (5) `PipelineConfig()`-Reload-Verifikation → (6) Rollback aus Backup bei Reload-Fehler.
+Safety net when writing: (1) YAML parse → (2) required-sections check → (3) `.bak` backup → (4) atomic swap via tempfile → (5) `PipelineConfig()` reload verification → (6) rollback from backup on reload error.
 
 #### `GET /api/config`
-- **Beschreibung**: Liefert die aktuelle `config.yaml` als reinen Text plus Meta (Pfad, mtime, Size).
+- **Description**: Returns the current `config.yaml` as plain text plus meta (path, mtime, size).
 
 #### `POST /api/config`
-- **Body**: `{"content": "<gesamter YAML-Text>"}`
-- **Beschreibung**: Speichert den übergebenen YAML-Text nach bestandener Validierung. Pflicht-Sections: `data`, `features`, `portfolio`, `models`, `backtesting`, `walk_forward`, `evaluation`, `paths`, `plotting`. Response: `{status, backup, bytes_written, reloaded}`.
+- **Body**: `{"content": "<entire YAML text>"}`
+- **Description**: Saves the submitted YAML text after passing validation. Required sections: `data`, `features`, `portfolio`, `models`, `backtesting`, `walk_forward`, `evaluation`, `paths`, `plotting`. Response: `{status, backup, bytes_written, reloaded}`.
 
 #### `GET /api/config/backups`
-- **Beschreibung**: Liste aller `.bak`-Dateien im `config/`-Ordner, sortiert nach mtime (neueste zuerst).
+- **Description**: List of all `.bak` files in the `config/` directory, sorted by mtime (newest first).
 
 #### `POST /api/config/restore`
 - **Body**: `{"name": "config.YYYYMMDD-HHMMSS.bak"}`
-- **Beschreibung**: Spielt eine bestimmte Backup-Datei als aktive `config.yaml` zurück. Der vorherige Zustand wird zusätzlich als `*.pre-restore.bak` gesichert.
+- **Description**: Restores a specific backup file as the active `config.yaml`. The previous state is additionally saved as `*.pre-restore.bak`.
 
-### Live-Log-Streaming
+### Live Log Streaming
 
-WebSocket-basierter File-Tail auf `logs/*.log`. Rotation und Truncation werden erkannt und mit einer System-Zeile (`[dashboard] Datei truncated — resume from 0`) signalisiert.
+WebSocket-based file tail on `logs/*.log`. Rotation and truncation are detected and signaled with a system line (`[dashboard] file truncated, resume from 0`).
 
 #### `GET /api/logs/files`
-- **Beschreibung**: Liste aller verfügbaren `logs/*.log`-Dateien inklusive Größe (KB) und mtime.
+- **Description**: List of all available `logs/*.log` files including size (KB) and mtime.
 
 #### `GET /api/logs/snapshot/{filename}`
-- **Parameter**: `lines` (int 1–10000, default: 500)
-- **Beschreibung**: Liefert die letzten N Zeilen der angegebenen Log-Datei ohne WebSocket (für Initial-Load oder Snapshots). Path-Traversal-Schutz aktiv.
+- **Parameters**: `lines` (int 1–10000, default: 500)
+- **Description**: Returns the last N lines of the specified log file without WebSocket (for initial load or snapshots). Path traversal protection active.
 
 #### `WS /ws/logs/{filename}`
-- **Parameter**: `tail` (int, default: 200)
-- **Beschreibung**: Sendet zunächst die letzten `tail` Zeilen, dann via ~300 ms-Polling alle neuen Zeilen als Text-Frames. Bei Datei-Truncation wird ab Position 0 neu gelesen. Bei `WebSocketDisconnect` wird die Verbindung sauber geschlossen.
+- **Parameters**: `tail` (int, default: 200)
+- **Description**: First sends the last `tail` lines, then all new lines as text frames via ~300 ms polling. On file truncation, reading restarts from position 0. On `WebSocketDisconnect`, the connection is closed cleanly.
