@@ -50,8 +50,6 @@ def train_hmm(
 
     return model, scaler
 
-    return model, scaler, X_scaled
-
 def train_hmm_fold(
     features_df_train: pd.DataFrame,
     features_df_test: pd.DataFrame,
@@ -72,7 +70,7 @@ def train_hmm_fold(
        Welches Regime hat im Trainingszeitraum die höhere Returns-Volatilität?
        Diese Zuordnung wird gespeichert und auf Test angewendet.
        (KRITISCH: NICHT auf Test-Daten basierend bestimmen, sonst Leakage!)
-    4. predict_proba auf skalierten Test-Features.
+    4. Gefilterte Wahrscheinlichkeiten P(State_t | x_1..t) via Forward-Pass auf Train+Test; Train-Fenster dient als Burn-in-Kontext. KEIN predict_proba (= smoothed, Look-Ahead innerhalb des Folds).
     5. Bear-Wahrscheinlichkeit gemäß Train-Mapping extrahieren, Threshold anwenden.
 
     Parameter
@@ -94,10 +92,7 @@ def train_hmm_fold(
 
     Hinweise
     --------
-    - Cold-Start im Test: hmmlearn's predict_proba startet im Test ohne
-      Kenntnis der Train-Endzustände. Bei kurzen Test-Fenstern (z.B. 6 Monate)
-      kann das die ersten ~10 Tage leicht verzerren. Methodisch akzeptabel,
-      sollte aber in 3.5.5 als Limitation erwähnt werden.
+    - Cold-Start entfällt: Der Forward-Pass läuft über Train+Test, der Test startet mit korrektem Zustands-Prior.
     - Falls sich bear_state zwischen Folds wild ändert, deutet das auf
       instabile HMM-Konvergenz oder zu kurze Train-Fenster hin; im
       Orchestrator entsprechend loggen.
@@ -181,7 +176,7 @@ def predict_hmm(
     Regimes und Wahrscheinlichkeiten bias-frei vorhersagen.
 
     1. Bear-State aus TRAIN-Predictions bestimmen (Volatilitätsvergleich).
-    2. predict_proba auf Train und Test separat.
+    2. Gefilterte Probs (Forward-Pass), Test mit Train als Kontext
 
     Gibt (probs_train, signal_train, probs_test, signal_test) zurück.
     """

@@ -42,7 +42,7 @@ Zero-Build-Frontend-Stack (alles per CDN, kein npm-Toolchain nötig):
 | `/` | **Overview** | Status-Kacheln (End-Date, WF, Fast-Mode), Pipeline-Artefakt-Grid, Abdeckungs-Map zu `statistics.md` |
 | `/hub` | **Control Hub** | Dynamisch gerenderte Service-Cards aus `/api/hub/catalog`, Health-Tiles, Execute-Forms mit Spinner, JSON-Response-Viewer |
 | `/eda` | **EDA** | Returns-Chart (Spalten- & Smoothing-Picker), Feature-Korrelationsmatrix, 60/40-Kapitalkurve, PNG-Gallery aus `assets/` |
-| `/models` | **Modelle** | Regime-Overlay-Chart (MSM/HMM/LSTM/Transformer), Label-Konkordanz, Modell-Plots, Optuna-Heatmaps |
+| `/models` | **Modelle** | Regime-Overlay-Chart (MSM/HMM/HMM_Uni/LSTM/Transformer), Label-Konkordanz, Modell-Plots, Optuna-Heatmaps |
 | `/backtest` | **Backtest** | Equity Curves, Drawdown, Rolling-Sharpe (Fenster-Slider), annualisierte Metriken, Krisen-Perf, SORR-Szenarien, Pipeline-Timing |
 | `/evaluation` | **Evaluation** | Volle `statistics.md`-Abdeckung: Eval-Tabelle, Confusion/ROC/PR, Churning, Switch-Timing, Regime-Heatmap, Threshold-Sensitivity, TTR, MCS, Depletion-CI, H1/H2-Tests, Break-Even, Withdrawal-Sensitivity |
 | `/config` | **Config-Editor** | Monaco-basierter YAML-Editor (Ctrl+S, Dirty-State, Backup-Drawer, Restore-Funktionalität) |

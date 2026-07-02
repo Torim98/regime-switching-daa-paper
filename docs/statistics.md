@@ -77,19 +77,26 @@ Identifikation von Bull- und Bear-Regimes mittels eines univariaten Zwei-Regime-
 ### B. Hidden Markov Model (Unsupervised Clustering)
 ![HMM Regimes](../assets/hmm_regimes.png)
 
-### C. LSTM-Netzwerk (Deep Learning)
+### C. Univariates HMM (Ablation, Issue #3)
+Robustheitscheck für den MSM-vs-HMM-Architekturvergleich: identischer
+Input-Raum wie das MSM (nur 60/40-Renditen). Isoliert den Architektureffekt
+(Clustering vs. Markov-Switching-Regression) vom Informationsbeitrag der
+erweiterten Features (VIX, Yield Spread).
+![HMM Uni Regimes](../assets/hmm_uni_regimes.png)
+
+### D. LSTM-Netzwerk (Deep Learning)
 Vorhersage der Marktphasen durch das neuronale Netzwerk (trainiert auf Pagan-Sossounov-Labels).
 ![LSTM Model](../assets/lstm_model.png)
 
-### D. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
+### E. Transformer-Netzwerk (Attention-basierte Regime-Erkennung)
 Klassifikation von Marktregimes mittels eines Transformer-Encoders mit Multi-Head Self-Attention und Positional Encoding. Im Gegensatz zu rekurrenten Architekturen (LSTM) verarbeitet der Transformer alle Zeitschritte einer Sequenz parallel und lernt über den Attention-Mechanismus, welche historischen Datenpunkte die höchste Relevanz für die aktuelle Regime-Klassifikation besitzen. Trainiert im Supervised-Setting auf Pagan-Sossounov-Labels.
 ![Transformer Model](../assets/transformer_model.png)
 
-### E. Globaler Regime-Vergleich
+### F. Globaler Regime-Vergleich
 Detaillierte Gegenüberstellung der Wahrscheinlichkeiten und harten Signale aller Modelle.
 ![Regime Comparison](../assets/regime_comparison.png)
 
-### F. Hyperparameter-Optimierung (Optuna)
+### G. Hyperparameter-Optimierung (Optuna)
 Bayessche Suche über den Hyperparameter-Raum aller vier Modelle mittels Walk-Forward-Validierung als innere CV. Optimierungsziel ist der mediane OOS-Sharpe-Ratio über die subgesampelten Folds; geprunete Trials nutzen den Median-Pruner. Die hier ausgewiesenen Werte wurden 1:1 in die `config.yaml` übernommen und für den finalen Walk-Forward-Lauf verwendet.
 
 # Optuna — Beste Hyperparameter
@@ -612,7 +619,7 @@ Status der Modell-Persistierung für diesen Pipeline-Durchlauf:
 
 ---
 
-**Zuletzt aktualisiert:** 02.07.2026 09:31<br>
+**Zuletzt aktualisiert:** 02.07.2026 09:47<br>
 **End date:** `2026-07-02`<br>
 **Fast Mode Status zur Laufzeit:** FALSE (Full Run)<br>
 **Walk-Forward-Validierung:** AKTIV (Modus: rolling, Train: 10J, Test: 12M, Step: 12M)<br>

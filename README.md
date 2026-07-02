@@ -31,6 +31,7 @@ In diesem Projekt werden zwei verschiedene Ansätze zur Regime-Erkennung verglic
 1. **Ökonometrische Modelle:** Diese Modelle basieren auf der Annahme, dass Finanzmärkte stochastischen Prozessen folgen und Regimes als verborgene Zustände (Latent States) mathematisch modelliert werden können.
 *   **Markov-Switching-Modelle (MSM):** Ein klassisches Regressionsverfahren, bei dem Parameter (wie Mittelwert und Varianz der Rendite) zwischen Zuständen springen. Die Wechselwahrscheinlichkeiten werden über eine Übergangsmatrix berechnet.
 *   **Hidden-Markov-Modelle (HMM):** Ein Unsupervised-Learning-Ansatz aus der Statistik. Das HMM identifiziert Cluster in den Datenverteilungen, um Phasen hoher und niedriger Volatilität voneinander zu trennen, ohne dass vorab gelabelte Daten nötig sind.
+*   **Univariates HMM (HMM_Uni):** Eine Ablationsvariante des HMM, die ausschließlich die 60/40-Portfolio-Renditen als Input erhält, also denselben Input-Raum wie das MSM. Sie trennt im MSM-vs-HMM-Vergleich den Architektureffekt (Clustering vs. Markov-Switching-Regression) vom Informationsbeitrag der erweiterten Features (VIX, Yield Spread).
 2. **Moderne Machine-Learning-Verfahren:** Dieser Ansatz nutzt die Fähigkeit von künstlichen neuronalen Netzen, hochkomplexe, nicht-lineare Zusammenhänge in großen Datenmengen zu identifizieren, ohne explizite statistische Verteilungsannahmen vorauszusetzen.
 *   **LSTM-Netzwerke (Long Short-Term Memory):** Eine spezialisierte Form von Recurrent Neural Networks (RNN), die über ein "Gedächtnis" für zeitliche Abhängigkeiten verfügen. In dieser Arbeit wird das LSTM in einem **Supervised-Learning-Setting** eingesetzt, trainiert auf Pagan-Sossounov-Labels (siehe Label-Analyse via POST /data/label-analysis bzw. src/data/labels/), analog zum Transformer.
 *   **Transformer-Netzwerk (Multi-Head Self-Attention):** Eine Attention-basierte Architektur, die im Gegensatz zu rekurrenten Netzwerken **alle Zeitschritte einer Sequenz parallel** verarbeiten kann. Durch den Multi-Head Self-Attention-Mechanismus lernt das Modell, welche historischen Zeitpunkte innerhalb eines Fensters die stärkste Relevanz für die aktuelle Regime-Klassifikation besitzen. Ein Positional Encoding bewahrt dabei die zeitliche Ordnung der Inputdaten. Der Transformer wird im **Supervised-Setting** (trainiert auf Pagan-Sossounov-Labels, siehe Label-Analyse via POST /data/label-analysis bzw. src/data/labels/) eingesetzt und dient dem Test der Hypothese H2: Ob Attention-basierte Architekturen eine höhere Vorhersagegüte als ökonometrische Modelle und rekurrente Netze erreichen.
@@ -61,7 +62,7 @@ Vier containerisierte FastAPI-Services bilden die gesamte Pipeline und das Front
 | Service | Port | Beschreibung |
 |---------|------|-------------|
 | **Data Service** | 8001 | Datenakquise, Preprocessing, Feature Engineering, EDA |
-| **Model Service** | 8002 | Training & Prediction (MSM, HMM, LSTM, Transformer) |
+| **Model Service** | 8002 | Training & Prediction (MSM, HMM, HMM_Uni, LSTM, Transformer) |
 | **Backtest Service** | 8003 | Backtesting, SORR, Monte Carlo Simulation, Reporting |
 | **Dashboard Service** | 8004 | Interaktives UI: EDA/Backtest/Evaluation-Visualisierung, Control Hub für alle Pipeline-Endpoints, YAML-Config-Editor, Live-Log-Streaming |
 
@@ -119,6 +120,7 @@ Das Framework ist **vollständig dynamisch** aufgebaut. Ein spezialisierter Such
 
 ### Hyperparameter-Optimierung (Optuna)
 Alle Modellparameter werden systematisch mittels Bayesscher Optimierung (Optuna, TPE-Sampler) gesucht. Die Optimierung nutzt die Walk-Forward-Splits als innere Cross-Validation. Optuna sieht ausschließlich OOS-Metriken (medianer Sharpe Ratio), sodass kein Look-Ahead-Bias durch die Parametersuche entsteht. Die aktuellen Config-Defaults werden als Baseline-Trial (#0) eingespeist. Ergebnisse werden in einer SQLite-Datenbank unter `models/optuna_studies.db` persistiert, sodass Optimierungsläufe fortgesetzt werden können. Sensitivitäts-Heatmaps und Parameter-Importance-Plots werden automatisch unter `assets/` abgelegt.
+Darüber hinaus verwenden die ökonometrischen Modelle ausschließlich **gefilterte Regime-Wahrscheinlichkeiten** P(Regime_t | Daten bis t): Das MSM nutzt `filtered_marginal_probabilities` (statsmodels), beide HMM-Varianten einen expliziten Forward-Pass ohne Backward-Rekursion. Geglättete Posteriors (Forward-Backward, z. B. hmmlearns `predict_proba`) würden Information aus der Zukunft des Testfensters in das Signal tragen und die OOS-Ergebnisse systematisch verzerren.
 
 ### Realitätsnahe Kostensimulation
 Die Simulation berücksichtigt reale Marktreibungen:
@@ -163,7 +165,7 @@ Die Pipeline ist als Abfolge von Service-Endpoints konzipiert. Jeder Schritt bau
 1.  **Data Service** (`POST /data/ingest`): Download (YFinance) und Bereinigung der Multi-Asset-Daten (Aktien, Bonds, Cash), Feature Engineering (technische und makroökonomische Indikatoren) und EDA.
 2.  **Data Service** (`POST /data/label-analysis`) *(optional)*: Vergleich alternativer Regime-Labeler (Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) gegen MSM/HMM. Erzeugt Konkordanz-Matrix und Switch-Statistiken; begründet die Label-Wahl (Pagan-Sossounov) für LSTM und Transformer.
 3.  **Model Service** (`POST /models/optimize-all`) *(optional)*: Bayessche Hyperparameter-Optimierung via Optuna mit Walk-Forward als innerer CV. Wird einmalig vor dem finalen Durchlauf ausgeführt.
-4.  **Model Service** (`POST /models/train-all`): Training der Regime-Switching-Modelle (MSM, HMM, LSTM, Transformer). Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung, bei `true` rollierende Walk-Forward-Validierung mit OOS-Caching.
+4.  **Model Service** (`POST /models/train-all`): Training der Regime-Switching-Modelle (MSM, HMM, HMM_Uni LSTM, Transformer). Bei `walk_forward.enabled: false` klassischer 80/20-Split mit optionaler Modell-Persistierung, bei `true` rollierende Walk-Forward-Validierung mit OOS-Caching.
 5.  **Backtest Service** (`POST /backtest/run`): Simulation realer Investitionsszenarien inkl. variabler Entnahmen und Transaktionskosten.
 6.  **Backtest Service** (`POST /backtest/evaluate`): Stress-Tests mittels Block-Bootstrap (Monte-Carlo-Simulation), Hypothesentests und automatisierte Zusammenführung aller Ergebnisse in `docs/statistics.md`.
 
@@ -228,7 +230,7 @@ regime-switching-daa/
 │   └── dashboard_service/   Interaktives Frontend (UI, Control Hub, Config-Editor, Live-Logs)
 ├── src/             Shared Business Logic
 │   ├── data/        Ingestion, Preprocessing, Feature Engineering, EDA, Plots
-│   ├── models/      MSM, HMM, LSTM, Transformer, Plots
+│   ├── models/      MSM, HMM, HMM_Uni, LSTM, Transformer, Plots
 │   └── backtest/    Engine, Walk-Forward, Optimize, SORR, Evaluation, Reporting, Plots
 ├── docker-compose.yml
 ├── pyproject.toml
@@ -254,7 +256,7 @@ regime-switching-daa/
 
 ## Reproduzierbarkeit
 
-Deterministische Modelle (MSM, HMM) erzeugen bei identischer Konfiguration reproduzierbare Ergebnisse. LSTM und Transformer weichen durch nicht-deterministisches Training (zufällige Gewichtsinitialisierung, Batch-Shuffling) zwischen Läufen leicht ab. Die Abweichungen kaskadieren in Backtesting, SORR und Monte Carlo Simulation.
+Deterministische Modelle (MSM, HMM, HMM_Uni) erzeugen bei identischer Konfiguration reproduzierbare Ergebnisse. LSTM und Transformer weichen durch nicht-deterministisches Training (zufällige Gewichtsinitialisierung, Batch-Shuffling) zwischen Läufen leicht ab. Die Abweichungen kaskadieren in Backtesting, SORR und Monte Carlo Simulation.
 
 ---
 

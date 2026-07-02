@@ -22,7 +22,8 @@ Modelle mit **höherer Signalfrequenz** (mehr Regime-Switches) generieren mehr st
 
 | Modell | Signalstabilität | Steuerliche Betroffenheit |
 |--------|-----------------|--------------------------|
-| HMM | Hohe Stabilität (wenige Switches) | Gering |
+| HMM | Hohe Frequenz | Erhöht |
+| HMM_Uni | Hohe Frequenz | Erhöht |
 | MSM | Moderate Stabilität | Moderat |
 | LSTM | Tendenziell höhere Frequenz | Erhöht |
 | Transformer | Variabel | Variabel |
@@ -44,6 +45,7 @@ Würde eine Kapitalertragsteuer modelliert, würden Modelle mit vielen kurzen Regi
 Alle Modelle operieren mit exakt **zwei Regimes** (Bull/Bear):
 - MSM: `k_regimes: 2`
 - HMM: `n_components: 2`
+- HMM_Uni: `n_components: 2`
 - LSTM / Transformer: Binäre Klassifikation (Sigmoid-Output)
 
 ### Begründung
@@ -123,17 +125,3 @@ Die 10J/12M/12M-Konfiguration balanciert zwischen ausreichend Trainingsdaten für
 - **Rolling vs. Expanding:** Ein expandierendes Fenster würde insbesondere den späteren Folds mehr Trainingsdaten geben, könnte aber ältere, weniger relevante Marktregimes übergewichten.
 - **DL-Modelle bei 10 Jahren Training:** LSTM und Transformer profitieren typischerweise von größeren Datensätzen. Längere Trainingsfenster könnten die DL-Performance verbessern, würden aber die Anzahl verfügbarer Folds reduzieren.
 - **12-Monats-Folds:** Kürzere Folds (z. B. 6 Monate) würden mehr Datenpunkte für die Evaluation liefern, erhöhen aber die Rechenzeit und das Risiko instabiler Schätzungen bei ökonometrischen Modellen.
-
----
-
-## 6. HMM Cold-Start bei kurzen Testfenstern
-
-**Status:** Bekannte Limitation
-
-Das Hidden Markov Model benötigt eine **Anlaufphase** (Cold Start), um die Zustandsverteilung aus den Emissionen zu schätzen. Bei kurzen Walk-Forward-Testfenstern (z.B. 6 Monate = ca. 126 Handelstage) können die ersten Vorhersagen eines neuen Folds instabil sein, da das Modell die Zustandssequenz aus den initialen Beobachtungen ableiten muss.
-
-### Auswirkung
-
-In der Pipeline wird dieses Problem durch die Verwendung der `predict_proba`-Methode auf dem gesamten Testfenster abgemildert (Forward-Algorithmus nutzt die gesamte Sequenz). Dennoch kann die Zustandszuordnung am Fold-Beginn weniger zuverlässig sein als in der Fold-Mitte.
-
-Siehe Thesis Kapitel 3.5.5 für eine detaillierte Diskussion.

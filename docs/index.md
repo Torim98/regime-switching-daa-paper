@@ -275,6 +275,7 @@ Jedes Artefakt wird in `docs/statistics.md` und/oder im Dashboard eingebettet.
 |-------|-------------|
 | [assets/walk_forward_schema.png](../assets/walk_forward_schema.png) | Walk-Forward Schema |
 | [assets/hmm_regimes.png](../assets/hmm_regimes.png) | Von HMM identifizierte Regimes |
+| [assets/hmm_uni_regimes.png](../assets/hmm_uni_regimes.png) | Von HMM (univariat) identifizierte Regimes |
 | [assets/msm_regimes.png](../assets/msm_regimes.png) | Von MSM identifizierte Regimes |
 | [assets/lstm_model.png](../assets/lstm_model.png) | LSTM-Architekturskizze |
 | [assets/transformer_model.png](../assets/transformer_model.png) | Transformer-Architekturskizze |
@@ -337,6 +338,7 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 |-------|-------------|
 | [assets/threshold_sensitivity_MSM.md](../assets/threshold_sensitivity_MSM.md) | MSM — Threshold-Sensitivität |
 | [assets/threshold_sensitivity_HMM.md](../assets/threshold_sensitivity_HMM.md) | HMM — Threshold-Sensitivität |
+| [assets/threshold_sensitivity_HMM_Uni.md](../assets/threshold_sensitivity_HMM_Uni.md) | HMM (univariat) — Threshold-Sensitivität |
 | [assets/threshold_sensitivity_LSTM.md](../assets/threshold_sensitivity_LSTM.md) | LSTM — Threshold-Sensitivität |
 | [assets/threshold_sensitivity_Transformer.md](../assets/threshold_sensitivity_Transformer.md) | Transformer — Threshold-Sensitivität |
 
@@ -347,6 +349,7 @@ Je Modell vier Standard-Plots (History / Importance / Contour / Slice):
 | [assets/time_to_recovery_Buy_Hold.md](../assets/time_to_recovery_Buy_Hold.md) | Buy-&-Hold — Time-to-Recovery |
 | [assets/time_to_recovery_MSM.md](../assets/time_to_recovery_MSM.md) | MSM — Time-to-Recovery |
 | [assets/time_to_recovery_HMM.md](../assets/time_to_recovery_HMM.md) | HMM — Time-to-Recovery |
+| [assets/time_to_recovery_HMM_Uni.md](../assets/time_to_recovery_HMM_Uni.md) | HMM (univariat) — Time-to-Recovery |
 | [assets/time_to_recovery_LSTM.md](../assets/time_to_recovery_LSTM.md) | LSTM — Time-to-Recovery |
 | [assets/time_to_recovery_Transformer.md](../assets/time_to_recovery_Transformer.md) | Transformer — Time-to-Recovery |
 

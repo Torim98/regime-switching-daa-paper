@@ -72,6 +72,7 @@ Das Dashboard konsumiert die Artefakte read-only und proxy't schreibende Calls (
 Innerhalb des Model Service gilt eine feste Trainingsreihenfolge:
 1. **MSM** (Markov-Switching) — unabhängig
 2. **HMM** (Hidden Markov) — unabhängig, unsupervised Baseline
+2b. HMM_Uni — univariate Ablationsvariante
 3. **LSTM** — Supervised auf Pagan-Sossounov-Labels (aus `feature_engineered_data`), erstellt `test_df`
 4. **Transformer** — Supervised auf Pagan-Sossounov-Labels
 Bei `walk_forward.enabled: true` wird `/models/train-all` direkt aufgerufen und steuert alle Modelle über `run_walk_forward()`. Die Einzelrouten `/models/train/{model_name}` sind in diesem Modus blockiert (HTTP 400). Ein fingerprint-basierter Parquet-Cache beschleunigt wiederholte Durchläufe bei unveränderter Konfiguration.

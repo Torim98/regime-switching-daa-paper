@@ -76,12 +76,13 @@ Das zentrale Designprinzip der Pipeline ist die **standardisierte Signal-Schnitt
 
 ### Bestehende Modelle als Referenz
 
-| Modellname        | `_Prob`-Spalte           | `_Signal`-Spalte           | Paradigma                  |
-| :---------------- | :----------------------- | :------------------------- | :------------------------- |
-| MSM               | `MSM_Prob`               | `MSM_Signal`               | Ökonometrie (Regression)   |
-| HMM               | `HMM_Prob`               | `HMM_Signal`               | Ökonometrie (Unsupervised) |
-| LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            |
-| Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     |
+| Modellname        | `_Prob`-Spalte           | `_Signal`-Spalte           | Paradigma                  			|
+| :---------------- | :----------------------- | :------------------------- | :------------------------- 			|
+| MSM               | `MSM_Prob`               | `MSM_Signal`               | Ökonometrie (Regression)   			|
+| HMM               | `HMM_Prob`               | `HMM_Signal`               | Ökonometrie (Unsupervised) 			|
+| HMM_Uni           | `HMM_Uni_Prob`           | `HMM_Uni_Signal`           | Ökonometrie (Unsupervised, Ablation)  |
+| LSTM              | `LSTM_Prob`              | `LSTM_Signal`              | ML (Supervised)            			|
+| Transformer       | `Transformer_Prob`       | `Transformer_Signal`       | ML (Attention-basiert)     			|
 
 ---
 
@@ -593,7 +594,7 @@ Führe nach der Integration folgende Prüfungen durch:
 - [ ] Die Spalte `<Modell>_Prob` existiert im DataFrame und enthält `float`-Werte zwischen `0.0` und `1.0`
 - [ ] Die Spalte `<Modell>_Signal` existiert im DataFrame und enthält ausschließlich `0` oder `1`
 - [ ] Keine `NaN`-Werte in `<Modell>_Signal` (im Testzeitraum)
-- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`MSM`, `HMM`, `LSTM`, `Transformer`)
+- [ ] Der Modellname kollidiert nicht mit bestehenden Namen (`MSM`, `HMM`, `HMM_Uni`, `LSTM`, `Transformer`)
 
 ### Config-Prüfungen
 - [ ] Neuer Eintrag unter `models:` in `config/config.yaml` angelegt
@@ -663,6 +664,13 @@ Die folgenden bestehenden Modelle in `src/models/` (`msm.py`, `hmm.py`, `lstm.py
 - **Config-Key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
 - **Besonderheit:** Erfordert nach dem Training einen Check, ob Regime 0 oder 1 dem Bear-Regime entspricht (Label-Alignment)
 
+### B2. HMM_Uni (Univariates HMM) — Ablationsvariante, Ökonometrie
+- **Bibliothek:** `hmmlearn` (identischer Code wie HMM: `src/models/hmm.py`, `train_hmm_fold` ist feature-agnostisch)
+- **Ansatz:** Wie HMM, aber ausschließlich `Returns` als Input. Identischer Input-Raum wie das MSM. Trennt den Architektureffekt vom Feature-Beitrag
+- **Output:** `HMM_Uni_Prob`, `HMM_Uni_Signal`
+- **Config-Key:** `models.hmm_uni` (features, n_components, covariance_type, n_iter, random_state, threshold)
+- **Besonderheit:** Kein eigenes Modul nötig, nur ein zweiter Config-Block, der durch dieselbe Fold-Funktion läuft (`_run_hmm_fold` in `src/backtest/parallel.py`). Referenzfall dafür, dass ein neues Modell rein über Konfiguration + Orchestrierung integrierbar ist.
+
 ### C. LSTM (Supervised) — Machine Learning
 - **Bibliothek:** `TensorFlow` / `Keras`
 - **Ansatz:** Supervised Learning auf Pagan-Sossounov-Labels; lernt Regime-Wechsel aus Zeitreihen-Sequenzen (Windows)
@@ -683,6 +691,7 @@ Die folgenden bestehenden Modelle in `src/models/` (`msm.py`, `hmm.py`, `lstm.py
 |:---|:---|:---|
 | MSM | `cfg.models.msm` | `k_regimes`, `switching_variance` |
 | HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
+| HMM_Uni | `cfg.models.hmm_uni` | `n_components`, `covariance_type`, `threshold` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units_l1`, `units_l2`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
 | **Dein Modell** | `cfg.models.my_model` | *deine Parameter* |

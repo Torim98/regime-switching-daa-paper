@@ -30,12 +30,12 @@ Das Projekt `regime-switching-daa` nutzt eine Microservice-Architektur: drei con
 - **Beschreibung**: Trainiert alle vier Modelle. Bei `walk_forward.enabled: false` sequentiell im Single-Split-Modus. Bei `walk_forward.enabled: true` über die Walk-Forward-Engine (`run_walk_forward`) mit rollierenden Folds, fingerprint-basiertem Cache und OOS-Aggregation. Gibt im Walk-Forward-Modus zusätzlich `folds` und `oos_days` zurück.
 
 ### `POST /models/optimize/{model_name}`
-- **Parameter**: `model_name` (String: `MSM` | `HMM` | `LSTM` | `Transformer`)
+- **Parameter**: `model_name` (String: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`)
 - **Beschreibung**: Führt eine Optuna-Hyperparameter-Optimierung für das angegebene Modell durch. Nutzt Walk-Forward-Splits als innere Cross-Validation. `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` (`optimization.n_trials_per_model` bzw. `optimization.every_nth_fold_per_model`) gelesen. Keine API-Overrides, damit die Thesis-Konfiguration reproduzierbar bleibt. Erfordert `walk_forward.enabled: true`. Ergebnisse werden in `models/optuna_studies.db` persistiert. Gibt `best_sharpe`, `best_params` und `n_trials` zurück.
 
 ### `POST /models/optimize-all`
 - **Parameter**: keine
-- **Beschreibung**: Optimiert alle vier Modelle sequenziell (MSM → HMM → LSTM → Transformer). `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` gelesen (Thesis-Default: 50 Trials / `every_nth_fold=2` für MSM & HMM, 30 / 2 für LSTM & Transformer). Gibt ein Dict mit `best_sharpe` und `best_params` pro Modell zurück.
+- **Beschreibung**: Optimiert alle fünf Modelle sequenziell (MSM → HMM → HMM_Uni → LSTM → Transformer). `n_trials` und `every_nth_fold` werden pro Modell aus `config.yaml` gelesen (Thesis-Default: 50 Trials / `every_nth_fold=2` für MSM & HMM (+HMM_Uni), 30 / 2 für LSTM & Transformer). Gibt ein Dict mit `best_sharpe` und `best_params` pro Modell zurück.
 
 ### `GET /models/status`
 - **Beschreibung**: Überprüft das Dateisystem und gibt für jedes der vier Modelle als Boolean (`true`/`false`) zurück, ob das jeweilige Modell bereits trainiert und erfolgreich auf der Festplatte persistiert wurde.
@@ -106,7 +106,7 @@ Alle Chart-Endpoints liefern Plotly-kompatibles JSON, das clientseitig mit Plotl
 - **Beschreibung**: Rolling Sharpe Ratio mit konfigurierbarem Fenster.
 
 #### `GET /api/chart/regime-overlay`
-- **Parameter**: `model` (str: `MSM` | `HMM` | `LSTM` | `Transformer`, default: `MSM`)
+- **Parameter**: `model` (str: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`, default: `MSM`)
 - **Beschreibung**: 60/40-Kurs mit Bear-Probability und Bear-Signal-Bändern (rote Shapes) überlagert. Zeigt, wann und wo das ausgewählte Modell Bärenmarkt-Phasen erkannt hat.
 
 #### `GET /api/chart/mcs-quantiles`
