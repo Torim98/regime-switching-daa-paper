@@ -67,7 +67,7 @@
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Threshold-Sensitivity</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <template x-for="m in ['MSM','HMM','LSTM','Transformer']" :key="m">
+      <template x-for="m in ['MSM','HMM','HMM_Uni','LSTM','Transformer']" :key="m">
         <div>
           <h3 class="text-sm font-semibold mb-1" x-text="m"></h3>
           <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto text-xs" x-html="thresholdMd[m]"></div>
@@ -80,7 +80,7 @@
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold mb-4">Time-to-Recovery</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <template x-for="m in ['Buy_Hold','MSM','HMM','LSTM','Transformer']" :key="m">
+      <template x-for="m in ['Buy_Hold','MSM','HMM','HMM_Uni','LSTM','Transformer']" :key="m">
         <div>
           <h3 class="text-sm font-semibold mb-1" x-text="m"></h3>
           <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto text-xs" x-html="ttrMd[m]"></div>
@@ -101,7 +101,7 @@
       </label>
       <label>Strategie
         <select x-model="strategy" @change="drawMcs()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
-          <option>Buy_Hold</option><option>MSM</option><option>HMM</option><option>LSTM</option><option>Transformer</option>
+          <option>Buy_Hold</option><option>MSM</option><option>HMM</option><option>HMM_Uni</option><option>LSTM</option><option>Transformer</option>
         </select>
       </label>
     </div>
@@ -197,10 +197,10 @@ function evalPage() {
       [this.mdEval, this.mdClass, this.mdChurn, this.mdSwitch, this.mdMcs,
        this.mdDep, this.mdH1, this.mdH2, this.mdBe, this.mdWd] = pairs;
 
-      for (const m of ['MSM','HMM','LSTM','Transformer']) {
+      for (const m of ['MSM','HMM','HMM_Uni','LSTM','Transformer']) {
         this.thresholdMd[m] = await fetchMd(`threshold_sensitivity_${m}.md`);
       }
-      for (const m of ['Buy_Hold','MSM','HMM','LSTM','Transformer']) {
+      for (const m of ['Buy_Hold','MSM','HMM','HMM_Uni','LSTM','Transformer']) {
         this.ttrMd[m] = await fetchMd(`time_to_recovery_${m}.md`);
       }
       await Promise.all([

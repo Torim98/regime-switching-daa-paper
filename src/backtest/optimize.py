@@ -189,6 +189,56 @@ def objective_hmm(
 
     return float(np.median(fold_sharpes))
 
+def objective_hmm_uni(
+    trial: optuna.Trial,
+    df: pd.DataFrame,
+    splits: list,
+    cfg,
+    fee: float,
+    signal_shift: int,
+) -> float:
+    """
+    HMM_Uni: nur Threshold optimieren.
+
+    covariance_type wird NICHT getunt: bei univariatem Input (nur Returns)
+    sind full/diag/tied identisch (1x1-Kovarianz). Damit ist der Suchraum
+    deckungsgleich mit dem MSM-Objective; faire Basis für den
+    Architekturvergleich (Issue #3).
+    """
+    from src.models.hmm import train_hmm_fold
+
+    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
+
+    uni_cfg = cfg.models.hmm_uni
+
+    fold_sharpes = []
+    for fold_id, (train_idx, test_idx) in enumerate(splits):
+        try:
+            df_train = df.loc[train_idx]
+            df_test = df.loc[test_idx]
+
+            probs, signal, _ = train_hmm_fold(
+                features_df_train=df_train[uni_cfg.features],
+                features_df_test=df_test[uni_cfg.features],
+                returns_train=df_train["Returns"],
+                n_components=uni_cfg.n_components,
+                covariance_type=uni_cfg.covariance_type,
+                n_iter=uni_cfg.n_iter,
+                random_state=uni_cfg.random_state,
+                threshold=threshold,
+            )
+
+            oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
+            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
+        except Exception as e:
+            warnings.warn(f"HMM_Uni Trial {trial.number}, Fold {fold_id}: {e}")
+            fold_sharpes.append(-999.0)
+
+        trial.report(np.median(fold_sharpes), fold_id)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
+    return float(np.median(fold_sharpes))
 
 def objective_lstm(
     trial: optuna.Trial,
@@ -377,6 +427,7 @@ def objective_transformer(
 _OBJECTIVE_MAP = {
     "MSM": objective_msm,
     "HMM": objective_hmm,
+    "HMM_Uni": objective_hmm_uni,
     "LSTM": objective_lstm,
     "Transformer": objective_transformer,
 }
@@ -604,7 +655,7 @@ def optimize_all(
     Dict[model_name → optuna.Study].
     """
     if models is None:
-        models = ["MSM", "HMM", "LSTM", "Transformer"]
+        models = ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
 
     studies = {}
     for model_name in models:
@@ -712,6 +763,10 @@ def _get_default_params(model_name: str, cfg) -> dict | None:
         return {
             "covariance_type": cfg.models.hmm.covariance_type,  # "full"
             "threshold": cfg.models.hmm.threshold,          # 0.5
+        }
+    if model_name == "HMM_Uni":
+        return {
+            "threshold": cfg.models.hmm_uni.threshold,
         }
     if model_name == "LSTM":
         c = cfg.models.lstm

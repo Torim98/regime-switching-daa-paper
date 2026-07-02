@@ -68,7 +68,7 @@ _CATALOG = [
                 "description": "Nur bei walk_forward.enabled=false. Sonst HTTP 400.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
-                     "options": ["msm", "hmm", "lstm", "transformer"]},
+                     "options": ["msm", "hmm", "hmm_uni", "lstm", "transformer"]},
                 ],
                 "danger": True,
             },
@@ -84,14 +84,14 @@ _CATALOG = [
                 "description": "Erfordert walk_forward.enabled=true. n_trials und every_nth_fold kommen pro Modell aus config.yaml (optimization.n_trials_per_model / every_nth_fold_per_model). Persistiert in optuna_studies.db.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
-                     "options": ["MSM", "HMM", "LSTM", "Transformer"]},
+                     "options": ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]},
                 ],
                 "danger": True,
             },
             {
                 "id": "model.optimize_all", "method": "POST", "path": "/models/optimize-all",
                 "label": "Optuna-HPO für alle Modelle",
-                "description": "Sequentiell MSM → HMM → LSTM → Transformer. n_trials und every_nth_fold kommen pro Modell aus config.yaml (Thesis-Default: 50 für MSM/HMM, 30 für LSTM/Transformer).",
+                "description": "Sequentiell MSM → HMM → HMM_Uni → LSTM → Transformer. n_trials und every_nth_fold kommen pro Modell aus config.yaml (Thesis-Default: 50 für MSM/HMM/HMM_Uni, 30 für LSTM/Transformer).",
                 "params": [],
                 "danger": True,
             },

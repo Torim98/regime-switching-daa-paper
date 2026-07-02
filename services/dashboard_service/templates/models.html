@@ -15,6 +15,7 @@
                   class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
             <option>MSM</option>
             <option>HMM</option>
+            <option>HMM_Uni</option>
             <option>LSTM</option>
             <option>Transformer</option>
           </select>
@@ -121,6 +122,7 @@
                   class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
             <option>MSM</option>
             <option>HMM</option>
+            <option>HMM_Uni</option>
             <option>LSTM</option>
             <option>Transformer</option>
           </select>
@@ -151,10 +153,10 @@
 
     <!-- Zeile 3: Contour (volle Breite — n×n-Matrix, quadratisch) -->
     <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 mt-4 overflow-x-auto">
-      <div x-show="optunaModel !== 'MSM'" id="chart-optuna-contour" class="w-full min-w-[900px]"></div>
-      <div x-show="optunaModel === 'MSM'"
+      <div x-show="!['MSM','HMM_Uni'].includes(optunaModel)" id="chart-optuna-contour" class="w-full min-w-[900px]"></div>
+      <div x-show="['MSM','HMM_Uni'].includes(optunaModel)"
            class="h-[240px] flex items-center justify-center text-sm text-slate-500 italic border border-dashed border-slate-300 dark:border-slate-600 rounded">
-        Kein Contour-Plot — MSM hat nur 1 Hyperparameter (threshold).
+        Kein Contour-Plot — MSM und HMM_Uni haben nur 1 Hyperparameter (threshold).
       </div>
     </div>
   </section>
@@ -188,8 +190,8 @@ function modelsPage() {
         renderChart('chart-optuna-importance', `/api/chart/optuna?model=${m}&plot=importance`),
         renderChart('chart-optuna-slice',      `/api/chart/optuna?model=${m}&plot=slice`),
       ];
-      // Contour entfällt bei MSM (nur 1 Hyperparameter) — Fallback-Card wird gezeigt.
-      if (this.optunaModel !== 'MSM') {
+      // Contour entfällt bei MSM und HMM_Uni (nur 1 Hyperparameter) — Fallback-Card wird gezeigt.
+      if (!['MSM','HMM_Uni'].includes(this.optunaModel)) {
         tasks.push(renderChart('chart-optuna-contour', `/api/chart/optuna?model=${m}&plot=contour`));
       }
       await Promise.all(tasks);

@@ -25,7 +25,7 @@ def get_cfg():
 @router.post("/train/{model_name}")
 
 def train_model(model_name: str):
-    """Einzelnes Modell trainieren. model_name: msm|hmm|lstm|transformer"""
+    """Einzelnes Modell trainieren. model_name: msm|hmm|hmm_uni|lstm|transformer"""
     start = time.time()
     logger.info(f"Training model: {model_name}")
     
@@ -128,6 +128,44 @@ def train_model(model_name: str):
         plot_hmm_regimes(df, "HMM", cfg.color_map.get("HMM", "tab:purple"),
                          cfg.asset_path("hmm_regimes"))
         
+    elif model_name == "hmm_uni":
+        uni_cfg = cfg.models.hmm_uni
+        split_point = int(len(df) * uni_cfg.train_test_split)
+
+        features_train = df[uni_cfg.features].iloc[:split_point]
+        features_test = df[uni_cfg.features].iloc[split_point:]
+        returns_train = df['Returns'].iloc[:split_point]
+
+        model, scaler = train_hmm(
+            features_df_train=features_train,
+            n_components=uni_cfg.n_components,
+            covariance_type=uni_cfg.covariance_type,
+            n_iter=uni_cfg.n_iter,
+            random_state=uni_cfg.random_state,
+            model_file=cfg.model_path("hmm_uni"),
+            scaler_file=cfg.model_path("scaler_hmm_uni"),
+        )
+
+        probs_train, signal_train, probs_test, signal_test = predict_hmm(
+            model=model,
+            scaler=scaler,
+            features_df_train=features_train,
+            features_df_test=features_test,
+            returns_train=returns_train,
+            threshold=uni_cfg.threshold,
+        )
+
+        df.loc[features_train.index, "HMM_Uni_Prob"] = probs_train.values
+        df.loc[features_train.index, "HMM_Uni_Signal"] = signal_train.values
+        df.loc[features_test.index, "HMM_Uni_Prob"] = probs_test.values
+        df.loc[features_test.index, "HMM_Uni_Signal"] = signal_test.values
+
+        validate_regime_signal(df, "HMM_Uni")
+        df.to_parquet(cfg.data_path("feature_engineered"))
+
+        plot_hmm_regimes(df, "HMM_Uni", cfg.color_map.get("HMM_Uni", "tab:pink"),
+                         cfg.asset_path("hmm_uni_regimes"))
+
     elif model_name == "lstm":
         if cfg.labels.supervised_label_source == "hmm" and "HMM_Signal" not in df.columns:
             raise HTTPException(400, "HMM must be trained first (provides labels for LSTM).")
@@ -229,7 +267,7 @@ def train_model(model_name: str):
         plot_dl_model(test_df, "Transformer", cfg.plotting.colors.transformer,
                       cfg.asset_path("transformer_model"), cfg=cfg)
 
-        # Regime Comparison (alle 4 Modelle fertig)
+        # Regime Comparison (alle 5 Modelle fertig)
         plot_regime_comparison(test_df, cfg.color_map,
                                cfg.asset_path("regime_comparison"))
         
@@ -242,7 +280,7 @@ def train_model(model_name: str):
 
 @router.post("/train-all")
 def train_all():
-    """Alle 4 Modelle trainieren — Single-Split oder Walk-Forward."""
+    """Alle 5 Modelle trainieren — Single-Split oder Walk-Forward."""
     start = time.time()
     cfg = get_cfg()
 
@@ -391,7 +429,7 @@ def train_all():
         # ============================================================
         logger.info("Single-Split: Training MSM → HMM → LSTM → Transformer")
         results = []
-        for name in ["msm", "hmm", "lstm", "transformer"]:
+        for name in ["msm", "hmm", "hmm_uni", "lstm", "transformer"]:
             result = train_model(name)
             results.append(result)
 
@@ -404,7 +442,7 @@ def model_status():
     """Welche Modelle sind persistiert?"""
     cfg = get_cfg()
     status = {}
-    for key in ["msm", "hmm", "lstm", "transformer"]:
+    for key in ["msm", "hmm", "hmm_uni","lstm", "transformer"]:
         path = cfg.model_path(key)
         status[key] = Path(path).exists()
     return status
@@ -424,7 +462,7 @@ async def optimize_model(model_name: str):
     if not cfg.walk_forward.enabled:
         raise HTTPException(400, "Optimierung erfordert walk_forward.enabled = true")
 
-    valid_models = ["MSM", "HMM", "LSTM", "Transformer"]
+    valid_models = ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
     if model_name not in valid_models:
         raise HTTPException(400, f"Unbekanntes Modell. Verfügbar: {valid_models}")
 
@@ -450,7 +488,7 @@ async def optimize_model(model_name: str):
 @router.post("/optimize-all")
 async def optimize_all_models():
     """
-    Alle 4 Modelle sequenziell optimieren.
+    Alle 5 Modelle sequenziell optimieren.
 
     Trial-Anzahl und Fold-Subsampling werden pro Modell aus der zentralen
     Config (cfg.optimization.n_trials_per_model bzw. every_nth_fold_per_model)

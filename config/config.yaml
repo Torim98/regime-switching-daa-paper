@@ -62,7 +62,7 @@ models:
     covariance_type: "full"     # univariat sind full/diag/tied/spherical äquivalent
     n_iter: 1000
     random_state: 42
-    threshold: 0.5              # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.35             # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
   lstm:
     window_size: 120            # Initialwert der Thesis 60
     train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
@@ -124,6 +124,7 @@ optimization:
   models:
     - "MSM"
     - "HMM"
+    - "HMM_Uni"
     - "LSTM"
     - "Transformer"
   # Trials pro Modell — ökonometrische Modelle sind günstig (50 Trials),
@@ -131,11 +132,13 @@ optimization:
   n_trials_per_model:
     MSM: 50
     HMM: 50
+    HMM_Uni: 50
     LSTM: 30
     Transformer: 30
   every_nth_fold_per_model:
     MSM: 2
     HMM: 2
+    HMM_Uni: 2
     LSTM: 2
     Transformer: 2
   storage: "sqlite:///models/optuna_studies.db"   # Optional: Persistieren der Optuna-DB
@@ -305,6 +308,8 @@ model_persistence:
     msm: "msm_regime_model.pkl"
     hmm: "hmm_regime_model.pkl"
     scaler_hmm: "hmm_scaler.pkl"
+    hmm_uni: "hmm_uni_regime_model.pkl"
+    scaler_hmm_uni: "hmm_uni_scaler.pkl"
     lstm: "lstm_regime_model.keras"
     scaler_lstm: "lstm_scaler.pkl"
     transformer: "transformer_regime_model.pt"

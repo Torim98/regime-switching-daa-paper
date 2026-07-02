@@ -940,7 +940,7 @@ def chart_regime_overlay(model: str = Query("MSM", pattern="^(MSM|HMM|LSTM|Trans
 # ---------------------------------------------------------------------------
 
 def _build_label_dict(test_df: pd.DataFrame) -> dict:
-    """MSM/HMM aus test_df + preisbasierte/makro Alternativen (on-the-fly berechnet)."""
+    """MSM/HMM/HMM_Uni aus test_df + preisbasierte/makro Alternativen (on-the-fly berechnet)."""
     from src.data.labels import (
         label_pagan_sossounov, label_peak_to_trough,
         label_lunde_timmermann, load_nber_recession,
@@ -949,6 +949,7 @@ def _build_label_dict(test_df: pd.DataFrame) -> dict:
     return {
         "MSM":     test_df["MSM_Signal"].astype("int8"),
         "HMM":     test_df["HMM_Signal"].astype("int8"),
+        "HMM_Uni": test_df["HMM_Uni_Signal"].astype("int8"),
         "PagSoss": label_pagan_sossounov(prices),
         "P2T":     label_peak_to_trough(prices, threshold=0.20),
         "LundeT":  label_lunde_timmermann(prices),
