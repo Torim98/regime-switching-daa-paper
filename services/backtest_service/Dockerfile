@@ -12,8 +12,6 @@ COPY config/ config/
 COPY src/ src/
 COPY services/__init__.py services/__init__.py
 COPY services/logging_config.py services/logging_config.py
-COPY services/__init__.py services/__init__.py
-COPY services/logging_config.py services/logging_config.py
 COPY services/warnings_config.py services/warnings_config.py
 COPY services/data_service/ services/data_service/
 

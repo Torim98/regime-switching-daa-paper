@@ -37,11 +37,11 @@ services = [
     "httpx==0.28.1",
 ]
 # Dashboard service (templates, WebSockets, form parsing)
+# watchfiles/websockets are pulled in (and version-resolved) by uvicorn[standard]
+# from the services extra, so they are not pinned here to keep all services aligned.
 dashboard = [
     "jinja2==3.1.4",
     "python-multipart==0.0.20",
-    "watchfiles==1.1.0",
-    "websockets==14.2",
     "optuna==4.8.0",  # for /api/optuna/best-params (read-only access to studies DB)
 ]
 dev = [
