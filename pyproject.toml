@@ -5,7 +5,7 @@ description = "Regime-Switching Dynamic Asset Allocation"
 requires-python = ">=3.11"
 
 dependencies = [
-    # --- Core (leichtgewichtig, in allen Services vorhanden) ---
+    # --- Core (lightweight, present in all services) ---
     "yfinance==1.5.1",
     "pandas==2.3.3",
     "numpy==2.3.5",
@@ -23,26 +23,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Schwere ML-Frameworks + HPO — nur wo wirklich gebraucht (model_service)
+# Heavy ML frameworks + HPO, only where actually needed (model_service)
 ml = [
     "tensorflow==2.20.0",
     "keras==3.14.0",
     "torch==2.6.0",
     "optuna==4.8.0",
 ]
-# FastAPI-Runtime (alle Services)
+# FastAPI runtime (all services)
 services = [
     "fastapi==0.135.3",
     "uvicorn[standard]==0.43.0",
     "httpx==0.28.1",
 ]
-# Dashboard-Service (Templates, WebSockets, Form-Parsing)
+# Dashboard service (templates, WebSockets, form parsing)
 dashboard = [
     "jinja2==3.1.4",
     "python-multipart==0.0.20",
     "watchfiles==1.1.0",
     "websockets==14.2",
-    "optuna==4.8.0",  # für /api/optuna/best-params (read-only Zugriff auf Studies-DB)
+    "optuna==4.8.0",  # for /api/optuna/best-params (read-only access to studies DB)
 ]
 dev = [
     "nbstripout>=0.8.0",

@@ -1,5 +1,5 @@
 # ============================================================================
-# Central Configuration — Regime-Switching DAA Pipeline
+# Central Configuration: Regime-Switching DAA Pipeline
 # ============================================================================
 # Single source of truth for all pipeline parameters.
 # Changes here propagate to all services via config_loader.py.
@@ -15,8 +15,8 @@ data:
     - "^TNX"        # 10-Year Treasury Note Yield
   start_date: "1990-01-02"
   # end_date:
-  #   - null (oder Feld leer lassen)  -> dynamisch = heute (rolling mode)
-  #   - "YYYY-MM-DD"                  -> fester Cutoff (thesis-freeze mode, inklusiv)
+  #   - null (or leave the field empty) -> dynamic = today (rolling mode)
+  #   - "YYYY-MM-DD"                     -> fixed cutoff (thesis-freeze mode, inclusive)
   end_date:
 
 # --- Feature Engineering (Data Service) ---
@@ -42,93 +42,93 @@ models:
   msm:
     k_regimes: 2
     switching_variance: true
-    threshold: 0.7    # Basis für die anderen Modelle; Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
-    train_test_split: &msm_train_test_split 0.8  # 0.8, wird nur bei walk_forward.enabled: false genutzt
+    threshold: 0.7    # basis for the other models; bear signal when prob >= threshold; thesis initial value 0.5
+    train_test_split: &msm_train_test_split 0.8  # 0.8, only used when walk_forward.enabled: false
   hmm:
     features:
       - "Returns"
       - "VIX"
       - "Yield_Spread"
     n_components: 2
-    covariance_type: "tied"     # Intitialwert der Thesis "full"
+    covariance_type: "tied"     # thesis initial value "full"
     n_iter: 1000
     random_state: 42
-    threshold: 0.35             # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
-    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
+    threshold: 0.35             # bear signal when prob >= threshold; thesis initial value 0.5
+    train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
   hmm_uni:
     features:
-      - "Returns"               # identischer Input-Raum wie MSM (Vergleichsachse)
+      - "Returns"               # same input space as MSM (comparison axis)
     n_components: 2
-    covariance_type: "full"     # univariat sind full/diag/tied/spherical äquivalent
+    covariance_type: "full"     # univariate: full/diag/tied/spherical are equivalent
     n_iter: 1000
     random_state: 42
-    threshold: 0.35             # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.35             # bear signal when prob >= threshold; thesis initial value 0.5
   lstm:
-    window_size: 120            # Initialwert der Thesis 60
-    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
-    units_l1: 32                # Initialwert der Thesis 32
-    units_l2: 64                # Initialwert der Thesis 64
+    window_size: 120            # thesis initial value 60
+    train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
+    units_l1: 32                # thesis initial value 32
+    units_l2: 64                # thesis initial value 64
     return_sequences: true
-    epochs: 40                  # Initialwert der Thesis 30
+    epochs: 40                  # thesis initial value 30
     batch_size: 32
-    learning_rate: 0.0001053    # Initialwert der Thesis 0.001
-    dropout: 0.4                # Initialwert der Thesis 0.2
+    learning_rate: 0.0001053    # thesis initial value 0.001
+    dropout: 0.4                # thesis initial value 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.3              # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.3              # bear signal when prob >= threshold; thesis initial value 0.5
   transformer:
     # --- Data ---
-    window_size: 40              # Gleiche Sequenzlänge wie LSTM; Initialwert der Thesis 60
-    train_test_split: *msm_train_test_split  # 0.8, wird nur bei walk_forward.enabled: false genutzt
-    # --- Architektur ---
-    d_model: 32                  # Embedding-Dimension (Transformer interne Dimension); Initialwert der Thesis 64
-    n_heads: 4                   # Anzahl Attention-Heads (d_model muss durch n_heads teilbar sein!); Initialwert der Thesis 4
-    n_layers: 3                  # Anzahl Transformer-Encoder-Layer; Initialwert der Thesis 2
-    dim_feedforward: 128         # Dimension des Feed-Forward-Netzwerks im Encoder; Initialwert der Thesis 128
-    dropout: 0.1                 # Dropout-Rate (Regularisierung); Initialwert der Thesis 0.1
+    window_size: 40              # same sequence length as LSTM; thesis initial value 60
+    train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
+    # --- Architecture ---
+    d_model: 32                  # embedding dimension (Transformer internal dimension); thesis initial value 64
+    n_heads: 4                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
+    n_layers: 3                  # number of Transformer encoder layers; thesis initial value 2
+    dim_feedforward: 128         # dimension of the feed-forward network in the encoder; thesis initial value 128
+    dropout: 0.1                 # dropout rate (regularization); thesis initial value 0.1
     # --- Training ---
-    epochs: 40                   # Initialwert der Thesis 50
+    epochs: 40                   # thesis initial value 50
     batch_size: 32
-    learning_rate: 0.00003282    # Initialwert der Thesis 0.0001
+    learning_rate: 0.00003282    # thesis initial value 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.55              # Bear-Signal wenn Prob >= threshold; Initialwert der Thesis 0.5
+    threshold: 0.55              # bear signal when prob >= threshold; thesis initial value 0.5
      # --- Class Balancing ---
-    pos_weight_auto: true        # Automatische Gewichtung für Bear-Klasse
+    pos_weight_auto: true        # automatic weighting for bear class
 
-# --- Walk-Forward-Validierung (Model Service) ---
+# --- Walk-Forward Validation (Model Service) ---
 walk_forward:
-  enabled: true                   # false = Fallback auf alten 80/20-Split
-  mode: "rolling"                  # "rolling" oder "expanding"
-  train_window_years: 10           # Länge des Train-Fensters (nur bei rolling)
-  test_window_months: 12           # Länge je OOS-Fold
-  step_months: 12                  # Schrittweite (= test_window für nicht-überlappende Folds)
-  min_train_years: 10              # Mindest-Trainingsdatenmenge im ersten Fold (expanding)
-  retrain_dl: true                 # LSTM/Transformer in jedem Fold neu trainieren
-  retrain_msm_hmm: true            # MSM/HMM in jedem Fold neu trainieren
+  enabled: true                   # false = fallback to the old 80/20 split
+  mode: "rolling"                  # "rolling" or "expanding"
+  train_window_years: 10           # length of the train window (rolling only)
+  test_window_months: 12           # length per OOS fold
+  step_months: 12                  # step size (= test_window for non-overlapping folds)
+  min_train_years: 10              # minimum training data in the first fold (expanding)
+  retrain_dl: true                 # retrain LSTM/Transformer in every fold
+  retrain_msm_hmm: true            # retrain MSM/HMM in every fold
   cache_enabled: true
-  n_jobs: -1                        # -1 = alle CPUs, 1 = sequentiell (Debug), int = feste Anzahl
+  n_jobs: -1                        # -1 = all CPUs, 1 = sequential (debug), int = fixed count
   dl_warm_start: true
   dl_warm_start_epochs: 10
 
 # --- Backtesting (Backtest Service) ---
-## --- Hyperparameter-Optimierung (Optuna) ---
+## --- Hyperparameter Optimization (Optuna) ---
 optimization:
-  enabled: false                    # Setze enabled: true wenn du Optuna laufen lassen willst, false wenn du die gefundenen Params bereits in der Config hast und nur noch den finalen WF-Lauf machst.
-  metric: "sharpe"                  # Optimierungsziel: "sharpe", "sortino", "calmar"
+  enabled: false                    # Set to true to run Optuna; set to false if the found params are already in the config and only the final WF run remains.
+  metric: "sharpe"                  # optimization target: "sharpe", "sortino", "calmar"
   models:
     - "MSM"
     - "HMM"
     - "HMM_Uni"
     - "LSTM"
     - "Transformer"
-  # Trials pro Modell — ökonometrische Modelle sind günstig (50 Trials),
-  # DL-Modelle teurer (30 Trials). Analog every_nth_fold: DL subsampelt stärker.
+  # Trials per model. Econometric models are cheap (50 trials),
+  # DL models more expensive (30 trials). Same for every_nth_fold: DL subsamples more.
   n_trials_per_model:
     MSM: 50
     HMM: 50
@@ -141,7 +141,7 @@ optimization:
     HMM_Uni: 2
     LSTM: 2
     Transformer: 2
-  storage: "sqlite:///models/optuna_studies.db"   # Optional: Persistieren der Optuna-DB
+  storage: "sqlite:///models/optuna_studies.db"   # optional: persist the Optuna DB
 
 backtesting:
   transaction_cost_bps: 10    # Basis points (10 = 0.1%)
@@ -150,15 +150,15 @@ backtesting:
     scenarios:
       Standard:
         initial_capital: 500000.00
-        annual_withdrawal_rate: 0.06     # 2500€/Monat ÷ 500000€ × 12 = 0.06
+        annual_withdrawal_rate: 0.06     # 2500€/month ÷ 500000€ × 12 = 0.06
         liquidity_fee: 0.001
       Aggressive:
         initial_capital: 500000.00
-        annual_withdrawal_rate: 0.096    # 4000€/Monat ÷ 500000€ × 12 = 0.096
+        annual_withdrawal_rate: 0.096    # 4000€/month ÷ 500000€ × 12 = 0.096
         liquidity_fee: 0.001
       Low_Capital:
         initial_capital: 300000.00
-        annual_withdrawal_rate: 0.08     # 2000€/Monat ÷ 300000€ × 12 = 0.08
+        annual_withdrawal_rate: 0.08     # 2000€/month ÷ 300000€ × 12 = 0.08
         liquidity_fee: 0.001
 
 # --- Evaluation / MCS (Backtest Service) ---
@@ -169,7 +169,7 @@ evaluation:
     random_seed: 42
     sim_years: 10
     trading_days_per_year: 252
-  # --- Issue #13: Extended Evaluation (Kap. 4.1–4.4) ---
+  # --- Issue #13: Extended Evaluation (Sec. 4.1-4.4) ---
   extended:
     nber_source: "fred_csv"         # "fred_csv" | "local"
     f1_models: ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
@@ -182,9 +182,9 @@ evaluation:
       Transformer: [0.30, 0.40, 0.45, 0.50, 0.60]
     fee_grid_bps: [0, 5, 10, 20, 30, 50, 75, 100, 150, 200]
     withdrawal_rates: [0.035, 0.04, 0.05]
-    ttr_min_dd: -0.05               # nur Drawdowns < −5 %
-    alpha: 0.05                     # Signifikanzniveau (Kap. 1.5)
-    hypothesis_scenario: "Aggressive"   # MCS-Szenario fuer H1/H2-Tests
+    ttr_min_dd: -0.05               # only drawdowns < −5 %
+    alpha: 0.05                     # significance level (Sec. 1.5)
+    hypothesis_scenario: "Aggressive"   # MCS scenario for H1/H2 tests
     crisis_windows:
       GFC:   ["2007-10-01", "2009-03-31"]
       COVID: ["2020-02-01", "2020-04-30"]
@@ -227,7 +227,7 @@ paths:
     capital_curve: "capital_curve.png"
     feature_correlation_matrix: "feature_correlation_matrix.png"
     feature_correlation_table: "feature_correlation_table.md"
-    # Walk-Forward-spezifische Assets
+    # Walk-forward-specific assets
     walk_forward_schema: "walk_forward_schema.png"
     annualized_metrics: "annualized_metrics.md"
     crisis_performance: "crisis_performance.md"
@@ -258,7 +258,7 @@ paths:
     optuna_contour: "optuna_{model}_contour.png"
     optuna_slice: "optuna_{model}_slice.png"
     optuna_best_params: "optuna_best_params.md"
-    # Label-Analyse (Issue #21)
+    # Label analysis (Issue #21)
     label_concordance_matrix: "label_concordance_matrix.png"
     label_timeline_comparison: "label_timeline_comparison.png"
     # Issue #13: Extended Evaluation
@@ -297,13 +297,13 @@ fast_mode:
     lstm_epochs: 10
     transformer_epochs: 10
     mcs_n_paths: 100
-    walk_forward_test_window_months: 12   # größere Folds = weniger Folds = schneller
+    walk_forward_test_window_months: 12   # larger folds = fewer folds = faster
     walk_forward_step_months: 12
  
  ## --- Model Persistence ---
 model_persistence:
-  enabled: true                  # true = Modelle laden statt trainieren (falls vorhanden)
-  models_dir: "../models"        # Ablageort für persistierte Modelle
+  enabled: true                  # true = load models instead of training (if available)
+  models_dir: "../models"        # storage location for persisted models
   files:
     msm: "msm_regime_model.pkl"
     hmm: "hmm_regime_model.pkl"

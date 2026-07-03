@@ -1,5 +1,5 @@
 {
-  "_comment": "Cache der fANOVA-Importance-Werte aus save_optuna_plots (src/backtest/plots.py). Da FanovaImportanceEvaluator ohne festen Seed stochastisch ist, werden die Werte zum PNG-Zeitpunkt hier gespeichert \u2014 sodass das Dashboard exakt dieselben Zahlen zeigt wie das statische PNG. Bei neuen Pipeline-L\u00e4ufen schreibt save_optuna_plots diese Datei automatisch neu.",
+  "_comment": "Cache of the fANOVA importance values from save_optuna_plots (src/backtest/plots.py). Since FanovaImportanceEvaluator is stochastic without a fixed seed, the values are stored here at PNG creation time so that the dashboard shows exactly the same numbers as the static PNG. On new pipeline runs, save_optuna_plots rewrites this file automatically.",
   "source": "auto-written by save_optuna_plots",
   "studies": {
     "MSM": {

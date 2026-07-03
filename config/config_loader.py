@@ -90,9 +90,9 @@ class PipelineConfig:
         self.model_persistence = ns.model_persistence
         self.labels = ns.labels
 
-        # --- End-Date-Auflösung ---------------------------------------------
-        # Normalisierung: None / "" / whitespace  -> dynamisch (heute)
-        # Expliziter "YYYY-MM-DD"-String          -> thesis-freeze (inklusiv)
+        # --- End-date resolution --------------------------------------------
+        # Normalization: None / "" / whitespace  -> dynamic (today)
+        # Explicit "YYYY-MM-DD" string            -> thesis-freeze (inclusive)
         raw_end = self.data.end_date
         if raw_end is None or (isinstance(raw_end, str) and not raw_end.strip()):
             self.data.end_date = datetime.now().strftime("%Y-%m-%d")
@@ -144,5 +144,5 @@ class PipelineConfig:
         return f"PipelineConfig(source='{self._path}', base_dir='{self._base_dir}')"
 
 
-# Singleton — importable from any service
+# Singleton, importable from any service
 cfg = PipelineConfig()

@@ -2,21 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Chromium für Kaleido/Plotly PNG-Export
+# Chromium for Kaleido/Plotly PNG export
 RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium && \
     rm -rf /var/lib/apt/lists/*
 ENV CHROME_PATH=/usr/bin/chromium
 
-# pip gegen langsame/flaky Downloads härten
+# harden pip against slow/flaky downloads
 ENV PIP_DEFAULT_TIMEOUT=300 \
     PIP_RETRIES=10
 
 COPY pyproject.toml .
 
-# CPU-only Torch zuerst separat installieren — spart ~3,5 GB CUDA-Wheels.
-# Anschließend zieht ".[services,ml]" nur noch tensorflow/keras/fastapi nach,
-# torch ist bereits befriedigt.
+# Install CPU-only Torch separately first, saves ~3.5 GB of CUDA wheels.
+# Afterwards ".[services,ml]" only pulls tensorflow/keras/fastapi,
+# torch is already satisfied.
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.6.0
 RUN pip install --no-cache-dir ".[services,ml]"
 

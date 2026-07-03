@@ -4,18 +4,18 @@ from config.config_loader import PipelineConfig
 
 @pytest.mark.slow
 def test_cpu_models_match_baseline_snapshot():
-    """Parallel-Run muss bit-identische MSM/HMM-Outputs zum Baseline-Snapshot liefern."""
+    """Parallel run must produce bit-identical MSM/HMM outputs against the baseline snapshot."""
     cfg = PipelineConfig()
     baseline_path = Path(cfg.data_path("walk_forward_cache").replace(
         "wf_cache.parquet", "wf_cache.baseline.parquet",
     ))
     if not baseline_path.exists():
-        pytest.skip("Kein Baseline-Snapshot vorhanden.")
+        pytest.skip("No baseline snapshot available.")
 
     baseline = pd.read_parquet(baseline_path)
     current  = pd.read_parquet(cfg.data_path("walk_forward_cache"))
 
-    # MSM + HMM sind deterministisch (fester random_state) → bit-identisch
+    # MSM + HMM are deterministic (fixed random_state) -> bit-identical
     for m in ("MSM", "HMM"):
         pd.testing.assert_series_equal(
             baseline[f"{m}_Signal"].dropna(),
@@ -28,15 +28,15 @@ def test_cpu_models_match_baseline_snapshot():
             rtol=1e-10, atol=1e-10,
         )
 
-    # LSTM/Transformer: GPU-Nichtdeterminismus → nur grobe Konsistenz pruefen
+    # LSTM/Transformer: GPU non-determinism -> only check rough consistency
     for m in ("LSTM", "Transformer"):
         sig_diff = (
             baseline[f"{m}_Signal"].dropna().astype(int)
             != current[f"{m}_Signal"].dropna().astype(int)
         ).mean()
         assert sig_diff < 0.05, (
-            f"{m}: >5% Signal-Flips zwischen Baseline und Current — "
-            f"Regression oder Label-Quelle geaendert?"
+            f"{m}: >5% signal flips between baseline and current. "
+            f"Regression or changed label source?"
         )
 
 @pytest.mark.slow
