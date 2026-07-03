@@ -1,9 +1,9 @@
-"""Zentrale Warning-Suppression für alle Microservices.
+"""Central warning suppression for all microservices.
 
-Unterdrückt erwartbare, harmlose Warnungen von statsmodels, Keras und
-TensorFlow, die sonst die Service-Logs fluten. Alle unterdrückten
-Warnungen wurden geprüft und sind im Kontext der regime-switching-
-Pipeline unkritisch.
+Suppresses expected, harmless warnings from statsmodels, Keras, and
+TensorFlow that would otherwise flood the service logs. All suppressed
+warnings have been reviewed and are non-critical in the context of the
+regime-switching pipeline.
 """
 import os
 import warnings
@@ -12,11 +12,11 @@ import logging
 
 def configure_warnings():
     # --- TensorFlow ---
-    # Muss VOR dem ersten TF-Import gesetzt werden
+    # Must be set BEFORE the first TF import
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
 
-    # --- statsmodels (MSM, Markov-Switching) ---
+    # --- statsmodels (MSM, Markov switching) ---
     try:
         from statsmodels.tools.sm_exceptions import ValueWarning, ConvergenceWarning
         warnings.filterwarnings("ignore", category=ValueWarning)

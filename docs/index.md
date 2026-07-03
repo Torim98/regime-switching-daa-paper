@@ -360,7 +360,7 @@ Four standard plots per model (history / importance / contour / slice):
 | [assets/h1_drawdown_test.md](../assets/h1_drawdown_test.md) | H1: drawdown reduction (significant?) |
 | [assets/mcs_h1_mdd_forest.png](../assets/mcs_h1_mdd_forest.png) | H1: forest plot H1/MDD |
 | [assets/h2_transformer_test.md](../assets/h2_transformer_test.md) | H2: Transformer superiority (significant?) |
-| [assets/mcs_h2_endkapital_forest.png](../assets/mcs_h2_endkapital_forest.png) | H2: forest plot H2/terminal capital |
+| [assets/mcs_h2_final_capital_forest.png](../assets/mcs_h2_final_capital_forest.png) | H2: forest plot H2/terminal capital |
 
 ### 9.8 SORR and Monte Carlo Simulation
 

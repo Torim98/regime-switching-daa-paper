@@ -1,31 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Evaluation — Metriken · MCS · Hypothesen{% endblock %}
-{% block header %}Evaluation — Metriken · MCS · Hypothesen{% endblock %}
+{% block title %}Evaluation — Metrics · MCS · Hypotheses{% endblock %}
+{% block header %}Evaluation — Metrics · MCS · Hypotheses{% endblock %}
 
 {% block content %}
 <div class="space-y-6" x-data="evalPage()" x-init="init()">
 
-  <!-- Kennzahlen-Matrix -->
+  <!-- Metrics matrix -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Umfassende Kennzahlen-Matrix</h2>
+    <h2 class="text-lg font-semibold mb-4">Comprehensive Metrics Matrix</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdEval"></div>
   </section>
 
-  <!-- Klassifikation -->
+  <!-- Classification -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Klassifikationsmetriken (vs. NBER)</h2>
+    <h2 class="text-lg font-semibold mb-4">Classification Metrics (vs. NBER)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-6" x-html="mdClass"></div>
 
-    <!-- Confusion Matrices: volle Breite (4 Heatmaps nebeneinander) -->
+    <!-- Confusion matrices: full width (4 heatmaps side by side) -->
     <div class="mb-6">
       <h3 class="text-sm font-semibold text-slate-500 mb-2">Confusion Matrices</h3>
       <div id="chart-confusion-matrices" class="w-full"></div>
     </div>
 
-    <!-- ROC / PR mit Toggle -->
+    <!-- ROC / PR with toggle -->
     <div>
       <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
-        <h3 class="text-sm font-semibold text-slate-500">Klassifikationskurven</h3>
+        <h3 class="text-sm font-semibold text-slate-500">Classification Curves</h3>
         <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
           <template x-for="k in rocPrKinds" :key="k.key">
             <button type="button"
@@ -59,7 +59,7 @@
 
   <!-- Regime-Probability-Heatmap -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Regime-Wahrscheinlichkeits-Heatmap</h2>
+    <h2 class="text-lg font-semibold mb-4">Regime Probability Heatmap</h2>
     <div id="chart-regime-heatmap" class="w-full"></div>
   </section>
 
@@ -94,12 +94,12 @@
     <h2 class="text-lg font-semibold mb-4">Monte-Carlo-Simulation (Block-Bootstrap)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdMcs"></div>
     <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
-      <label>Szenario
+      <label>Scenario
         <select x-model="scenario" @change="drawMcs(); drawMcsDist()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
           <option>Standard</option><option>Aggressive</option><option>Low_Capital</option>
         </select>
       </label>
-      <label>Strategie
+      <label>Strategy
         <select x-model="strategy" @change="drawMcs()" class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
           <option>Buy_Hold</option><option>MSM</option><option>HMM</option><option>HMM_Uni</option><option>LSTM</option><option>Transformer</option>
         </select>
@@ -107,10 +107,10 @@
     </div>
     <div id="chart-mcs-q" class="w-full"></div>
 
-    <!-- Endkapital-Verteilung: Boxplot ↔ Violin, Szenario via Selektor oben -->
+    <!-- Final-capital distribution: boxplot ↔ violin, scenario via selector above -->
     <div class="mt-6">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
-        <h3 class="text-sm font-semibold text-slate-500">Endkapital-Verteilung je Strategie</h3>
+        <h3 class="text-sm font-semibold text-slate-500">Final-Capital Distribution per Strategy</h3>
         <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
           <template x-for="k in mcsDistKinds" :key="k.key">
             <button type="button"
@@ -127,12 +127,12 @@
     </div>
   </section>
 
-  <!-- Depletion Rate + Hypothesentests -->
+  <!-- Depletion rate + hypothesis tests -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Depletion-Rate &amp; Hypothesentests</h2>
+    <h2 class="text-lg font-semibold mb-4">Depletion Rate &amp; Hypothesis Tests</h2>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div>
-        <h3 class="text-sm font-semibold text-slate-500 mb-2">Depletion-Rate mit 95 %-CI</h3>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Depletion Rate with 95% CI</h3>
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdDep"></div>
       </div>
       <div>
@@ -140,7 +140,7 @@
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdH1"></div>
       </div>
       <div>
-        <h3 class="text-sm font-semibold text-slate-500 mb-2">H2 — Transformer-Dominanz</h3>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">H2 — Transformer Dominance</h3>
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdH2"></div>
       </div>
     </div>
@@ -148,15 +148,15 @@
 
   <!-- Break-Even + Withdrawal -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Break-Even-Kosten &amp; Entnahmeraten</h2>
+    <h2 class="text-lg font-semibold mb-4">Break-Even Costs &amp; Withdrawal Rates</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
-        <h3 class="text-sm font-semibold text-slate-500 mb-2">Break-Even-Transaktionskosten</h3>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Break-Even Transaction Costs</h3>
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdBe"></div>
         <div id="chart-break-even" class="mt-3 w-full"></div>
       </div>
       <div>
-        <h3 class="text-sm font-semibold text-slate-500 mb-2">Entnahmeraten-Sensitivität</h3>
+        <h3 class="text-sm font-semibold text-slate-500 mb-2">Withdrawal Rate Sensitivity</h3>
         <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdWd"></div>
       </div>
     </div>

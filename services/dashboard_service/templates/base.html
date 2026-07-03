@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" class="h-full">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,7 +30,7 @@
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
   <!-- Alpine.js -->
   <script src="https://unpkg.com/alpinejs@3.x.x" defer></script>
-  <!-- Marked für MD-Rendering -->
+  <!-- Marked for MD rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <link rel="stylesheet" href="/static/css/dashboard.css" />
@@ -53,11 +53,11 @@
         ('index',      '/',            'Overview',      '◉'),
         ('hub',        '/hub',         'Control Hub',   '↯'),
         ('eda',        '/eda',         'EDA',           '▦'),
-        ('models',     '/models',      'Modelle',       '◎'),
+        ('models',     '/models',      'Models',        '◎'),
         ('backtest',   '/backtest',    'Backtest',      '↗'),
         ('evaluation', '/evaluation',  'Evaluation',    '∑'),
         ('config',     '/config',      'Config',        '⛭'),
-        ('logs',       '/logs',        'Live-Logs',     '»'),
+        ('logs',       '/logs',        'Live Logs',     '»'),
       ] %}
       {% for key, href, label, icon in items %}
         <a href="{{ href }}"
@@ -101,7 +101,7 @@
   </main>
 </div>
 
-<!-- Image-Lightbox (click-to-enlarge für PNG-Assets) -->
+<!-- Image lightbox (click-to-enlarge for PNG assets) -->
 <div id="img-lightbox"
      class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-6 cursor-zoom-out"
      onclick="this.classList.add('hidden'); this.classList.remove('flex');">

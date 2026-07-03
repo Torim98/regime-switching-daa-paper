@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Live-Logs — docker compose logs -f{% endblock %}
-{% block header %}Live-Logs{% endblock %}
+{% block title %}Live Logs — docker compose logs -f{% endblock %}
+{% block header %}Live Logs{% endblock %}
 
 {% block content %}
 <div x-data="logsPage()" x-init="init()" class="space-y-4">
@@ -8,7 +8,7 @@
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2 text-sm">
-        <label>Datei
+        <label>File
           <select x-model="file" @change="reconnect()"
                   class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1 font-mono">
             <template x-for="f in files" :key="f.name">
@@ -29,7 +29,7 @@
         <span class="inline-flex items-center gap-1 text-xs">
           <span class="w-2 h-2 rounded-full"
                 :class="connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
-          <span x-text="connected ? 'verbunden' : 'getrennt'"></span>
+          <span x-text="connected ? 'connected' : 'disconnected'"></span>
         </span>
         <button @click="clear()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded text-sm hover:bg-slate-300 dark:hover:bg-slate-600">🗑 Clear</button>
         <button @click="reconnect()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded text-sm">↻ Reconnect</button>
@@ -37,7 +37,7 @@
     </div>
 
     <div class="mt-3">
-      <input type="text" x-model="filter" placeholder="Filter (case-insensitive, regex erlaubt)…"
+      <input type="text" x-model="filter" placeholder="Filter (case-insensitive, regex allowed)…"
              class="w-full bg-slate-100 dark:bg-slate-700 rounded px-3 py-2 text-sm font-mono" />
     </div>
   </section>
@@ -50,10 +50,10 @@
          style="height: 70vh;"></div>
   </section>
 
-  <!-- Hinweis -->
+  <!-- Note -->
   <section class="text-xs text-slate-500">
-    Streams kontinuierlich neue Zeilen der gewählten Datei (File-Tail, äquivalent zu <code class="font-mono">docker compose logs -f</code>).
-    Rotation/Truncation wird erkannt. Verbindung via WebSocket <code class="font-mono">/ws/logs/{file}</code>.
+    Continuously streams new lines of the selected file (file tail, equivalent to <code class="font-mono">docker compose logs -f</code>).
+    Rotation/truncation is detected. Connection via WebSocket <code class="font-mono">/ws/logs/{file}</code>.
   </section>
 
 </div>
@@ -74,7 +74,7 @@ function logsPage() {
       }
       this.connect();
 
-      // Filter live anwenden
+      // apply filter live
       this.$watch('filter', () => this.applyFilter());
     },
 
@@ -124,7 +124,7 @@ function logsPage() {
       }
       view.appendChild(el);
 
-      // Cap: nicht mehr als 10k Zeilen im DOM halten
+      // Cap: keep no more than 10k lines in the DOM
       while (view.childNodes.length > 10000) view.removeChild(view.firstChild);
       if (this.autoscroll) view.scrollTop = view.scrollHeight;
     },

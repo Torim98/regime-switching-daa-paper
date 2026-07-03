@@ -3,7 +3,7 @@ from config.config_loader import PipelineConfig
 from src.backtest.sorr import run_sorr_simulation, build_sorr_scenarios, build_sorr_summary
 from src.backtest.evaluation import (
     evaluate_strategies, run_monte_carlo_simulation,
-    # Issue #13 — Extended Evaluation
+    # Issue #13: extended evaluation
     add_ulcer_to_table,
     compute_classification_metrics, plot_confusion_matrices, plot_roc_pr_curves,
     churning_stats, threshold_sensitivity,
@@ -43,20 +43,20 @@ def get_cfg():
 
 @router.post("/run")
 def run_backtest():
-    """Backtesting + SORR aller Modelle durchführen."""
+    """Run backtesting + SORR for all models."""
     start = time.time()
     cfg = get_cfg()
     logger.info("Starting backtesting...")
 
     test_df = pd.read_parquet(cfg.data_path("test_data"))
 
-    # Walk-Forward: gemeinsames OOS-Fenster (alle Modelle müssen Signal haben)
+    # Walk-forward: common OOS window (all models must have a signal)
     if cfg.walk_forward.enabled:
         signal_cols = [c for c in test_df.columns if c.endswith("_Signal")]
         n_before = len(test_df)
         test_df = test_df.dropna(subset=signal_cols, how="any").copy()
         logger.info(
-            f"Walk-Forward OOS-Fenster: {n_before} → {len(test_df)} Zeilen "
+            f"Walk-forward OOS window: {n_before} → {len(test_df)} rows "
             f"({test_df.index.min().date()} → {test_df.index.max().date()})"
         )
 
@@ -74,7 +74,7 @@ def run_backtest():
     )
     performance_summary.to_markdown(cfg.asset_path("performance_summary"))
 
-    # Annualisierte Metriken
+    # Annualized metrics
     annualized = calculate_annualized_metrics(backtesting_results)
     annualized.to_markdown(cfg.asset_path("annualized_metrics"))
 
@@ -88,12 +88,12 @@ def run_backtest():
     plot_drawdown(backtesting_results, cfg.color_map,
                   cfg.asset_path("drawdown"))
 
-    # Persistieren
+    # Persist
     Path(cfg.data_path("backtesting_results")).parent.mkdir(parents=True, exist_ok=True)
     backtesting_results.to_parquet(cfg.data_path("backtesting_results"))
     backtesting_costs.to_parquet(cfg.data_path("backtesting_costs"))
 
-    # Plots (bisherig)
+    # Plots (existing)
     plot_equity_curves(backtesting_results, cfg.color_map,
                        cfg.asset_path("equity_curves"),
                        initial_capital=float(cfg.backtesting.sorr.scenarios.Standard.initial_capital))
@@ -101,7 +101,7 @@ def run_backtest():
                            cfg.color_map,
                            cfg.asset_path("transaction_costs"))
 
-    # SORR für alle Szenarien
+    # SORR for all scenarios
     scenarios = build_sorr_scenarios(cfg.backtesting.sorr.scenarios)
     sorr_summaries = []
     backtesting_sorr = pd.DataFrame(index=backtesting_results.index)
@@ -134,7 +134,7 @@ def run_backtest():
 
 @router.post("/evaluate")
 def evaluate():
-    """Performance-Metriken + Monte Carlo Simulation + Statistics Report."""
+    """Performance metrics + Monte Carlo simulation + statistics report."""
     start = time.time()
     cfg = get_cfg()
     logger.info("Starting evaluation + MCS...")
@@ -143,7 +143,7 @@ def evaluate():
     backtesting_costs = pd.read_parquet(cfg.data_path("backtesting_costs"))
     test_df = pd.read_parquet(cfg.data_path("test_data"))
 
-    # Signal-Zuordnung (dynamisch)
+    # Signal mapping (dynamic)
     signals_to_count = pd.DataFrame(index=test_df.index)
     for sig_col in [c for c in test_df.columns if c.endswith("_Signal")]:
         model_name = sig_col.rsplit("_", 1)[0]
@@ -168,7 +168,7 @@ def evaluate():
         trading_days_per_year=mcs_cfg.trading_days_per_year,
     )
 
-    # MCS Daten persistieren
+    # Persist the MCS data
     mcs_results = pd.DataFrame(mcs_paths)
     mcs_results.to_parquet(cfg.data_path("mcs_data"))
 
@@ -185,7 +185,7 @@ def evaluate():
     plot_mcs_boxplots(mcs_paths, daily_rets.columns, scenarios, mcs_cfg.sim_years,
                       boxplot_template)
 
-    # Simulationen starten am Tag nach dem Daten-Cutoff
+    # Simulations start on the day after the data cutoff
     from datetime import datetime
     sim_start_year = datetime.strptime(cfg.data.end_date, "%Y-%m-%d").year + 1
 
@@ -207,7 +207,7 @@ def evaluate():
     models = list(ext.f1_models)
     logger.info("Running Issue #13 extended evaluation...")
 
-    # 1) Ulcer Index → Evaluation-Tabelle erweitern
+    # 1) Ulcer index → extend the evaluation table
     evaluation_table = add_ulcer_to_table(backtesting_results, evaluation_table)
     evaluation_table.to_markdown(cfg.asset_path("evaluation_table"), index=True)
 
@@ -221,7 +221,7 @@ def evaluate():
         cfg.asset_path("roc_curves"), cfg.asset_path("pr_curves"),
     )
 
-    # 3) Churning + Threshold-Sensitivitaet
+    # 3) Churning + threshold sensitivity
     churn = churning_stats(
         test_df, models, cfg.transaction_cost_rate,
         min_phase_days=ext.whipsaw_min_phase_days,
@@ -235,12 +235,12 @@ def evaluate():
         )
         ts.to_markdown(cfg.asset_path("threshold_sensitivity").replace("{model}", m))
 
-    # 4) Regime-Wahrscheinlichkeits-Heatmap
+    # 4) Regime probability heatmap
     plot_regime_probability_heatmap(
         test_df, models, cfg.asset_path("regime_probability_heatmap"),
     )
 
-    # 5) Time-to-Recovery + Switch-Timing
+    # 5) Time-to-recovery + switch timing
     for m in ["Buy_Hold"] + models:
         if m not in backtesting_results.columns:
             continue
@@ -261,7 +261,7 @@ def evaluate():
             cfg.asset_path("switch_timing"), index=False,
         )
 
-    # 6) MCS: Depletion-CIs + H1/H2 + Violin-Plots
+    # 6) MCS: depletion CIs + H1/H2 + violin plots
     finals = mcs_final_capitals(mcs_paths, scenarios_list, strategies)
 
     dep = depletion_rate_with_ci(finals, alpha=ext.alpha)
@@ -284,7 +284,7 @@ def evaluate():
         finals, scenarios_list, strategies, cfg.color_map, violin_template,
     )
 
-    # 7) Break-Even-Transaktionskosten
+    # 7) Break-even transaction costs
     be_tbl, be_curves = break_even_transaction_cost(
         test_df, backtest, backtesting_results["Buy_Hold"],
         [m for m in models if f"{m}_Signal" in test_df.columns],
@@ -297,7 +297,7 @@ def evaluate():
         cfg.color_map, cfg.asset_path("break_even_plot"),
     )
 
-    # 8) Entnahmeraten-Sensitivitaet
+    # 8) Withdrawal rate sensitivity
     wdraw = withdrawal_sensitivity(
         backtesting_results, test_df, run_sorr_simulation,
         base_scenario={
@@ -310,7 +310,7 @@ def evaluate():
 
     logger.info("Issue #13 extended evaluation done")
 
-    # Statistics Report generieren
+    # Generate the statistics report
     generate_report()
 
     elapsed = time.time() - start
@@ -324,7 +324,7 @@ def evaluate():
 
 @router.post("/report")
 def generate_report():
-    """docs/statistics.md generieren."""
+    """Generate docs/statistics.md."""
     cfg = get_cfg()
     logger.info("Generating statistics report...")
 
@@ -340,7 +340,7 @@ def generate_report():
 
 @router.get("/results")
 def get_results():
-    """Evaluation-Tabelle als JSON."""
+    """Evaluation table as JSON."""
     cfg = get_cfg()
     try:
         evaluation_md = Path(cfg.asset_path("evaluation_table")).read_text(encoding="utf-8")

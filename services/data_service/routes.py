@@ -45,7 +45,7 @@ def ingest():
     )
     df.to_parquet(cfg.data_path("preprocessed"))
     
-    # 2b. Data Quality Report (Issue #2) — raw = Bronze, df = Silver/preprocessed
+    # 2b. Data quality report (Issue #2): raw = Bronze, df = Silver/preprocessed
     report_md = build_data_quality_report(
         raw_data,
         df,
@@ -56,7 +56,7 @@ def ingest():
         report_md, encoding="utf-8"
     )
 
-    # 3. EDA — Deskriptive Statistik + ADF-Tests
+    # 3. EDA: descriptive statistics + ADF tests
     cols_to_analyze = ["Returns_GSPC", "Returns_VUSTX", "Returns", "VIX", "TNX_10Y", "IRX_3M"]
     available_cols = [c for c in cols_to_analyze if c in df.columns]
 
@@ -66,7 +66,7 @@ def ingest():
     adf_table = run_adf_test(df, available_cols)
     adf_table.to_markdown(cfg.asset_path("eda_adf_tests"))
 
-    # 4. EDA-Plots (brauchen Returns_GSPC und Returns)
+    # 4. EDA plots (require Returns_GSPC and Returns)
     plot_volatility_clusters(df, cfg.asset_path("eda_volatility_clusters"))
     plot_historical_drawdowns(df, cfg.asset_path("eda_historical_drawdowns"))
 
@@ -79,7 +79,7 @@ def ingest():
     )
     df.to_parquet(cfg.data_path("feature_engineered"))
 
-    # 6. Feature-Plots
+    # 6. Feature plots
     plot_capital_curve(
         df,
         cfg.asset_path("capital_curve"),
@@ -98,7 +98,7 @@ def ingest():
 
 @router.get("/features")
 def get_features():
-    """Feature-DataFrame als JSON."""
+    """Feature DataFrame as JSON."""
     cfg = get_cfg()
     path = cfg.data_path("feature_engineered")
     try:
@@ -110,10 +110,9 @@ def get_features():
 @router.post("/label-analysis")
 def label_analysis():
     """
-    Alternative Regime-Labels (PagSoss, P2T, LundeT, NBER) vs. MSM/HMM
-    auf der OOS-Periode. Setzt voraus, dass der Backtest-Service
-    bereits gelaufen ist und MSM_Signal/HMM_Signal in test_data
-    geschrieben hat.
+    Alternative regime labels (PagSoss, P2T, LundeT, NBER) vs. MSM/HMM
+    on the OOS period. Requires that the Backtest Service has already
+    run and written MSM_Signal/HMM_Signal into test_data.
     """
     start = time.time()
     cfg = get_cfg()

@@ -1,11 +1,11 @@
-"""Config-Editor-API: Liest und schreibt config/config.yaml.
+"""Config editor API: reads and writes config/config.yaml.
 
-Beim Speichern:
-  1. YAML-Syntax-Check (yaml.safe_load)
-  2. Schema-Check über PipelineConfig-Reload (wirft FileNotFoundError/KeyError,
-     wenn ein kritisches Feld fehlt)
-  3. Backup der alten Datei als config.yaml.YYYYMMDD-HHMMSS.bak
-  4. Atomarer Swap via temp-file
+On save:
+  1. YAML syntax check (yaml.safe_load)
+  2. Schema check via PipelineConfig reload (raises FileNotFoundError/KeyError
+     if a critical field is missing)
+  3. Backup of the old file as config.yaml.YYYYMMDD-HHMMSS.bak
+  4. Atomic swap via temp file
 """
 from datetime import datetime
 from pathlib import Path
@@ -23,13 +23,13 @@ logger = logging.getLogger("dashboard_service")
 
 
 def _config_path() -> Path:
-    """Lokaler Pfad zur config.yaml (innerhalb Container: /app/config/config.yaml)."""
+    """Local path to config.yaml (inside the container: /app/config/config.yaml)."""
     return Path(PipelineConfig()._path)
 
 
 @router.get("")
 def get_config_raw():
-    """Liefert die aktuelle config.yaml als reinen Text + Meta."""
+    """Returns the current config.yaml as plain text + meta."""
     path = _config_path()
     content = path.read_text(encoding="utf-8")
     mtime = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
@@ -43,68 +43,68 @@ def get_config_raw():
 
 @router.post("")
 def save_config(payload: dict = Body(...)):
-    """Speichert neuen YAML-Inhalt in config.yaml nach erfolgreicher Validierung.
+    """Saves new YAML content to config.yaml after successful validation.
 
-    Payload: {"content": "<gesamter YAML-Text>"}
+    Payload: {"content": "<entire YAML text>"}
     """
     new_content = payload.get("content")
     if not isinstance(new_content, str) or not new_content.strip():
-        raise HTTPException(400, "Payload muss 'content' (nicht-leerer String) enthalten")
+        raise HTTPException(400, "Payload must contain 'content' (non-empty string)")
 
-    # 1) YAML-Parse-Check
+    # 1) YAML parse check
     try:
         parsed = yaml.safe_load(new_content)
     except yaml.YAMLError as e:
-        raise HTTPException(422, f"YAML-Syntaxfehler: {e}")
+        raise HTTPException(422, f"YAML syntax error: {e}")
 
     if not isinstance(parsed, dict):
-        raise HTTPException(422, "Top-Level der YAML muss ein Mapping/Dict sein")
+        raise HTTPException(422, "Top level of the YAML must be a mapping/dict")
 
-    # 2) Minimale Struktur-Checks (Pflicht-Sections, damit Pipeline lauffähig bleibt)
+    # 2) Minimal structure checks (required sections so the pipeline stays runnable)
     required_sections = [
         "data", "features", "portfolio", "models", "backtesting",
         "walk_forward", "evaluation", "paths", "plotting",
     ]
     missing = [s for s in required_sections if s not in parsed]
     if missing:
-        raise HTTPException(422, f"Fehlende Config-Sections: {missing}")
+        raise HTTPException(422, f"Missing config sections: {missing}")
 
-    # 3) Backup schreiben
+    # 3) Write the backup
     path = _config_path()
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = path.with_name(f"{path.stem}.{ts}.bak")
     try:
         backup_path.write_bytes(path.read_bytes())
     except Exception as e:
-        raise HTTPException(500, f"Backup fehlgeschlagen: {e}")
+        raise HTTPException(500, f"Backup failed: {e}")
 
-    # 4) Atomarer Swap via tmp-file
+    # 4) Atomic swap via tmp file
     tmp_fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".cfg-", suffix=".tmp")
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             f.write(new_content)
         os.replace(tmp_name, path)  # atomic rename
     except Exception as e:
-        # Bei Fehler tmp-file aufräumen
+        # Clean up the tmp file on error
         try:
             Path(tmp_name).unlink(missing_ok=True)
         except Exception:
             pass
-        raise HTTPException(500, f"Schreiben fehlgeschlagen: {e}")
+        raise HTTPException(500, f"Write failed: {e}")
 
-    # 5) Reload-Check (Loader muss neue Datei lesen können)
+    # 5) Reload check (the loader must be able to read the new file)
     try:
-        _ = PipelineConfig()  # wirft bei Schema-Problemen
+        _ = PipelineConfig()  # raises on schema problems
     except Exception as e:
-        # Rollback: Backup zurückspielen
+        # Rollback: restore from the backup
         try:
             path.write_bytes(backup_path.read_bytes())
         except Exception:
             pass
-        raise HTTPException(422, f"Config-Reload nach Speichern fehlgeschlagen: {e} "
-                                  f"(Rollback aus {backup_path.name} durchgeführt)")
+        raise HTTPException(422, f"Config reload after saving failed: {e} "
+                                  f"(rollback from {backup_path.name} performed)")
 
-    logger.info(f"Config gespeichert. Backup: {backup_path.name}")
+    logger.info(f"Config saved. Backup: {backup_path.name}")
     return {
         "status": "ok",
         "backup": backup_path.name,
@@ -115,7 +115,7 @@ def save_config(payload: dict = Body(...)):
 
 @router.get("/backups")
 def list_backups():
-    """Liste aller .bak-Dateien im config/-Ordner (neueste zuerst)."""
+    """List of all .bak files in the config/ directory (newest first)."""
     path = _config_path()
     backups = sorted(
         path.parent.glob(f"{path.stem}.*.bak"),
@@ -136,24 +136,24 @@ def list_backups():
 
 @router.post("/restore")
 def restore_backup(payload: dict = Body(...)):
-    """Restored eine bestimmte Backup-Datei als aktive config.yaml.
+    """Restores a specific backup file as the active config.yaml.
 
     Payload: {"name": "config.20260415-183000.bak"}
     """
     name = payload.get("name", "")
     if not name.endswith(".bak") or "/" in name or ".." in name:
-        raise HTTPException(400, "Ungültiger Backup-Name")
+        raise HTTPException(400, "Invalid backup name")
 
     path = _config_path()
     backup = path.parent / name
     if not backup.exists():
-        raise HTTPException(404, f"Backup nicht gefunden: {name}")
+        raise HTTPException(404, f"Backup not found: {name}")
 
-    # Aktuellen Zustand vorher sichern
+    # Save the current state first
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     pre_restore = path.with_name(f"{path.stem}.{ts}.pre-restore.bak")
     pre_restore.write_bytes(path.read_bytes())
 
     path.write_bytes(backup.read_bytes())
-    logger.info(f"Restored {name} (vorheriger Zustand: {pre_restore.name})")
+    logger.info(f"Restored {name} (previous state: {pre_restore.name})")
     return {"status": "ok", "restored": name, "previous_saved_as": pre_restore.name}

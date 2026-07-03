@@ -1,5 +1,5 @@
-# Warning-Suppression MUSS vor allen anderen Imports passieren,
-# damit TF_CPP_MIN_LOG_LEVEL greift.
+# Warning suppression MUST happen before all other imports,
+# so that TF_CPP_MIN_LOG_LEVEL takes effect.
 from services.warnings_config import configure_warnings
 configure_warnings()
 

@@ -1,10 +1,10 @@
-/* Globale Helper für alle Dashboard-Seiten. */
+/* Global helpers for all dashboard pages. */
 
 /* ------------------------------------------------------------------ *
- *  Adaptive-Farbe-Sentinels (Trace-Line-Color)                        *
- *  Wir markieren Linien, die ihre Farbe dem Theme folgen sollen, mit  *
- *  einem dieser beiden Hex-Codes. renderChart() + MutationObserver    *
- *  tauschen zwischen Dark/Light bidirektional um.                     *
+ *  Adaptive-color sentinels (trace line color)                        *
+ *  We mark lines that should follow the theme color with one of       *
+ *  these two hex codes. renderChart() + MutationObserver swap          *
+ *  bidirectionally between dark/light.                                *
  * ------------------------------------------------------------------ */
 const _ADAPTIVE_LIGHT = '#111';
 const _ADAPTIVE_DARK  = '#e2e8f0';
@@ -12,7 +12,7 @@ const _ADAPTIVE_SET   = new Set([_ADAPTIVE_LIGHT.toLowerCase(), _ADAPTIVE_DARK.t
 function _adaptiveColor(isDark) { return isDark ? _ADAPTIVE_DARK : _ADAPTIVE_LIGHT; }
 
 /* ------------------------------------------------------------------ *
- *  Theme-Overrides: Layout (für Plotly.relayout) und Updatemenus      *
+ *  Theme overrides: layout (for Plotly.relayout) and updatemenus      *
  * ------------------------------------------------------------------ */
 function _darkLayoutOverrides() {
   return {
@@ -47,7 +47,7 @@ function _lightLayoutOverrides() {
   };
 }
 
-/** Adaptive Trace-Linien (#111 ↔ #e2e8f0) auf Theme mappen. */
+/** Map adaptive trace lines (#111 ↔ #e2e8f0) to the theme. */
 function _swapAdaptiveTraceColors(fig, isDark) {
   const target = _adaptiveColor(isDark);
   fig.data = (fig.data || []).map((t) => {
@@ -61,11 +61,11 @@ function _swapAdaptiveTraceColors(fig, isDark) {
   });
 }
 
-/** Plotly-Chart aus /api/... rendern. */
+/** Render Plotly chart from /api/... */
 async function renderChart(elId, url) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.innerHTML = '<div class="text-sm text-slate-500 p-4">lädt…</div>';
+  el.innerHTML = '<div class="text-sm text-slate-500 p-4">loading…</div>';
   try {
     const r = await fetch(url);
     if (!r.ok) {
@@ -105,7 +105,7 @@ async function renderChart(elId, url) {
       });
     }
 
-    // Immer (Light+Dark) anwenden: adaptive Trace-Linien
+    // Always apply (light+dark): adaptive trace lines
     _swapAdaptiveTraceColors(fig, isDark);
 
     el.innerHTML = '';
@@ -115,15 +115,15 @@ async function renderChart(elId, url) {
       modeBarButtonsToRemove: ['lasso2d', 'select2d'],
     });
   } catch (e) {
-    el.innerHTML = `<div class="p-4 text-sm text-rose-600">Fehler: ${e}</div>`;
+    el.innerHTML = `<div class="p-4 text-sm text-rose-600">Error: ${e}</div>`;
   }
 }
 
-/** Markdown aus /api/markdown/{name} laden und als HTML rendern. */
+/** Load markdown from /api/markdown/{name} and render as HTML. */
 async function fetchMd(name) {
   try {
     const r = await fetch(`/api/markdown/${encodeURIComponent(name)}`);
-    if (!r.ok) return `<p class="text-slate-500 italic">Noch nicht verfügbar: ${name}</p>`;
+    if (!r.ok) return `<p class="text-slate-500 italic">Not yet available: ${name}</p>`;
     const { content } = await r.json();
     if (window.marked) {
       marked.setOptions({ gfm: true, breaks: false });
@@ -131,7 +131,7 @@ async function fetchMd(name) {
     }
     return `<pre>${content.replace(/</g, '&lt;')}</pre>`;
   } catch (e) {
-    return `<p class="text-rose-500">Load-Fehler: ${e}</p>`;
+    return `<p class="text-rose-500">Load error: ${e}</p>`;
   }
 }
 
@@ -151,22 +151,22 @@ function toast(msg, kind = 'info', ttl = 4000) {
 }
 
 /* ------------------------------------------------------------------ *
- *  Title „läuft…“-Indikator                                           *
- *  Verwenden via: setRunning(true) ... setRunning(false)              *
+ *  Title "running…" indicator                                         *
+ *  Use via: setRunning(true) ... setRunning(false)                    *
  * ------------------------------------------------------------------ */
 const _ORIGINAL_TITLE = document.title;
 let _runningCount = 0;
 function setRunning(isRunning) {
   _runningCount += isRunning ? 1 : -1;
   if (_runningCount < 0) _runningCount = 0;
-  const prefix = _runningCount > 0 ? 'läuft… ' : '';
+  const prefix = _runningCount > 0 ? 'running… ' : '';
   document.title = prefix + _ORIGINAL_TITLE;
 }
-// Beim Navigieren/Reload sauber zurücksetzen
+// Reset cleanly on navigation/reload
 window.addEventListener('beforeunload', () => { document.title = _ORIGINAL_TITLE; });
 
 /* ------------------------------------------------------------------ *
- *  Image-Lightbox: jede <img data-lightbox> klickbar → Overlay        *
+ *  Image lightbox: every <img data-lightbox> is clickable → overlay   *
  * ------------------------------------------------------------------ */
 function _initLightbox() {
   const modal = document.getElementById('img-lightbox');
@@ -185,7 +185,7 @@ function _initLightbox() {
   });
 }
 
-/** Alle <figure><img> unter dem Body bekommen data-lightbox + cursor-zoom-in. */
+/** All <figure><img> under the body get data-lightbox + cursor-zoom-in. */
 function _enableLightboxOnAssets() {
   document.querySelectorAll('img[src^="/api/asset/"]').forEach((img) => {
     if (!img.hasAttribute('data-lightbox')) {
@@ -195,11 +195,11 @@ function _enableLightboxOnAssets() {
   });
 }
 
-/** Theme-Switch triggert Re-Render aller Plotly-Charts. */
+/** Theme switch triggers a re-render of all Plotly charts. */
 document.addEventListener('DOMContentLoaded', () => {
   _initLightbox();
   _enableLightboxOnAssets();
-  // Mutation-Observer: auch später dynamisch eingefügte <img> bekommen Lightbox.
+  // MutationObserver: dynamically inserted <img> elements also get the lightbox.
   new MutationObserver(() => _enableLightboxOnAssets())
     .observe(document.body, { childList: true, subtree: true });
 
@@ -211,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const adaptive = _adaptiveColor(isDark);
 
       document.querySelectorAll('.js-plotly-plot').forEach((el) => {
-        // 1) Layout-Overrides
+        // 1) layout overrides
         Plotly.relayout(el, baseOverrides);
 
-        // 2) Adaptive Trace-Linienfarben (Plotly.restyle — relayout reicht nicht)
+        // 2) adaptive trace line colors (Plotly.restyle — relayout is not enough)
         if (el.data && el.data.length) {
           const indices = [];
           el.data.forEach((t, i) => {

@@ -1,9 +1,9 @@
-"""Dashboard Service — interaktives Control Hub + Visualisierung.
+"""Dashboard Service: interactive control hub + visualization.
 
-Port 8004. Greift read-only auf data/, assets/, logs/ zu und erlaubt
-Write-Access auf config/config.yaml (mit .bak-Backup).
-Die bestehende Pipeline (data/model/backtest-Services) bleibt
-unangetastet.
+Port 8004. Accesses data/, assets/, logs/ read-only and allows
+write access to config/config.yaml (with .bak backup).
+The existing pipeline (data/model/backtest services) remains
+untouched.
 """
 from services.warnings_config import configure_warnings
 configure_warnings()
@@ -37,9 +37,9 @@ app.include_router(ws_router)
 
 @app.middleware("http")
 async def add_chart_cache_headers(request: Request, call_next):
-    """Browser-Cache für Chart-JSON: 5 Minuten private Cache.
-    Kombiniert mit dem serverseitigen mtime-Cache in data_adapters.py ergibt
-    das bei Rereads ≪ 10 ms Latenz — kein Plotly-Re-Render, kein Netzwerk-Hit."""
+    """Browser cache for chart JSON: 5 minutes private cache.
+    Combined with the server-side mtime cache in data_adapters.py, this yields
+    latency well below 10 ms on rereads (no Plotly re-render, no network hit)."""
     response = await call_next(request)
     if request.url.path.startswith("/api/chart/"):
         response.headers.setdefault("Cache-Control", "private, max-age=300")

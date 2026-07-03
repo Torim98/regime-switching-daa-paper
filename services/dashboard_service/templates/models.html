@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Modelle — Regime-Erkennung{% endblock %}
-{% block header %}Modelle — Regime-Erkennung{% endblock %}
+{% block title %}Models — Regime Detection{% endblock %}
+{% block header %}Models — Regime Detection{% endblock %}
 
 {% block content %}
 <div class="space-y-6" x-data="modelsPage()" x-init="init()">
 
-  <!-- Interaktives Regime-Overlay -->
+  <!-- Interactive regime overlay -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-      <h2 class="text-lg font-semibold">Regime-Overlay</h2>
+      <h2 class="text-lg font-semibold">Regime Overlay</h2>
       <div class="flex items-center gap-2 text-sm">
-        <label>Modell
+        <label>Model
           <select x-model="model" @change="draw()"
                   class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
             <option>MSM</option>
@@ -24,51 +24,51 @@
     </div>
     <div id="chart-regime-overlay" class="w-full"></div>
     <p class="text-xs text-slate-500 mt-3">
-      Rote Bänder = Bear-Signal. Rechte Achse: 60/40-Kurs (Kontext). Linke Achse: Bear-Probability.
+      Red bands = bear signal. Right axis: 60/40 price (context). Left axis: bear probability.
     </p>
   </section>
 
-  <!-- Label-Konkordanz / Cohen's κ (interaktiv, Toggle) -->
+  <!-- Label concordance / Cohen's κ (interactive, toggle) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-2">Label-Konkordanz &amp; Cohen's κ</h2>
+    <h2 class="text-lg font-semibold mb-2">Label Concordance &amp; Cohen's κ</h2>
     <p class="text-xs text-slate-500 mb-4">
-      Paarweise Übereinstimmung der Labeling-Methoden. Toggle oben links im Chart wechselt zwischen
-      Anteil übereinstimmender Tage (Konkordanz) und chance-korrigiertem Cohen's κ.
+      Pairwise agreement of the labeling methods. The toggle at the top left of the chart switches between
+      the share of matching days (concordance) and chance-corrected Cohen's κ.
     </p>
     <div id="chart-label-agreement" class="w-full"></div>
   </section>
 
-  <!-- Label-Timeline (interaktiv) -->
+  <!-- Label timeline (interactive) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-2">Label-Timeline-Vergleich (OOS)</h2>
+    <h2 class="text-lg font-semibold mb-2">Label Timeline Comparison (OOS)</h2>
     <p class="text-xs text-slate-500 mb-4">
-      S&amp;P 500 mit Bear-Phasen je Methode (rot). Zoom/Pan synchronisiert alle Panels.
+      S&amp;P 500 with bear phases per method (red). Zoom/pan synchronizes all panels.
     </p>
     <div id="chart-label-timeline" class="w-full"></div>
   </section>
 
-  <!-- Walk-Forward-Schema (interaktiv) -->
+  <!-- Walk-forward schema (interactive) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-2">Walk-Forward-Schema</h2>
+    <h2 class="text-lg font-semibold mb-2">Walk-Forward Schema</h2>
     <p class="text-xs text-slate-500 mb-4">
-      Rollierende Train/Test-Fenster über die Zeit (blau = Train, orange = OOS-Test).
-      Strikt chronologisch getrennt, keine Look-ahead-Kontamination. Hover je Fold für
-      Zeitraum &amp; Anzahl Handelstage.
+      Rolling train/test windows over time (blue = train, orange = OOS test).
+      Strictly chronologically separated, no look-ahead contamination. Hover each fold for
+      period &amp; number of trading days.
     </p>
     <div id="chart-walk-forward" class="w-full"></div>
   </section>
 
-  <!-- Optuna — Beste Hyperparameter (von Backtest-Tab verschoben) -->
+  <!-- Optuna — best hyperparameters (moved from backtest tab) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-      <h2 class="text-lg font-semibold">Optuna — Beste Hyperparameter</h2>
+      <h2 class="text-lg font-semibold">Optuna — Best Hyperparameters</h2>
       <span class="text-xs text-slate-500" x-show="optunaMetric">
-        Optimierungs-Metrik: <span class="font-mono" x-text="optunaMetric"></span>
+        Optimization metric: <span class="font-mono" x-text="optunaMetric"></span>
       </span>
     </div>
     <p class="text-xs text-slate-500 mb-4">
-      Optimierungsergebnisse pro Modell via Walk-Forward-CV. Die Diagnose-Plots (History · Importance · Slice · Contour)
-      sind im Abschnitt darunter interaktiv verfügbar.
+      Optimization results per model via walk-forward CV. The diagnostic plots (History · Importance · Slice · Contour)
+      are interactively available in the section below.
     </p>
 
     <template x-if="optunaError">
@@ -87,13 +87,13 @@
             </span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 flex gap-3">
-            <span title="Abgeschlossene Trials">
+            <span title="Completed trials">
               <span class="font-mono" x-text="m.n_trials_complete"></span> ✓
             </span>
-            <span title="Geprunete Trials">
+            <span title="Pruned trials">
               <span class="font-mono" x-text="m.n_trials_pruned"></span> ✗
             </span>
-            <span title="Gesamtzahl Trials">
+            <span title="Total trials">
               <span class="font-mono" x-text="m.n_trials_total"></span> total
             </span>
           </div>
@@ -112,12 +112,12 @@
     </div>
   </section>
 
-  <!-- Optuna — Diagnose-Plots (interaktiv) -->
+  <!-- Optuna — diagnostic plots (interactive) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-baseline justify-between gap-3 mb-2">
-      <h2 class="text-lg font-semibold">Optuna — Diagnose-Plots</h2>
+      <h2 class="text-lg font-semibold">Optuna — Diagnostic Plots</h2>
       <div class="flex items-center gap-3 text-sm">
-        <label>Modell
+        <label>Model
           <select x-model="optunaModel" @change="drawOptuna()"
                   class="ml-1 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
             <option>MSM</option>
@@ -130,13 +130,13 @@
       </div>
     </div>
     <p class="text-xs text-slate-500 mb-4">
-      <span class="font-semibold">History</span> = Objective pro Trial (+ Best-Value-Linie) ·
-      <span class="font-semibold">Importance</span> = fANOVA-Ranking der Hyperparameter ·
-      <span class="font-semibold">Slice</span> = marginale Wirkung je Parameter ·
-      <span class="font-semibold">Contour</span> = 2D-Landscape (entfällt bei ≤ 1 Parameter).
+      <span class="font-semibold">History</span> = objective per trial (+ best-value line) ·
+      <span class="font-semibold">Importance</span> = fANOVA ranking of the hyperparameters ·
+      <span class="font-semibold">Slice</span> = marginal effect per parameter ·
+      <span class="font-semibold">Contour</span> = 2D landscape (omitted for ≤ 1 parameter).
     </p>
 
-    <!-- Zeile 1: History + Importance (kompakt, nebeneinander) -->
+    <!-- Row 1: History + Importance (compact, side by side) -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
         <div id="chart-optuna-history" class="w-full"></div>
@@ -146,17 +146,17 @@
       </div>
     </div>
 
-    <!-- Zeile 2: Slice (volle Breite — bei LSTM/Transformer bis zu 7 Panels) -->
+    <!-- Row 2: Slice (full width — up to 7 panels for LSTM/Transformer) -->
     <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 mt-4 overflow-x-auto">
       <div id="chart-optuna-slice" class="w-full min-w-[900px]"></div>
     </div>
 
-    <!-- Zeile 3: Contour (volle Breite — n×n-Matrix, quadratisch) -->
+    <!-- Row 3: Contour (full width — n×n matrix, square) -->
     <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 mt-4 overflow-x-auto">
       <div x-show="!['MSM','HMM_Uni'].includes(optunaModel)" id="chart-optuna-contour" class="w-full min-w-[900px]"></div>
       <div x-show="['MSM','HMM_Uni'].includes(optunaModel)"
            class="h-[240px] flex items-center justify-center text-sm text-slate-500 italic border border-dashed border-slate-300 dark:border-slate-600 rounded">
-        Kein Contour-Plot — MSM und HMM_Uni haben nur 1 Hyperparameter (threshold).
+        No contour plot — MSM and HMM_Uni have only 1 hyperparameter (threshold).
       </div>
     </div>
   </section>
@@ -190,7 +190,7 @@ function modelsPage() {
         renderChart('chart-optuna-importance', `/api/chart/optuna?model=${m}&plot=importance`),
         renderChart('chart-optuna-slice',      `/api/chart/optuna?model=${m}&plot=slice`),
       ];
-      // Contour entfällt bei MSM und HMM_Uni (nur 1 Hyperparameter) — Fallback-Card wird gezeigt.
+      // Contour is omitted for MSM and HMM_Uni (only 1 hyperparameter) — fallback card is shown.
       if (!['MSM','HMM_Uni'].includes(this.optunaModel)) {
         tasks.push(renderChart('chart-optuna-contour', `/api/chart/optuna?model=${m}&plot=contour`));
       }
@@ -200,17 +200,17 @@ function modelsPage() {
       try {
         const r = await fetch('/api/optuna/best-params');
         if (!r.ok) {
-          this.optunaError = 'Keine Optuna-Optimierung verfügbar (Studies fehlen).';
+          this.optunaError = 'No Optuna optimization available (studies missing).';
           return;
         }
         const data = await r.json();
         this.optunaModels = data.results || [];
         this.optunaMetric = data.metric || '';
       } catch (e) {
-        this.optunaError = `Load-Fehler: ${e}`;
+        this.optunaError = `Load error: ${e}`;
       }
     },
-    /** Hyperparameter-Wert lesbar formatieren. */
+    /** Format hyperparameter value for readability. */
     formatParam(v) {
       if (v === null || v === undefined) return '—';
       if (typeof v === 'boolean') return v ? 'true' : 'false';
@@ -220,7 +220,7 @@ function modelsPage() {
       if (abs > 0 && (abs < 1e-3 || abs >= 1e6)) return v.toExponential(3);
       return Number.parseFloat(v.toPrecision(4)).toString();
     },
-    /** Score → farbiges Badge (visuelle Einordnung). */
+    /** Score → colored badge (visual classification). */
     scoreBadgeClass(score) {
       if (score >= 1.5) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300';
       if (score >= 1.0) return 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300';

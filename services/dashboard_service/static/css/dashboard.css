@@ -1,9 +1,9 @@
-/* Eigene Overrides zusätzlich zu Tailwind */
+/* Custom overrides in addition to Tailwind */
 
 /* Alpine x-cloak */
 [x-cloak] { display: none !important; }
 
-/* Prose-Tabellen: kompakter + scrollbar + Zebra */
+/* Prose tables: more compact + scrollable + zebra */
 .prose table {
   display: block;
   max-width: 100%;
@@ -35,7 +35,7 @@
   background: rgb(15 23 42 / 0.4);           /* slate-900/40 */
 }
 
-/* Plotly-Container: max-width verhindert überschießen */
+/* Plotly container: max-width prevents overflow */
 .js-plotly-plot,
 .plot-container {
   max-width: 100%;
@@ -60,7 +60,7 @@
   to   { transform: translateY(0);    opacity: 1; }
 }
 
-/* Scrollbar in Log-View dezenter */
+/* More subtle scrollbar in log view */
 #log-view::-webkit-scrollbar { width: 10px; height: 10px; }
 #log-view::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
 #log-view::-webkit-scrollbar-track { background: #0f172a; }

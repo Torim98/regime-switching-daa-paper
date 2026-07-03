@@ -1,12 +1,12 @@
-# Warning-Suppression MUSS vor allen anderen Imports passieren,
-# damit TF_CPP_MIN_LOG_LEVEL greift.
+# Warning suppression MUST happen before all other imports,
+# so that TF_CPP_MIN_LOG_LEVEL takes effect.
 from services.warnings_config import configure_warnings
 configure_warnings()
 
-# --- GPU Mixed-Precision + cuDNN-Autotuner (Issue #35) ---
-# Muss VOR den Modell-Imports (via routes -> walk_forward -> lstm/transformer)
-# passieren, damit Keras/PyTorch die globalen Policies kennen, bevor der erste
-# Layer gebaut wird. Auf CPU-only Systemen wird mixed_float16 uebersprungen.
+# --- GPU mixed precision + cuDNN autotuner (Issue #35) ---
+# Must happen BEFORE the model imports (via routes -> walk_forward ->
+# lstm/transformer), so that Keras/PyTorch know the global policies before the
+# first layer is built. On CPU-only systems, mixed_float16 is skipped.
 import tensorflow as tf
 if tf.config.list_physical_devices("GPU"):
     tf.keras.mixed_precision.set_global_policy("mixed_float16")

@@ -1,9 +1,9 @@
-"""Control-Hub-Proxy: Ruft die FastAPI-Endpoints der drei Pipeline-Services
-(data/model/backtest) per httpx auf, damit die UI Pipeline-Stages auslösen kann.
+"""Control hub proxy: calls the FastAPI endpoints of the three pipeline
+services (data/model/backtest) via httpx so that the UI can trigger pipeline stages.
 
-Alle Proxy-Calls haben lange Timeouts, weil z.B. /models/train-all bei
-Walk-Forward sehr lange läuft. Die UI zeigt währenddessen einen Spinner
-und das Live-Log (separater WebSocket).
+All proxy calls have long timeouts because e.g. /models/train-all takes
+very long in walk-forward mode. Meanwhile, the UI shows a spinner
+and the live log (separate WebSocket).
 """
 from typing import Any, Dict
 import os
@@ -12,21 +12,21 @@ from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
 
-# Service-URLs — in Docker-Compose via Service-Namen erreichbar,
-# lokal via localhost fallback.
+# Service URLs: reachable via service names in Docker Compose,
+# locally via localhost fallback.
 _SERVICES = {
     "data":     os.environ.get("DATA_SERVICE_URL",     "http://data-service:8001"),
     "model":    os.environ.get("MODEL_SERVICE_URL",    "http://model-service:8002"),
     "backtest": os.environ.get("BACKTEST_SERVICE_URL", "http://backtest-service:8003"),
 }
 
-# Längere Timeouts: WF + Train-All können > 1 h dauern
+# Longer timeouts: WF + train-all can take > 1 h
 _TIMEOUT = httpx.Timeout(connect=10.0, read=28800.0, write=30.0, pool=10.0)
 
 
 # ---------------------------------------------------------------------------
-# Katalog aller verfügbaren Endpoints — wird vom Frontend gelesen,
-# um dynamisch Buttons/Forms zu rendern.
+# Catalog of all available endpoints; read by the frontend to render
+# buttons/forms dynamically.
 # ---------------------------------------------------------------------------
 
 _CATALOG = [
@@ -35,20 +35,20 @@ _CATALOG = [
         "endpoints": [
             {
                 "id": "data.ingest", "method": "POST", "path": "/data/ingest",
-                "label": "Daten-Ingestion starten",
-                "description": "yfinance → Preprocessing → Feature-Engineering → EDA → Plots.",
+                "label": "Start data ingestion",
+                "description": "yfinance → preprocessing → feature engineering → EDA → plots.",
                 "params": [], "danger": False,
             },
             {
                 "id": "data.features", "method": "GET", "path": "/data/features",
-                "label": "Feature-DataFrame abrufen",
-                "description": "Voller Feature-Engineered-DF als JSON (split-orient).",
+                "label": "Fetch feature DataFrame",
+                "description": "Full feature-engineered DF as JSON (split orient).",
                 "params": [], "danger": False,
             },
             {
                 "id": "data.label_analysis", "method": "POST", "path": "/data/label-analysis",
-                "label": "Label-Analyse",
-                "description": "Konkordanz + Switch-Stats der Regime-Labeler (MSM, HMM, PagSoss, P2T, LundeT, NBER).",
+                "label": "Label analysis",
+                "description": "Concordance + switch stats of the regime labelers (MSM, HMM, PagSoss, P2T, LundeT, NBER).",
                 "params": [], "danger": False,
             },
         ],
@@ -58,14 +58,14 @@ _CATALOG = [
         "endpoints": [
             {
                 "id": "model.status", "method": "GET", "path": "/models/status",
-                "label": "Modell-Persistenz-Status",
-                "description": "Welche Modelle liegen in models/ auf der Platte?",
+                "label": "Model persistence status",
+                "description": "Which models are stored on disk in models/?",
                 "params": [], "danger": False,
             },
             {
                 "id": "model.train_one", "method": "POST", "path": "/models/train/{model_name}",
-                "label": "Einzelnes Modell trainieren",
-                "description": "Nur bei walk_forward.enabled=false. Sonst HTTP 400.",
+                "label": "Train a single model",
+                "description": "Only with walk_forward.enabled=false. Otherwise HTTP 400.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
                      "options": ["msm", "hmm", "hmm_uni", "lstm", "transformer"]},
@@ -74,14 +74,14 @@ _CATALOG = [
             },
             {
                 "id": "model.train_all", "method": "POST", "path": "/models/train-all",
-                "label": "Alle Modelle trainieren",
-                "description": "Single-Split oder Walk-Forward-Engine (je nach Config).",
+                "label": "Train all models",
+                "description": "Single split or walk-forward engine (depending on the config).",
                 "params": [], "danger": True,
             },
             {
                 "id": "model.optimize_one", "method": "POST", "path": "/models/optimize/{model_name}",
-                "label": "Optuna-HPO für ein Modell",
-                "description": "Erfordert walk_forward.enabled=true. n_trials und every_nth_fold kommen pro Modell aus config.yaml (optimization.n_trials_per_model / every_nth_fold_per_model). Persistiert in optuna_studies.db.",
+                "label": "Optuna HPO for one model",
+                "description": "Requires walk_forward.enabled=true. n_trials and every_nth_fold come per model from config.yaml (optimization.n_trials_per_model / every_nth_fold_per_model). Persisted in optuna_studies.db.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
                      "options": ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]},
@@ -90,8 +90,8 @@ _CATALOG = [
             },
             {
                 "id": "model.optimize_all", "method": "POST", "path": "/models/optimize-all",
-                "label": "Optuna-HPO für alle Modelle",
-                "description": "Sequentiell MSM → HMM → HMM_Uni → LSTM → Transformer. n_trials und every_nth_fold kommen pro Modell aus config.yaml (Thesis-Default: 50 für MSM/HMM/HMM_Uni, 30 für LSTM/Transformer).",
+                "label": "Optuna HPO for all models",
+                "description": "Sequentially MSM → HMM → HMM_Uni → LSTM → Transformer. n_trials and every_nth_fold come per model from config.yaml (thesis default: 50 for MSM/HMM/HMM_Uni, 30 for LSTM/Transformer).",
                 "params": [],
                 "danger": True,
             },
@@ -102,26 +102,26 @@ _CATALOG = [
         "endpoints": [
             {
                 "id": "backtest.run", "method": "POST", "path": "/backtest/run",
-                "label": "Backtest + SORR ausführen",
-                "description": "Equity, TxCosts, annualisierte Metriken, Krisen-Perf, Rolling-Sharpe, DD.",
+                "label": "Run backtest + SORR",
+                "description": "Equity, tx costs, annualized metrics, crisis performance, rolling Sharpe, DD.",
                 "params": [], "danger": False,
             },
             {
                 "id": "backtest.evaluate", "method": "POST", "path": "/backtest/evaluate",
                 "label": "Evaluation + MCS",
-                "description": "Block-Bootstrap-MCS + Klassifikation + ROC/PR + Churning + H1/H2-Tests.",
+                "description": "Block-bootstrap MCS + classification + ROC/PR + churning + H1/H2 tests.",
                 "params": [], "danger": False,
             },
             {
                 "id": "backtest.report", "method": "POST", "path": "/backtest/report",
-                "label": "statistics.md generieren",
-                "description": "Finales Markdown-Report unter docs/statistics.md.",
+                "label": "Generate statistics.md",
+                "description": "Final Markdown report at docs/statistics.md.",
                 "params": [], "danger": False,
             },
             {
                 "id": "backtest.results", "method": "GET", "path": "/backtest/results",
-                "label": "Evaluation-Tabelle abrufen",
-                "description": "Evaluation-MD als JSON. Setzt /backtest/evaluate voraus.",
+                "label": "Fetch evaluation table",
+                "description": "Evaluation MD as JSON. Requires /backtest/evaluate.",
                 "params": [], "danger": False,
             },
         ],
@@ -130,18 +130,18 @@ _CATALOG = [
 
 
 # ---------------------------------------------------------------------------
-# Routen
+# Routes
 # ---------------------------------------------------------------------------
 
 @router.get("/catalog")
 def catalog() -> Dict[str, Any]:
-    """Liefert den Endpoint-Katalog zum dynamischen UI-Rendering."""
+    """Returns the endpoint catalog for dynamic UI rendering."""
     return {"services": _CATALOG}
 
 
 @router.get("/health")
 async def health() -> Dict[str, Any]:
-    """Ping-Check auf alle drei Services (OpenAPI-JSON als Marker)."""
+    """Ping check on all three services (OpenAPI JSON as marker)."""
     out: Dict[str, Any] = {}
     async with httpx.AsyncClient(timeout=5.0) as client:
         for svc, base in _SERVICES.items():
@@ -156,26 +156,26 @@ async def health() -> Dict[str, Any]:
 @router.post("/call")
 async def hub_call(
     service: str = Query(..., pattern="^(data|model|backtest)$"),
-    path: str = Query(..., description="Pfad wie /data/ingest"),
+    path: str = Query(..., description="Path such as /data/ingest"),
     method: str = Query("POST", pattern="^(GET|POST)$"),
-    query: str = Query("", description="JSON-Query-Params, optional"),
+    query: str = Query("", description="JSON query params, optional"),
 ):
-    """Generischer Proxy: UI gibt Service + Pfad + Methode + optional Query-JSON an.
+    """Generic proxy: the UI provides service + path + method + optional query JSON.
 
-    Beispiele (vom Frontend):
+    Examples (from the frontend):
       - POST /api/hub/call?service=data&path=/data/ingest&method=POST
       - POST /api/hub/call?service=model&path=/models/optimize/MSM&method=POST
     """
     import json
     base = _SERVICES.get(service)
     if base is None:
-        raise HTTPException(400, f"Unbekannter Service: {service}")
+        raise HTTPException(400, f"Unknown service: {service}")
 
     url = base.rstrip("/") + path
     try:
         params = json.loads(query) if query else {}
     except json.JSONDecodeError as e:
-        raise HTTPException(400, f"Query-JSON ungültig: {e}")
+        raise HTTPException(400, f"Invalid query JSON: {e}")
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         try:
@@ -184,9 +184,9 @@ async def hub_call(
             else:
                 r = await client.post(url, params=params)
         except httpx.ConnectError as e:
-            raise HTTPException(502, f"Verbindung zu {service}-Service fehlgeschlagen: {e}")
+            raise HTTPException(502, f"Connection to the {service} service failed: {e}")
         except httpx.ReadTimeout as e:
-            raise HTTPException(504, f"Timeout bei {url}: {e}")
+            raise HTTPException(504, f"Timeout at {url}: {e}")
 
     try:
         body = r.json()

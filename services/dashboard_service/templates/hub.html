@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Control Hub — Pipeline-Steuerung{% endblock %}
-{% block header %}Control Hub — Pipeline-Steuerung{% endblock %}
+{% block title %}Control Hub — Pipeline Control{% endblock %}
+{% block header %}Control Hub — Pipeline Control{% endblock %}
 
 {% block content %}
 <div x-data="hubPage()" x-init="init()" class="space-y-6">
 
-  <!-- Health-Status-Kacheln -->
+  <!-- Health status tiles -->
   <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <template x-for="(h, svc) in health" :key="svc">
       <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
@@ -18,12 +18,12 @@
                 :class="h.up ? 'bg-emerald-500' : 'bg-rose-500'"></span>
         </div>
         <div class="mt-2 text-xs" :class="h.up ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-             x-text="h.up ? 'erreichbar' : (h.error || ('HTTP ' + h.status))"></div>
+             x-text="h.up ? 'reachable' : (h.error || ('HTTP ' + h.status))"></div>
       </div>
     </template>
   </section>
 
-  <!-- Service-Cards mit Endpoint-Buttons -->
+  <!-- Service cards with endpoint buttons -->
   <template x-for="block in catalog.services" :key="block.service">
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
       <div class="flex items-baseline justify-between mb-4">
@@ -44,7 +44,7 @@
             <div class="mt-1 font-mono text-xs text-slate-500" x-text="ep.path"></div>
             <p class="mt-2 text-xs text-slate-500 flex-1" x-text="ep.description"></p>
 
-            <!-- Param-Formular -->
+            <!-- Parameter form -->
             <div class="mt-3 space-y-2" x-show="ep.params.length > 0">
               <template x-for="p in ep.params" :key="ep.id + '-' + p.name">
                 <label class="flex items-center gap-2 text-xs">
@@ -73,13 +73,13 @@
                       :class="ep.danger
                         ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300'
                         : 'bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300'">
-                <span x-show="busyId !== ep.id">▶ Ausführen</span>
+                <span x-show="busyId !== ep.id">▶ Run</span>
                 <span x-show="busyId === ep.id" class="flex items-center gap-1">
                   <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
                     <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                   </svg>
-                  lä̈uft…
+                  running…
                 </span>
               </button>
               <span x-show="lastResult[ep.id]" class="text-xs font-mono"
@@ -96,15 +96,15 @@
     </section>
   </template>
 
-  <!-- Live-Log-Drawer-Hinweis -->
+  <!-- Live-log drawer note -->
   <section class="bg-brand-50 dark:bg-brand-600/10 border border-brand-200 dark:border-brand-700/40 rounded-xl p-5 text-sm">
     <div class="flex items-center justify-between">
       <div>
-        <div class="font-semibold">Hinweis zu Langläufern</div>
+        <div class="font-semibold">Note on long-running jobs</div>
         <p class="text-slate-600 dark:text-slate-400 mt-1">
           <code class="font-mono">train-all</code>, <code class="font-mono">optimize-all</code>, <code class="font-mono">evaluate</code>
-          können im WF-Modus mehrere Stunden laufen. Der Button-Status bleibt „läuft…", bis der Service antwortet.
-          Du kannst parallel die <a href="/logs" class="underline">Live-Logs</a> beobachten.
+          can run for several hours in WF mode. The button status stays "running…" until the service responds.
+          You can watch the <a href="/logs" class="underline">live logs</a> in parallel.
         </p>
       </div>
       <a href="/logs" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded text-sm whitespace-nowrap">→ Live-Logs</a>
@@ -128,7 +128,7 @@ function hubPage() {
       ]);
       this.catalog = c;
       this.health = h;
-      // Defaults setzen
+      // set defaults
       for (const b of this.catalog.services) {
         for (const ep of b.endpoints) {
           for (const p of ep.params) {
@@ -140,13 +140,13 @@ function hubPage() {
     },
 
     async runEndpoint(service, ep) {
-      if (ep.danger && !confirm(`'${ep.label}' ausführen?\n\n${ep.method} ${ep.path}`)) return;
+      if (ep.danger && !confirm(`Run '${ep.label}'?\n\n${ep.method} ${ep.path}`)) return;
 
       this.busyId = ep.id;
       this.lastResult[ep.id] = null;
-      setRunning(true);   // → document.title bekommt „läuft… "-Prefix
+      setRunning(true);   // → document.title gets a "running… " prefix
 
-      // Pfad + Query-Params aus formState zusammenbauen
+      // assemble path + query params from formState
       let path = ep.path;
       const query = {};
       for (const p of ep.params) {
@@ -168,7 +168,7 @@ function hubPage() {
         else      toast(`${ep.label} — HTTP ${j.status_code}`, 'error');
       } catch (e) {
         this.lastResult[ep.id] = { ok: false, status_code: 0, body: { error: String(e) } };
-        toast(`Fehler: ${e}`, 'error');
+        toast(`Error: ${e}`, 'error');
       } finally {
         this.busyId = null;
         setRunning(false);

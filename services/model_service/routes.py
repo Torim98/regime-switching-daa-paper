@@ -25,7 +25,7 @@ def get_cfg():
 @router.post("/train/{model_name}")
 
 def train_model(model_name: str):
-    """Einzelnes Modell trainieren. model_name: msm|hmm|hmm_uni|lstm|transformer"""
+    """Train a single model. model_name: msm|hmm|hmm_uni|lstm|transformer"""
     start = time.time()
     logger.info(f"Training model: {model_name}")
     
@@ -34,13 +34,13 @@ def train_model(model_name: str):
     if cfg.walk_forward.enabled:
         raise HTTPException(
             400,
-            f"Einzelnes Modell-Training nicht verfügbar im Walk-Forward-Modus. "
-            f"Verwende /models/train-all stattdessen."
+            f"Single-model training is not available in walk-forward mode. "
+            f"Use /models/train-all instead."
         )
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
     
-    # Versuche existierenden test_df zu laden (enthält bereits Signale vorheriger Modelle)
+    # Try to load an existing test_df (already contains signals of previous models)
     test_df_path = cfg.data_path("test_data")
     try:
         test_df = pd.read_parquet(test_df_path)
@@ -72,7 +72,7 @@ def train_model(model_name: str):
             threshold=msm_cfg.threshold,
         )
 
-        # Zurück zu Timestamp-Index
+        # Back to a timestamp index
         probs_train.index = probs_train.index.to_timestamp()
         signal_train.index = signal_train.index.to_timestamp()
         probs_test.index = probs_test.index.to_timestamp()
@@ -177,7 +177,7 @@ def train_model(model_name: str):
         model_file = cfg.model_path("lstm")
         scaler_file = cfg.model_path("scaler_lstm")
         
-        # Supervised-Labels erzeugen (ersetzt alte HMM-Kette)
+        # Create the supervised labels (replaces the old HMM chain)
         if cfg.labels.supervised_label_source != "hmm":
             df["Supervised_Label"] = compute_supervised_labels(df, cfg)
         label_col = resolve_label_col(cfg)
@@ -205,13 +205,13 @@ def train_model(model_name: str):
         
         probs, signal = predict_lstm(lstm_probs_raw, lstm_cfg.threshold)
         
-        # test_df erstellen: df zugeschnitten auf X_test Bereich
+        # Create test_df: df trimmed to the X_test range
         test_df = df.iloc[split + window_size:].copy()
         test_df["LSTM_Prob"] = probs
         test_df["LSTM_Signal"] = signal
         validate_regime_signal(test_df, "LSTM")
         
-        # test_df persistieren
+        # Persist test_df
         from pathlib import Path as P
         P(test_df_path).parent.mkdir(parents=True, exist_ok=True)
         test_df.to_parquet(test_df_path)
@@ -257,7 +257,7 @@ def train_model(model_name: str):
         
         probs, signal = predict_transformer(transformer_probs_raw, t_cfg.threshold)
         
-        # In bestehenden test_df schreiben
+        # Write into the existing test_df
         test_df["Transformer_Prob"] = probs
         test_df["Transformer_Signal"] = signal
         validate_regime_signal(test_df, "Transformer")
@@ -267,7 +267,7 @@ def train_model(model_name: str):
         plot_dl_model(test_df, "Transformer", cfg.plotting.colors.transformer,
                       cfg.asset_path("transformer_model"), cfg=cfg)
 
-        # Regime Comparison (alle 5 Modelle fertig)
+        # Regime comparison (all 5 models done)
         plot_regime_comparison(test_df, cfg.color_map,
                                cfg.asset_path("regime_comparison"))
         
@@ -280,13 +280,13 @@ def train_model(model_name: str):
 
 @router.post("/train-all")
 def train_all():
-    """Alle 5 Modelle trainieren — Single-Split oder Walk-Forward."""
+    """Train all 5 models: single split or walk-forward."""
     start = time.time()
     cfg = get_cfg()
 
     if cfg.walk_forward.enabled:
         # ============================================================
-        # Walk-Forward-Modus: run_walk_forward steuert alles
+        # Walk-forward mode: run_walk_forward controls everything
         # ============================================================
         import hashlib
         from src.backtest.walk_forward import (
@@ -308,7 +308,7 @@ def train_all():
             f"step={cfg.walk_forward.step_months}m"
         )
 
-        # 1. Splits generieren
+        # 1. Generate the splits
         splits = walk_forward_splits(
             index=df.index,
             mode=cfg.walk_forward.mode,
@@ -318,9 +318,9 @@ def train_all():
             min_train_years=cfg.walk_forward.min_train_years,
         )
         assert_no_leakage(splits)
-        logger.info(f"Walk-Forward: {len(splits)} Folds generiert.")
+        logger.info(f"Walk-forward: {len(splits)} folds generated.")
 
-        # 1b. Walk-Forward-Schema als PNG persistieren (für Statistics.md / Dashboard)
+        # 1b. Persist the walk-forward schema as PNG (for statistics.md / dashboard)
         splits_summary = summarize_splits(splits)
         wf_schema_path = cfg.asset_path("walk_forward_schema")
         plot_walk_forward_schema(
@@ -330,15 +330,15 @@ def train_all():
             train_window_years=cfg.walk_forward.train_window_years,
             test_window_months=cfg.walk_forward.test_window_months,
         )
-        logger.info(f"Walk-Forward-Schema gespeichert: {wf_schema_path}")
+        logger.info(f"Walk-forward schema saved: {wf_schema_path}")
 
-        # 2. Cache prüfen
+        # 2. Check the cache
         cache_path = cfg.data_path("walk_forward_cache")
         idx_hash = hashlib.sha256(
             df.index.astype(str).str.cat().encode()
         ).hexdigest()[:16]
         fingerprint = _walk_forward_fingerprint(cfg, df.shape, idx_hash)
-        logger.info(f"Walk-Forward-Fingerprint: {fingerprint}")
+        logger.info(f"Walk-forward fingerprint: {fingerprint}")
 
         use_cache = getattr(cfg.walk_forward, "cache_enabled", False)
         cached_df = None
@@ -347,9 +347,9 @@ def train_all():
 
         if cached_df is not None:
             test_df = cached_df
-            logger.info(f"Cache-Hit! {len(test_df)} OOS-Zeilen geladen.")
+            logger.info(f"Cache hit! {len(test_df)} OOS rows loaded.")
         else:
-            # 3. Walk-Forward ausführen
+            # 3. Run the walk-forward
             test_df = run_walk_forward(
                 df=df,
                 splits=splits,
@@ -357,14 +357,14 @@ def train_all():
                 models_to_run=["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"],
             )
 
-            # Train-only-Zeilen verwerfen
+            # Discard train-only rows
             signal_cols = [c for c in test_df.columns if c.endswith("_Signal")]
             test_df = test_df.dropna(subset=signal_cols, how="all").copy()
 
             if use_cache:
                 save_walk_forward_cache(test_df, fingerprint, cache_path)
 
-        # 4. Validierung + Einzelplots pro Modell
+        # 4. Validation + individual plots per model
         asset_key_map = {
             "MSM": "markov_model",
             "HMM": "hmm_regimes",
@@ -383,14 +383,14 @@ def train_all():
         for model_name in ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]:
             sig_col = f"{model_name}_Signal"
             if sig_col not in test_df.columns or not test_df[sig_col].notna().any():
-                logger.warning(f"{model_name}: Keine OOS-Vorhersagen!")
+                logger.warning(f"{model_name}: no OOS predictions!")
                 continue
 
             sub = test_df.dropna(subset=[sig_col]).copy()
             validate_regime_signal(sub, model_name)
-            logger.info(f"{model_name}: {len(sub)} OOS-Tage validiert.")
+            logger.info(f"{model_name}: {len(sub)} OOS days validated.")
 
-            # Einzelplot auf OOS-Bereich
+            # Individual plot on the OOS range
             color = cfg.color_map.get(model_name, color_defaults[model_name])
             plot_path = cfg.asset_path(asset_key_map[model_name])
 
@@ -403,13 +403,13 @@ def train_all():
             else:  # LSTM / Transformer
                 plot_dl_model(sub, model_name, color, plot_path, cfg=cfg)
 
-            logger.info(f"{model_name}: Plot gespeichert → {plot_path}")
+            logger.info(f"{model_name}: plot saved → {plot_path}")
 
-        # 5. Regime-Vergleichsplot
+        # 5. Regime comparison plot
         plot_regime_comparison(test_df, cfg.color_map,
                                cfg.asset_path("regime_comparison"))
 
-        # 6. test_df persistieren (für Backtest-Service)
+        # 6. Persist test_df (for the Backtest Service)
         test_df_path = cfg.data_path("test_data")
         Path(test_df_path).parent.mkdir(parents=True, exist_ok=True)
         test_df.to_parquet(test_df_path)
@@ -425,9 +425,9 @@ def train_all():
 
     else:
         # ============================================================
-        # Single-Split-Modus: bisherige Logik (sequentiell)
+        # Single-split mode: existing logic (sequential)
         # ============================================================
-        logger.info("Single-Split: Training MSM → HMM → LSTM → Transformer")
+        logger.info("Single split: training MSM → HMM → LSTM → Transformer")
         results = []
         for name in ["msm", "hmm", "hmm_uni", "lstm", "transformer"]:
             result = train_model(name)
@@ -439,7 +439,7 @@ def train_all():
 
 @router.get("/status")
 def model_status():
-    """Welche Modelle sind persistiert?"""
+    """Which models are persisted?"""
     cfg = get_cfg()
     status = {}
     for key in ["msm", "hmm", "hmm_uni","lstm", "transformer"]:
@@ -450,21 +450,21 @@ def model_status():
 @router.post("/optimize/{model_name}")
 async def optimize_model(model_name: str):
     """
-    Optuna-Hyperparameter-Optimierung für ein einzelnes Modell.
-    Nutzt Walk-Forward-Splits als innere CV.
+    Optuna hyperparameter optimization for a single model.
+    Uses walk-forward splits as inner CV.
 
-    Trial-Anzahl und Fold-Subsampling werden aus der zentralen Config
-    (cfg.optimization.n_trials_per_model bzw. every_nth_fold_per_model)
-    gelesen — keine API-Overrides mehr (Reproduzierbarkeit der Thesis).
+    Trial count and fold subsampling are read from the central config
+    (cfg.optimization.n_trials_per_model and every_nth_fold_per_model).
+    No API overrides (reproducibility of the thesis).
     """
     cfg = get_cfg()
 
     if not cfg.walk_forward.enabled:
-        raise HTTPException(400, "Optimierung erfordert walk_forward.enabled = true")
+        raise HTTPException(400, "Optimization requires walk_forward.enabled = true")
 
     valid_models = ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
     if model_name not in valid_models:
-        raise HTTPException(400, f"Unbekanntes Modell. Verfügbar: {valid_models}")
+        raise HTTPException(400, f"Unknown model. Available: {valid_models}")
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
 
@@ -473,7 +473,7 @@ async def optimize_model(model_name: str):
         model_name=model_name,
         df=df,
         cfg=cfg,
-        # n_trials / every_nth_fold → aus Config (pro Modell)
+        # n_trials / every_nth_fold → from the config (per model)
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
 
@@ -488,16 +488,16 @@ async def optimize_model(model_name: str):
 @router.post("/optimize-all")
 async def optimize_all_models():
     """
-    Alle 5 Modelle sequenziell optimieren.
+    Optimize all 5 models sequentially.
 
-    Trial-Anzahl und Fold-Subsampling werden pro Modell aus der zentralen
-    Config (cfg.optimization.n_trials_per_model bzw. every_nth_fold_per_model)
-    gelesen — 50/30-Split (MSM/HMM vs. LSTM/Transformer) gemäß Thesis.
+    Trial count and fold subsampling are read per model from the central
+    config (cfg.optimization.n_trials_per_model and every_nth_fold_per_model):
+    50/30 split (MSM/HMM vs. LSTM/Transformer) per the thesis.
     """
     cfg = get_cfg()
 
     if not cfg.walk_forward.enabled:
-        raise HTTPException(400, "Optimierung erfordert walk_forward.enabled = true")
+        raise HTTPException(400, "Optimization requires walk_forward.enabled = true")
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
 
@@ -505,11 +505,11 @@ async def optimize_all_models():
     studies = optimize_all(
         df=df,
         cfg=cfg,
-        # n_trials / every_nth_fold → pro Modell aus Config
+        # n_trials / every_nth_fold → per model from the config
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
     )
 
-    # Best-Params unter assets/ persistieren
+    # Persist the best params under assets/
     save_optuna_best_params(studies, cfg)
 
     return {

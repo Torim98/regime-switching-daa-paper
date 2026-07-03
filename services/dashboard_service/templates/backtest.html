@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Backtest — Strategie-Performance{% endblock %}
-{% block header %}Backtest — Strategie-Performance{% endblock %}
+{% block title %}Backtest — Strategy Performance{% endblock %}
+{% block header %}Backtest — Strategy Performance{% endblock %}
 
 {% block content %}
 <div class="space-y-6" x-data="btPage()" x-init="init()">
@@ -11,9 +11,9 @@
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdPerfSummary"></div>
   </section>
 
-  <!-- Annualisierte Metriken -->
+  <!-- Annualized metrics -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Annualisierte Metriken</h2>
+    <h2 class="text-lg font-semibold mb-4">Annualized Metrics</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdAnnualized"></div>
   </section>
 
@@ -25,7 +25,7 @@
 
   <!-- Drawdown -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Drawdown-Verlauf</h2>
+    <h2 class="text-lg font-semibold mb-4">Drawdown History</h2>
     <div id="chart-drawdown" class="w-full"></div>
   </section>
 
@@ -33,7 +33,7 @@
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-lg font-semibold">Rolling Sharpe</h2>
-      <label class="text-sm">Fenster
+      <label class="text-sm">Window
         <input type="number" min="21" max="1260" step="21" x-model.number="window" @change="drawSharpe()"
                class="ml-1 w-24 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1" />
       </label>
@@ -41,22 +41,22 @@
     <div id="chart-rolling-sharpe" class="w-full"></div>
   </section>
 
-  <!-- Krisen-Performance -->
+  <!-- Crisis performance -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Krisen-Performance</h2>
+    <h2 class="text-lg font-semibold mb-4">Crisis Performance</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdCrisis"></div>
   </section>
 
-  <!-- Transaktionskosten -->
+  <!-- Transaction costs -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Kumulierte Transaktionskosten</h2>
+    <h2 class="text-lg font-semibold mb-4">Cumulative Transaction Costs</h2>
     <div id="chart-transaction-costs" class="w-full"></div>
   </section>
 
-  <!-- SORR-Szenarien (Toggle) -->
+  <!-- SORR scenarios (toggle) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-      <h2 class="text-lg font-semibold">SORR-Szenarien</h2>
+      <h2 class="text-lg font-semibold">SORR Scenarios</h2>
       <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
         <template x-for="s in sorrScenarios" :key="s.key">
           <button type="button"
@@ -87,8 +87,8 @@ function btPage() {
     sorrScenario: 'Standard',
     sorrScenarios: [
       { key: 'Standard',    label: 'Standard' },
-      { key: 'Aggressive',  label: 'Aggressiv' },
-      { key: 'Low_Capital', label: 'Geringes Kapital' },
+      { key: 'Aggressive',  label: 'Aggressive' },
+      { key: 'Low_Capital', label: 'Low Capital' },
     ],
     mdPerfSummary: '', mdAnnualized: '', mdCrisis: '', mdSorr: '',
     async init() {

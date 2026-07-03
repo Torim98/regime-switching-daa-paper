@@ -1,22 +1,22 @@
-"""Zentrales Logging für alle Services."""
+"""Central logging for all services."""
 
 import logging
 from pathlib import Path
 
 
 def setup_service_logger(service_name: str, log_dir: str = "logs") -> logging.Logger:
-    """Logger erstellen der in Datei und Console schreibt."""
+    """Create a logger that writes to file and console."""
     Path(log_dir).mkdir(exist_ok=True)
 
     logger = logging.getLogger(service_name)
     logger.setLevel(logging.INFO)
 
-    # Datei-Handler
+    # File handler
     log_file = Path(log_dir) / f"{service_name}.log"
     fh = logging.FileHandler(log_file, encoding="utf-8")
     fh.setLevel(logging.INFO)
 
-    # Console-Handler
+    # Console handler
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
 

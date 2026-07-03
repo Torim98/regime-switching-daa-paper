@@ -1,7 +1,7 @@
-"""HTML-Seiten-Routes des Dashboards.
+"""HTML page routes of the dashboard.
 
-Jede Route rendert ein Jinja-Template. Die eigentlichen Daten werden
-clientseitig via HTMX/fetch gegen /api/... geladen (siehe data_adapters.py,
+Each route renders a Jinja template. The actual data is loaded
+client-side via HTMX/fetch against /api/... (see data_adapters.py,
 hub_api.py, config_api.py).
 """
 from pathlib import Path
@@ -19,7 +19,7 @@ templates = Jinja2Templates(directory=str(_templates_dir))
 
 
 def _nav_context(active: str) -> dict:
-    """Gemeinsamer Kontext für alle Seiten (Nav-Highlight, Build-Info)."""
+    """Shared context for all pages (nav highlight, build info)."""
     cfg = PipelineConfig()
     return {
         "active": active,
