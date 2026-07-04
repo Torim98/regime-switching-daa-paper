@@ -1,18 +1,18 @@
 # Data Quality Report
 
-- **Status:** Coverage ≥ 96.2 % · max. gap 4 days
-- **Period (raw):** 1990-01-02 to 2026-07-02
+- **Status:** Coverage ≥ 96.2 % · max. gap 5 days
+- **Period (raw):** 1990-01-02 to 2026-07-03
 - **End date mode:** Rolling (dynamic = last trading day)
-- **Resolved end date:** `2026-07-02`
+- **Resolved end date:** `2026-07-04`
 - **yfinance version:** `1.5.1`
 - **Tickers:** ^GSPC, VUSTX, ^VIX, ^IRX, ^TNX
-- **Generated at:** 2026-07-02 13:35
+- **Generated at:** 2026-07-04 09:29
 
 ## 1. Coverage (Observed vs. Expected Trading Days)
 | Ticker   | From       | To         |   Obs. Days |   Exp. Bd (Mon-Fri) |   Coverage % |
 |:---------|:-----------|:-----------|------------:|--------------------:|-------------:|
-| ^GSPC    | 1990-01-02 | 2026-07-01 |        9191 |                9522 |        96.52 |
-| VUSTX    | 1990-01-02 | 2026-07-01 |        9191 |                9522 |        96.52 |
+| ^GSPC    | 1990-01-02 | 2026-07-02 |        9192 |                9523 |        96.52 |
+| VUSTX    | 1990-01-02 | 2026-07-02 |        9192 |                9523 |        96.52 |
 | ^VIX     | 1990-01-02 | 2026-07-02 |        9193 |                9523 |        96.53 |
 | ^IRX     | 1990-01-02 | 2026-06-26 |        9157 |                9519 |        96.2  |
 | ^TNX     | 1990-01-02 | 2026-06-26 |        9157 |                9519 |        96.2  |
@@ -22,11 +22,11 @@ _Note: expected trading days from `bdate_range` (Mon-Fri incl. holidays). ~96-97
 ## 2. Missing Values (Raw Frame, Before ffill/dropna)
 | Ticker   |   NaN (raw) |   NaN % |   Longest Gap (Days) | First Value   | Last Value   |
 |:---------|------------:|--------:|---------------------:|:--------------|:-------------|
-| ^GSPC    |           2 |   0.022 |                    1 | 1990-01-02    | 2026-07-01   |
-| VUSTX    |           2 |   0.022 |                    1 | 1990-01-02    | 2026-07-01   |
-| ^VIX     |           0 |   0     |                    0 | 1990-01-02    | 2026-07-02   |
-| ^IRX     |          36 |   0.392 |                    4 | 1990-01-02    | 2026-06-26   |
-| ^TNX     |          36 |   0.392 |                    4 | 1990-01-02    | 2026-06-26   |
+| ^GSPC    |           2 |   0.022 |                    1 | 1990-01-02    | 2026-07-02   |
+| VUSTX    |           2 |   0.022 |                    1 | 1990-01-02    | 2026-07-02   |
+| ^VIX     |           1 |   0.011 |                    1 | 1990-01-02    | 2026-07-02   |
+| ^IRX     |          37 |   0.402 |                    5 | 1990-01-02    | 2026-06-26   |
+| ^TNX     |          37 |   0.402 |                    5 | 1990-01-02    | 2026-06-26   |
 
 ## 3. Adjustment Plausibility (Daily Jumps of the Price Series)
 | Ticker   |   Max. Abs. Daily Return |   Outlier Days (z>8) | Largest Jump (Date)   |
@@ -51,7 +51,7 @@ _Note: expected trading days from `bdate_range` (Mon-Fri incl. holidays). ~96-97
 ## 5. Effect of Cleaning (Bronze → Silver)
 | Metric                          |    Value |
 |:--------------------------------|---------:|
-| Rows raw (Bronze)               | 9193     |
-| Rows cleaned (Silver)           | 9190     |
+| Rows raw (Bronze)               | 9194     |
+| Rows cleaned (Silver)           | 9191     |
 | Removed (dropna + return shift) |    3     |
 | Removed %                       |    0.033 |

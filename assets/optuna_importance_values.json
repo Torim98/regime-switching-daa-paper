@@ -2,12 +2,9 @@
   "_comment": "Cache of the fANOVA importance values from save_optuna_plots (src/backtest/plots.py). Since FanovaImportanceEvaluator is stochastic without a fixed seed, the values are stored here at PNG creation time so that the dashboard shows exactly the same numbers as the static PNG. On new pipeline runs, save_optuna_plots rewrites this file automatically.",
   "source": "auto-written by save_optuna_plots",
   "studies": {
-    "MSM": {
-      "threshold": 1.0
-    },
+    "MSM": {},
     "HMM": {
-      "threshold": 0.64,
-      "covariance_type": 0.36
+      "covariance_type": 1.0
     },
     "LSTM": {
       "dropout": 0.4,
@@ -29,8 +26,6 @@
       "threshold": 0.03,
       "d_model": 0.02
     },
-    "HMM_Uni": {
-      "threshold": 1.0
-    }
+    "HMM_Uni": {}
   }
 }

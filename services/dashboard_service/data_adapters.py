@@ -236,12 +236,17 @@ def optuna_best_params():
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     storage = f"sqlite:///{db_path}"
 
+    # Study names carry the configured suffix (e.g. opt_LSTM_v2_martin), so a
+    # changed search space / metric never resumes into an old study.
+    suffix = getattr(cfg.optimization, "study_suffix", None)
+    metric = getattr(cfg.optimization, "metric", "sharpe")
+
     results = []
-    for model_name in ["MSM", "HMM", "LSTM", "Transformer"]:
+    study_metric = None
+    for model_name in ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]:
+        study_name = f"opt_{model_name}" + (f"_{suffix}" if suffix else "")
         try:
-            study = optuna.load_study(
-                study_name=f"opt_{model_name}", storage=storage,
-            )
+            study = optuna.load_study(study_name=study_name, storage=storage)
         except KeyError:
             continue
 
@@ -250,6 +255,8 @@ def optuna_best_params():
             best_params = dict(study.best_params)
         except ValueError:
             continue  # no completed trials
+
+        study_metric = study.user_attrs.get("metric", study_metric)
 
         n_complete = sum(
             1 for t in study.trials
@@ -273,7 +280,7 @@ def optuna_best_params():
         raise HTTPException(404, "No Optuna studies found in the DB.")
 
     return {
-        "metric": "Sharpe (Median OOS)",
+        "metric": f"{study_metric or metric} (pooled OOS)",
         "results": results,
     }
 
@@ -317,8 +324,10 @@ def chart_optuna(
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     storage = f"sqlite:///{db_path}"
 
+    suffix = getattr(cfg.optimization, "study_suffix", None)
+    study_name = f"opt_{model}" + (f"_{suffix}" if suffix else "")
     try:
-        study = optuna.load_study(study_name=f"opt_{model}", storage=storage)
+        study = optuna.load_study(study_name=study_name, storage=storage)
     except KeyError:
         raise HTTPException(404, f"No Optuna study for {model}.")
 

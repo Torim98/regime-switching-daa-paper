@@ -31,11 +31,11 @@ The `regime-switching-daa` project uses a microservice architecture: three conta
 
 ### `POST /models/optimize/{model_name}`
 - **Parameters**: `model_name` (string: `MSM` | `HMM` | `HMM_Uni` | `LSTM` | `Transformer`)
-- **Description**: Runs an Optuna hyperparameter optimization for the specified model. Uses walk-forward splits as inner cross-validation. `n_trials` and `every_nth_fold` are read per model from `config.yaml` (`optimization.n_trials_per_model` and `optimization.every_nth_fold_per_model`). No API overrides, so that the thesis configuration remains reproducible. Requires `walk_forward.enabled: true`. Results are persisted in `models/optuna_studies.db`. Returns `best_sharpe`, `best_params`, and `n_trials`.
+- **Description**: Runs an Optuna hyperparameter optimization for the specified model. Uses walk-forward splits as inner cross-validation. Sampler (GridSampler for the econometric models, multivariate TPESampler for the DL models), trial budget, objective metric and the `tune_until` fold restriction are read from `config.yaml` (`optimization.*`). The objective is the configured risk metric on the pooled OOS return series. No API overrides, so the run stays reproducible from config alone. Requires `walk_forward.enabled: true`. Results are persisted in `models/optuna_studies.db`. Returns `metric`, `best_score`, `best_params`, and `n_trials`.
 
 ### `POST /models/optimize-all`
 - **Parameters**: none
-- **Description**: Optimizes all five models sequentially (MSM → HMM → HMM_Uni → LSTM → Transformer). `n_trials` and `every_nth_fold` are read per model from `config.yaml` (thesis default: 50 trials / `every_nth_fold=2` for MSM & HMM (+HMM_Uni), 30 / 2 for LSTM & Transformer). Returns a dict with `best_sharpe` and `best_params` per model.
+- **Description**: Optimizes all five models sequentially (MSM → HMM → HMM_Uni → LSTM → Transformer). Sampler, trial budget, objective metric and the `tune_until` fold restriction are read from `config.yaml` (`optimization.*`): the econometric models are searched exhaustively via GridSampler, the DL models via a multivariate TPESampler on the pooled-OOS objective. Returns `metric` and a dict with `best_score` and `best_params` per model.
 
 ### `GET /models/status`
 - **Description**: Checks the filesystem and returns a boolean (`true`/`false`) for each of the four models indicating whether the model has already been trained and successfully persisted to disk.

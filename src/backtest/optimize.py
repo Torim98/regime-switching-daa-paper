@@ -1,19 +1,49 @@
 """
-Optuna hyperparameter optimization: Bayesian search with walk-forward CV.
+Optuna hyperparameter optimization: Bayesian / grid search with walk-forward CV.
 
+Design (revised for the paper, Issue #5)
+----------------------------------------
 Each objective function:
-1. Samples hyperparameters via trial.suggest_*()
-2. Iterates over the (subsampled) walk-forward folds
-3. Trains the model per fold on the train window
-4. Computes the annualized OOS Sharpe from the portfolio returns
-5. Returns the median OOS Sharpe over all folds (Optuna maximizes)
+1. Samples hyperparameters from cfg.optimization.search_spaces via trial.suggest_*()
+2. Iterates over the (optionally date-restricted, subsampled) walk-forward folds
+3. Trains the model per fold on the train window (DL folds warm-start from the
+   previous fold exactly as in the final walk-forward run)
+4. Concatenates the OOS net returns of all folds into ONE pooled OOS series
+5. Computes the configured risk metric on that pooled series (Optuna maximizes)
 
-No look-ahead bias: Optuna only observes OOS metrics.
-Each fold trains independently. The fold splits are identical to
-those in the final walk-forward run (walk_forward.py).
+Why a pooled OOS series instead of the fold-wise median Sharpe:
+The fold-median aggregates over a sequence of mostly bullish 12-month test
+windows, so rare crisis folds only weakly shape the objective (thesis ch. 4.4).
+Path-dependent tail metrics (Ulcer, Martin, Calmar, MaxDD) computed on the
+pooled series are instead driven by exactly those crisis segments, which aligns
+the objective with the paper's SORR / tail-risk goal.
+
+Objective metric (cfg.optimization.metric):
+    "sharpe" | "sortino" | "calmar" | "martin" | "ulcer" | "max_drawdown"
+All metrics are normalized to "higher = better" internally, so the study
+direction is always "maximize". The full metric vector of every trial is stored
+as user_attrs, which lets the paper build an objective-sensitivity table
+(best config under Martin vs. Sharpe vs. Sortino) without re-running the search.
+
+Samplers:
+- Econometric models (cfg.optimization.grid_models) use GridSampler, i.e. the
+  low-dimensional space is evaluated exhaustively -> "global optimum within the
+  grid" rather than "a sample of the space".
+- DL models use a multivariate TPESampler.
+
+Selection vs. evaluation (Issue #5):
+cfg.optimization.tune_until restricts the HPO to folds whose test window ends on
+or before that date (development period; e.g. Dotcom + GFC). The final
+walk-forward run (walk_forward.py) is untouched and still uses all folds, so the
+holdout folds (e.g. COVID, 2022) remain selection-free.
+
+No look-ahead bias: Optuna only observes OOS metrics. Each fold's labels and
+scaler are fit on the train window only. The fold splits are identical to those
+in the final walk-forward run (walk_forward.py).
 """
 
 import warnings
+import math
 import numpy as np
 import pandas as pd
 import optuna
@@ -23,21 +53,153 @@ from src.data.labels.resolver import compute_supervised_labels, resolve_label_co
 from src.backtest.walk_forward import walk_forward_splits
 
 # ============================================================================
-# Helper functions
+# Objective metrics (all normalized to "higher = better")
 # ============================================================================
 
-def _compute_oos_sharpe(
+# Sign that maps each raw metric onto a maximization score.
+# ulcer is a loss (lower = better) -> maximize its negative.
+# max_drawdown is already <= 0 (less negative = better) -> maximize as-is.
+_MAXIMIZE_SIGN = {
+    "sharpe": 1.0,
+    "sortino": 1.0,
+    "calmar": 1.0,
+    "martin": 1.0,
+    "max_drawdown": 1.0,
+    "ulcer": -1.0,
+}
+ALLOWED_METRICS = tuple(_MAXIMIZE_SIGN.keys())
+
+# Worst possible maximization score for failed / degenerate trials.
+_SENTINEL = -1.0e9
+
+
+def _ulcer_from_equity(equity: np.ndarray) -> float:
+    """Ulcer index (RMS drawdown, in %) via the canonical evaluation helper."""
+    # Reuse the single source of truth so the HPO objective and the reported
+    # Ulcer index in the results are computed identically.
+    from src.backtest.evaluation import ulcer_index
+    return float(ulcer_index(pd.Series(equity)))
+
+
+def compute_oos_metrics(
     daily_returns: np.ndarray,
     trading_days_per_year: int = 252,
-) -> float:
-    """Annualized Sharpe ratio from daily net returns."""
-    if len(daily_returns) < 20:
-        return -999.0
-    std = np.std(daily_returns)
-    if std == 0:
-        return 0.0
-    return float((np.mean(daily_returns) / std) * np.sqrt(trading_days_per_year))
+) -> dict[str, float]:
+    """
+    Full risk-metric vector for a pooled OOS net-return series.
 
+    Returns sharpe, sortino, calmar, martin, ulcer, max_drawdown and cagr.
+    Metrics are defined so that (except ulcer) higher = better; ulcer and
+    max_drawdown are reported as their natural raw values.
+    """
+    rets = np.asarray(daily_returns, dtype=float)
+    rets = rets[np.isfinite(rets)]
+    n = len(rets)
+    empty = {k: 0.0 for k in ("sharpe", "sortino", "calmar",
+                              "martin", "ulcer", "max_drawdown", "cagr")}
+    if n < 20:
+        return empty
+
+    tdpy = trading_days_per_year
+    mean, sd = rets.mean(), rets.std()
+    sharpe = float(mean / sd * np.sqrt(tdpy)) if sd > 0 else 0.0
+
+    downside = rets[rets < 0]
+    dsd = downside.std() * np.sqrt(tdpy) if downside.size > 0 else 0.0
+    sortino = float(mean * tdpy / dsd) if dsd > 0 else 0.0
+
+    equity = np.cumprod(1.0 + rets)
+    total = float(equity[-1])
+    cagr = float(total ** (tdpy / n) - 1.0) if total > 0 else -1.0
+
+    peak = np.maximum.accumulate(equity)
+    dd = equity / peak - 1.0
+    mdd = float(dd.min())
+    calmar = float(cagr / max(abs(mdd), 1e-6))
+
+    ulcer = _ulcer_from_equity(equity)          # in percent
+    # Floor the Ulcer index so a (near) drawdown-free path does not blow the
+    # Martin ratio up to +inf and dominate the search numerically.
+    martin = float(cagr * 100.0 / max(ulcer, 0.1))
+
+    return {
+        "sharpe": sharpe,
+        "sortino": sortino,
+        "calmar": calmar,
+        "martin": martin,
+        "ulcer": ulcer,
+        "max_drawdown": mdd,
+        "cagr": cagr,
+    }
+
+
+def _objective_score(metrics: dict[str, float], metric: str) -> float:
+    """Map the raw metric vector onto a single maximization score."""
+    return _MAXIMIZE_SIGN[metric] * metrics[metric]
+
+
+# ============================================================================
+# Search-space parsing (cfg.optimization.search_spaces -> trial.suggest_*)
+# ============================================================================
+
+def _suggest_from_spec(trial: optuna.Trial, name: str, spec) -> object:
+    """Sample one hyperparameter from its YAML spec (SimpleNamespace)."""
+    kind = spec.type
+    if kind == "categorical":
+        return trial.suggest_categorical(name, list(spec.choices))
+    if kind == "int":
+        step = int(getattr(spec, "step", 1))
+        return trial.suggest_int(name, int(spec.low), int(spec.high), step=step)
+    if kind == "float":
+        if getattr(spec, "log", False):
+            return trial.suggest_float(name, float(spec.low), float(spec.high), log=True)
+        step = getattr(spec, "step", None)
+        if step is not None:
+            return trial.suggest_float(name, float(spec.low), float(spec.high), step=float(step))
+        return trial.suggest_float(name, float(spec.low), float(spec.high))
+    raise ValueError(f"Unknown search-space type '{kind}' for parameter '{name}'.")
+
+
+def _suggest_space(trial: optuna.Trial, space_ns) -> dict:
+    """Sample every parameter of a model's search space, preserving YAML order."""
+    return {name: _suggest_from_spec(trial, name, spec)
+            for name, spec in vars(space_ns).items()}
+
+
+def _build_grid(space_ns) -> dict[str, list]:
+    """
+    Expand a search-space spec into an explicit grid for optuna.GridSampler.
+
+    Only categorical and stepped-float / stepped-int parameters are supported
+    here (which is all the econometric models use). A continuous parameter in a
+    grid model would raise, since it cannot be enumerated.
+    """
+    grid: dict[str, list] = {}
+    for name, spec in vars(space_ns).items():
+        kind = spec.type
+        if kind == "categorical":
+            grid[name] = list(spec.choices)
+        elif kind == "int":
+            step = int(getattr(spec, "step", 1))
+            grid[name] = list(range(int(spec.low), int(spec.high) + 1, step))
+        elif kind == "float":
+            step = getattr(spec, "step", None)
+            if step is None:
+                raise ValueError(
+                    f"Grid model parameter '{name}' is a continuous float without "
+                    f"'step'; cannot enumerate. Add a step or use a TPE model."
+                )
+            n = int(round((float(spec.high) - float(spec.low)) / float(step)))
+            grid[name] = [round(float(spec.low) + i * float(step), 10)
+                          for i in range(n + 1)]
+        else:
+            raise ValueError(f"Unsupported grid type '{kind}' for '{name}'.")
+    return grid
+
+
+# ============================================================================
+# Fold helpers
+# ============================================================================
 
 def _fold_portfolio_returns(
     df_test: pd.DataFrame,
@@ -50,7 +212,7 @@ def _fold_portfolio_returns(
 
     Replicates the logic from engine.backtest():
     - Shift the signal by signal_shift days (look-ahead prevention)
-    - Signal=0 → portfolio return, signal=1 → cash return
+    - Signal=0 -> portfolio return, signal=1 -> cash return
     - Subtract transaction costs on signal switches
     """
     trading_signal = signal.shift(signal_shift).fillna(0)
@@ -72,6 +234,20 @@ def _subsample_splits(
     if every_nth is None or every_nth <= 1:
         return splits
     return splits[::every_nth]
+
+
+def _filter_splits_until(
+    splits: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]],
+    tune_until,
+) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
+    """
+    Keep only folds whose OOS test window ends on or before `tune_until`
+    (development period for HPO, Issue #5). None / "" -> no restriction.
+    """
+    if tune_until is None or (isinstance(tune_until, str) and not tune_until.strip()):
+        return splits
+    cutoff = pd.Timestamp(tune_until)
+    return [(tr, te) for (tr, te) in splits if te.max() <= cutoff]
 
 
 def _generate_hmm_labels(df_train, df_test, cfg):
@@ -96,6 +272,40 @@ def _generate_hmm_labels(df_train, df_test, cfg):
     return df_train, df_test
 
 
+# ---- Pooled-OOS accumulation, pruning and finalization ---------------------
+
+def _maybe_prune(trial, pooled, metric, fold_id, prune_enabled):
+    """Report the running pooled score and prune if the pruner requests it."""
+    if not prune_enabled:
+        return
+    running = (_objective_score(compute_oos_metrics(np.concatenate(pooled)), metric)
+               if pooled else _SENTINEL)
+    trial.report(running, fold_id)
+    if trial.should_prune():
+        raise optuna.TrialPruned()
+
+
+def _finalize(trial, pooled, metric, n_failed, n_folds):
+    """Compute the pooled metric vector, log all metrics, return the score."""
+    if not pooled or n_failed >= math.ceil(0.5 * max(n_folds, 1)):
+        return _SENTINEL
+    pooled_rets = np.concatenate(pooled)
+    metrics = compute_oos_metrics(pooled_rets)
+    for k, v in metrics.items():
+        trial.set_user_attr(k, float(v))
+    trial.set_user_attr("n_oos_days", int(len(pooled_rets)))
+    trial.set_user_attr("n_failed_folds", int(n_failed))
+    return _objective_score(metrics, metric)
+
+
+def _dl_warm_cfg(cfg):
+    """(dl_warm_start, epochs_warm, max_epochs) shared by the DL objectives."""
+    dl_warm = getattr(cfg.walk_forward, "dl_warm_start", False)
+    epochs_warm = getattr(cfg.walk_forward, "dl_warm_start_epochs", None)
+    max_epochs = int(getattr(cfg.optimization, "dl_max_epochs", 150))
+    return dl_warm, epochs_warm, max_epochs
+
+
 # ============================================================================
 # Objective functions per model
 # ============================================================================
@@ -104,16 +314,20 @@ def objective_msm(
     trial: optuna.Trial,
     df: pd.DataFrame,
     splits: list,
+    cfg,
     fee: float,
     signal_shift: int,
+    metric: str,
+    prune_enabled: bool,
 ) -> float:
-    """MSM: optimize k_regimes and threshold."""
+    """MSM: optimize threshold (k_regimes fixed at 2)."""
     from src.models.msm import train_msm_fold
 
+    params = _suggest_space(trial, cfg.optimization.search_spaces.MSM)
+    threshold = params["threshold"]
     k_regimes = 2
-    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
 
-    fold_sharpes = []
+    pooled, n_failed = [], 0
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -126,19 +340,14 @@ def objective_msm(
                 switching_variance=True,
                 threshold=threshold,
             )
-
-            oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
-            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
+            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
         except Exception as e:
             warnings.warn(f"MSM trial {trial.number}, fold {fold_id}: {e}")
-            fold_sharpes.append(-999.0)
+            n_failed += 1
 
-        # Pruning: report the intermediate result
-        trial.report(np.median(fold_sharpes), fold_id)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+        _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
-    return float(np.median(fold_sharpes))
+    return _finalize(trial, pooled, metric, n_failed, len(splits))
 
 
 def objective_hmm(
@@ -148,19 +357,19 @@ def objective_hmm(
     cfg,
     fee: float,
     signal_shift: int,
+    metric: str,
+    prune_enabled: bool,
 ) -> float:
-    """HMM: optimize n_components, covariance_type, and threshold."""
+    """HMM: optimize covariance_type and threshold (n_components fixed at 2)."""
     from src.models.hmm import train_hmm_fold
 
+    params = _suggest_space(trial, cfg.optimization.search_spaces.HMM)
+    covariance_type = params["covariance_type"]
+    threshold = params["threshold"]
     n_components = 2
-    covariance_type = trial.suggest_categorical(
-        "covariance_type", ["full", "diag", "tied"],
-    )
-    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
-
     hmm_features = cfg.models.hmm.features
 
-    fold_sharpes = []
+    pooled, n_failed = [], 0
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -176,18 +385,15 @@ def objective_hmm(
                 random_state=cfg.models.hmm.random_state,
                 threshold=threshold,
             )
-
-            oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
-            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
+            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
         except Exception as e:
             warnings.warn(f"HMM trial {trial.number}, fold {fold_id}: {e}")
-            fold_sharpes.append(-999.0)
+            n_failed += 1
 
-        trial.report(np.median(fold_sharpes), fold_id)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+        _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
-    return float(np.median(fold_sharpes))
+    return _finalize(trial, pooled, metric, n_failed, len(splits))
+
 
 def objective_hmm_uni(
     trial: optuna.Trial,
@@ -196,6 +402,8 @@ def objective_hmm_uni(
     cfg,
     fee: float,
     signal_shift: int,
+    metric: str,
+    prune_enabled: bool,
 ) -> float:
     """
     HMM_Uni: optimize the threshold only.
@@ -207,11 +415,11 @@ def objective_hmm_uni(
     """
     from src.models.hmm import train_hmm_fold
 
-    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
-
+    params = _suggest_space(trial, cfg.optimization.search_spaces.HMM_Uni)
+    threshold = params["threshold"]
     uni_cfg = cfg.models.hmm_uni
 
-    fold_sharpes = []
+    pooled, n_failed = [], 0
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -227,18 +435,15 @@ def objective_hmm_uni(
                 random_state=uni_cfg.random_state,
                 threshold=threshold,
             )
-
-            oos_rets = _fold_portfolio_returns(df_test, signal, signal_shift, fee)
-            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
+            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
         except Exception as e:
             warnings.warn(f"HMM_Uni trial {trial.number}, fold {fold_id}: {e}")
-            fold_sharpes.append(-999.0)
+            n_failed += 1
 
-        trial.report(np.median(fold_sharpes), fold_id)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+        _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
-    return float(np.median(fold_sharpes))
+    return _finalize(trial, pooled, metric, n_failed, len(splits))
+
 
 def objective_lstm(
     trial: optuna.Trial,
@@ -247,50 +452,50 @@ def objective_lstm(
     cfg,
     fee: float,
     signal_shift: int,
+    metric: str,
+    prune_enabled: bool,
 ) -> float:
     """
-    LSTM: optimize window_size, units, learning_rate, dropout, epochs.
-
-    Note: learning_rate is passed to train_lstm_fold via a Keras optimizer
-    object. Keras model.compile() accepts both strings ("adam") and
-    optimizer instances.
+    LSTM: optimize window_size, units_l1/l2, batch_size, learning_rate,
+    dropout and threshold. Epochs are NOT tuned; a large dl_max_epochs is
+    combined with the trainer's early stopping. DL folds warm-start from the
+    previous fold, mirroring the final walk-forward run exactly.
     """
     from src.models.lstm import train_lstm_fold
     from tensorflow.keras.optimizers import Adam
 
-    window_size = trial.suggest_int("window_size", 20, 120, step=10)
-    units_l1 = trial.suggest_categorical("units_l1", [16, 32, 64])
-    units_l2 = trial.suggest_categorical("units_l2", [32, 64, 128])
-    learning_rate = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
-    dropout = trial.suggest_float("dropout", 0.1, 0.4, step=0.05)
-    epochs = trial.suggest_int("epochs", 10, 50, step=5)
-    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
+    p = _suggest_space(trial, cfg.optimization.search_spaces.LSTM)
+    window_size = p["window_size"]
+    units_l1 = p["units_l1"]
+    units_l2 = p["units_l2"]
+    batch_size = p["batch_size"]
+    learning_rate = p["learning_rate"]
+    dropout = p["dropout"]
+    threshold = p["threshold"]
 
     lstm_cfg = cfg.models.lstm
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
+    dl_warm, epochs_warm, max_epochs = _dl_warm_cfg(cfg)
 
-    # Precompute the supervised labels once globally (analogous to the
-    # Transformer objective). Without this block, the column is missing in
-    # the fold and every trial raises a KeyError.
+    # Precompute the supervised labels once globally, otherwise the label column
+    # is missing in the fold and every trial raises a KeyError.
     if cfg.labels.supervised_label_source != "hmm":
         df = df.copy()
         if "Supervised_Label" not in df.columns:
             df["Supervised_Label"] = compute_supervised_labels(df, cfg)
 
-    fold_sharpes = []
+    pooled, n_failed = [], 0
+    lstm_state = None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
             df_test = df.loc[test_idx]
 
-            # Generate HMM labels for this fold
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            # train_lstm_fold returns (probs, pred_idx, weights); weights is
-            # needed for warm starts, irrelevant in the HPO context.
-            probs_raw, pred_idx, _ = train_lstm_fold(
+            probs_raw, pred_idx, lstm_state = train_lstm_fold(
                 df_train=df_train,
                 df_test=df_test,
                 features=features,
@@ -304,28 +509,28 @@ def objective_lstm(
                 activation=lstm_cfg.activation,
                 optimizer=Adam(learning_rate=learning_rate),
                 metrics=lstm_cfg.metrics,
-                epochs=epochs,
-                batch_size=lstm_cfg.batch_size,
+                epochs=max_epochs,
+                batch_size=batch_size,
                 validation_split=lstm_cfg.validation_split,
                 verbose=0,
+                init_weights=lstm_state if dl_warm else None,
+                epochs_warm=epochs_warm if (dl_warm and lstm_state is not None) else None,
             )
 
             signal = (probs_raw >= threshold).astype(int)
             signal_series = pd.Series(signal, index=pred_idx)
             df_test_aligned = df_test.loc[pred_idx]
-            oos_rets = _fold_portfolio_returns(
-                df_test_aligned, signal_series, signal_shift, fee,
+            pooled.append(
+                _fold_portfolio_returns(df_test_aligned, signal_series, signal_shift, fee)
             )
-            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
             warnings.warn(f"LSTM trial {trial.number}, fold {fold_id}: {e}")
-            fold_sharpes.append(-999.0)
+            n_failed += 1
+            lstm_state = None  # cold restart for the next fold
 
-        trial.report(np.median(fold_sharpes), fold_id)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+        _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
-    return float(np.median(fold_sharpes))
+    return _finalize(trial, pooled, metric, n_failed, len(splits))
 
 
 def objective_transformer(
@@ -335,49 +540,52 @@ def objective_transformer(
     cfg,
     fee: float,
     signal_shift: int,
+    metric: str,
+    prune_enabled: bool,
 ) -> float:
     """
-    Transformer: d_model, n_heads, n_layers, learning_rate, dropout, epochs.
+    Transformer: optimize window_size, the (d_model, n_heads) pair, n_layers,
+    dim_feedforward, batch_size, learning_rate, dropout and threshold.
 
-    Constraint: d_model must be divisible by n_heads.
+    The divisibility constraint d_model % n_heads == 0 is guaranteed by
+    construction: only valid pairs are offered as a single categorical
+    'dmodel_nheads' (e.g. "64-8"), so no trial is wasted on a pruned constraint
+    violation and the pruning statistics stay interpretable. Epochs are not
+    tuned (early stopping + dl_max_epochs). DL folds warm-start.
     """
     from src.models.transformer import train_transformer_fold
 
-    d_model = trial.suggest_categorical("d_model", [32, 64, 128])
-    n_heads = trial.suggest_categorical("n_heads", [2, 4, 8])
-    n_layers = trial.suggest_int("n_layers", 1, 4)
-    dim_feedforward = trial.suggest_categorical("dim_feedforward", [64, 128, 256])
-    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    dropout = trial.suggest_float("dropout", 0.05, 0.3, step=0.05)
-    epochs = trial.suggest_int("epochs", 20, 80, step=10)
-    window_size = trial.suggest_int("window_size", 20, 120, step=10)
-    threshold = trial.suggest_float("threshold", 0.3, 0.7, step=0.05)
-
-    # Constraint: d_model % n_heads == 0
-    if d_model % n_heads != 0:
-        raise optuna.TrialPruned()
+    p = _suggest_space(trial, cfg.optimization.search_spaces.Transformer)
+    d_model, n_heads = (int(x) for x in p["dmodel_nheads"].split("-"))
+    n_layers = p["n_layers"]
+    dim_feedforward = p["dim_feedforward"]
+    batch_size = p["batch_size"]
+    learning_rate = p["learning_rate"]
+    dropout = p["dropout"]
+    window_size = p["window_size"]
+    threshold = p["threshold"]
 
     t_cfg = cfg.models.transformer
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
+    dl_warm, epochs_warm, max_epochs = _dl_warm_cfg(cfg)
 
     if cfg.labels.supervised_label_source != "hmm":
         df = df.copy()
         if "Supervised_Label" not in df.columns:
             df["Supervised_Label"] = compute_supervised_labels(df, cfg)
 
-    fold_sharpes = []
+    pooled, n_failed = [], 0
+    transformer_state = None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
             df_test = df.loc[test_idx]
 
-            # Generate HMM labels for this fold
-            df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
+            if cfg.labels.supervised_label_source == "hmm":
+                df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
 
-            # train_transformer_fold returns (probs, pred_idx, state_dict);
-            # state_dict is for warm starts, irrelevant in the HPO context.
-            probs_raw, pred_idx, _ = train_transformer_fold(
+            probs_raw, pred_idx, transformer_state = train_transformer_fold(
                 df_train=df_train,
                 df_test=df_test,
                 features=features,
@@ -389,26 +597,26 @@ def objective_transformer(
                 dim_feedforward=dim_feedforward,
                 dropout=dropout,
                 learning_rate=learning_rate,
-                epochs=epochs,
-                batch_size=t_cfg.batch_size,
+                epochs=max_epochs,
+                batch_size=batch_size,
                 validation_split=t_cfg.validation_split,
                 verbose=0,
+                init_state_dict=transformer_state if dl_warm else None,
+                epochs_warm=epochs_warm if (dl_warm and transformer_state is not None) else None,
             )
 
             signal = (probs_raw >= threshold).astype(int)
             signal_series = pd.Series(signal, index=pred_idx)
             df_test_aligned = df_test.loc[pred_idx]
-            oos_rets = _fold_portfolio_returns(
-                df_test_aligned, signal_series, signal_shift, fee,
+            pooled.append(
+                _fold_portfolio_returns(df_test_aligned, signal_series, signal_shift, fee)
             )
-            fold_sharpes.append(_compute_oos_sharpe(oos_rets))
         except Exception as e:
             warnings.warn(f"Transformer trial {trial.number}, fold {fold_id}: {e}")
-            fold_sharpes.append(-999.0)
+            n_failed += 1
+            transformer_state = None  # cold restart for the next fold
 
-        trial.report(np.median(fold_sharpes), fold_id)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
+        _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
         # Free GPU memory after each fold
         try:
@@ -418,7 +626,7 @@ def objective_transformer(
         except ImportError:
             pass
 
-    return float(np.median(fold_sharpes))
+    return _finalize(trial, pooled, metric, n_failed, len(splits))
 
 
 # ============================================================================
@@ -434,18 +642,58 @@ _OBJECTIVE_MAP = {
 }
 
 
-def _resolve_from_cfg(cfg, attr: str, model_name: str) -> int | None:
-    """
-    Reads a per-model value from cfg.optimization.<attr>.
-
-    Expects the new structure with cfg.optimization.n_trials_per_model and
-    cfg.optimization.every_nth_fold_per_model, which are loaded as
-    SimpleNamespace in the config loader. Returns None if the entry is missing.
-    """
+def _resolve_from_cfg(cfg, attr: str, model_name: str):
+    """Read a per-model value from cfg.optimization.<attr>.<model_name>."""
     container = getattr(cfg.optimization, attr, None)
     if container is None:
         return None
     return getattr(container, model_name, None)
+
+
+def _resolve_metric(cfg, metric: str | None) -> str:
+    """Resolve and validate the objective metric."""
+    if metric is None:
+        metric = getattr(cfg.optimization, "metric", "sharpe")
+    metric = str(metric).lower()
+    if metric not in ALLOWED_METRICS:
+        raise ValueError(
+            f"Unknown optimization metric '{metric}'. Allowed: {list(ALLOWED_METRICS)}"
+        )
+    return metric
+
+
+def _make_sampler(cfg, model_name: str, use_grid: bool, space_ns):
+    """Build the GridSampler (econometric) or TPESampler (DL) for a model."""
+    sampler_cfg = getattr(cfg.optimization, "sampler", None)
+    seed = int(getattr(sampler_cfg, "seed", 42)) if sampler_cfg else 42
+
+    if use_grid:
+        grid = _build_grid(space_ns)
+        grid_size = int(np.prod([len(v) for v in grid.values()]))
+        return optuna.samplers.GridSampler(grid, seed=seed), grid_size
+
+    multivariate = bool(getattr(sampler_cfg, "multivariate", True)) if sampler_cfg else True
+    group = bool(getattr(sampler_cfg, "group", True)) if sampler_cfg else True
+    startup_ns = getattr(sampler_cfg, "n_startup_trials", None) if sampler_cfg else None
+    n_startup = int(getattr(startup_ns, model_name, 20)) if startup_ns else 20
+    sampler = optuna.samplers.TPESampler(
+        multivariate=multivariate,
+        group=group,
+        seed=seed,
+        n_startup_trials=n_startup,
+    )
+    return sampler, None
+
+
+def _make_pruner(cfg, prune_enabled: bool):
+    """MedianPruner if pruning is enabled, otherwise NopPruner."""
+    if not prune_enabled:
+        return optuna.pruners.NopPruner()
+    pcfg = getattr(cfg.optimization, "pruning", None)
+    return optuna.pruners.MedianPruner(
+        n_startup_trials=int(getattr(pcfg, "n_startup_trials", 5)) if pcfg else 5,
+        n_warmup_steps=int(getattr(pcfg, "n_warmup_steps", 10)) if pcfg else 10,
+    )
 
 
 def run_optimization(
@@ -455,6 +703,7 @@ def run_optimization(
     n_trials: int | None = None,
     every_nth_fold: int | None = None,
     storage: str | None = None,
+    metric: str | None = None,
 ) -> optuna.Study:
     """
     Run an Optuna study for a single model.
@@ -462,49 +711,63 @@ def run_optimization(
     Parameters
     ----------
     model_name : str
-        "MSM", "HMM", "LSTM", or "Transformer".
+        "MSM", "HMM", "HMM_Uni", "LSTM", or "Transformer".
     df : pd.DataFrame
         Feature-engineered DataFrame (Silver layer) with a DatetimeIndex.
     cfg : PipelineConfig
         Central configuration.
     n_trials : int | None
-        Number of Optuna trials. None = read from
-        cfg.optimization.n_trials_per_model[model_name].
+        Number of trials for TPE models. None = read from
+        cfg.optimization.n_trials_per_model[model_name]. Ignored for grid
+        models (the grid size is used instead).
     every_nth_fold : int | None
-        Use only every n-th fold (speed). None = read from
-        cfg.optimization.every_nth_fold_per_model[model_name]
-        (fallback: all folds if not configured).
+        Use only every n-th fold. None = read from
+        cfg.optimization.every_nth_fold_per_model[model_name].
     storage : str | None
-        Optuna storage URL (e.g. "sqlite:///optuna.db").
-        None = in-memory.
+        Optuna storage URL (e.g. "sqlite:///optuna.db"). None = in-memory.
+    metric : str | None
+        Objective metric. None = cfg.optimization.metric.
 
     Returns
     -------
-    optuna.Study with .best_params and .best_value.
+    optuna.Study with .best_params and .best_value (the maximization score of
+    the configured metric). Per-trial user_attrs hold the full metric vector.
     """
     if model_name not in _OBJECTIVE_MAP:
         raise ValueError(
-            f"Unknown model '{model_name}'. "
-            f"Available: {list(_OBJECTIVE_MAP.keys())}"
+            f"Unknown model '{model_name}'. Available: {list(_OBJECTIVE_MAP.keys())}"
         )
 
-    # Resolve defaults from the config if not passed explicitly
-    if n_trials is None:
-        n_trials = _resolve_from_cfg(cfg, "n_trials_per_model", model_name)
+    metric = _resolve_metric(cfg, metric)
+
+    # --- Grid vs. TPE, sampler, trial budget, pruning ---
+    grid_models = set(getattr(cfg.optimization, "grid_models", []) or [])
+    use_grid = model_name in grid_models
+    space_ns = getattr(cfg.optimization.search_spaces, model_name)
+    sampler, grid_size = _make_sampler(cfg, model_name, use_grid, space_ns)
+
+    if use_grid:
+        n_trials = grid_size          # exhaustive
+        prune_enabled = False         # never prune an exhaustive grid
+    else:
         if n_trials is None:
-            raise ValueError(
-                f"n_trials not passed and cfg.optimization."
-                f"n_trials_per_model.{model_name} is missing."
-            )
-    if every_nth_fold is None:
-        every_nth_fold = _resolve_from_cfg(
-            cfg, "every_nth_fold_per_model", model_name,
-        )
+            n_trials = _resolve_from_cfg(cfg, "n_trials_per_model", model_name)
+            if n_trials is None:
+                raise ValueError(
+                    f"n_trials not passed and cfg.optimization."
+                    f"n_trials_per_model.{model_name} is missing."
+                )
+        pcfg = getattr(cfg.optimization, "pruning", None)
+        prune_enabled = bool(getattr(pcfg, "enabled", False)) if pcfg else False
 
-    # Reduce Optuna logging to warnings
+    pruner = _make_pruner(cfg, prune_enabled)
+
+    if every_nth_fold is None:
+        every_nth_fold = _resolve_from_cfg(cfg, "every_nth_fold_per_model", model_name)
+
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    # Generate the walk-forward splits (identical to the final run)
+    # --- Walk-forward splits: identical to the final run, then restricted ---
     wf = cfg.walk_forward
     splits = walk_forward_splits(
         index=df.index,
@@ -514,12 +777,21 @@ def run_optimization(
         step_months=wf.step_months,
         min_train_years=wf.min_train_years,
     )
+    n_total = len(splits)
+    tune_until = getattr(cfg.optimization, "tune_until", None)
+    splits = _filter_splits_until(splits, tune_until)
+    n_dev = len(splits)
     splits = _subsample_splits(splits, every_nth_fold)
+
     print(f"\n{'='*60}")
-    print(f"Optimization: {model_name} | {n_trials} trials | {len(splits)} folds")
+    print(f"Optimization: {model_name} | metric={metric} | "
+          f"{'grid' if use_grid else 'TPE'} | {n_trials} trials | {len(splits)} folds")
+    if tune_until:
+        print(f"  Selection window: folds ending <= {tune_until} "
+              f"({n_dev}/{n_total} folds; holdout kept selection-free)")
     print(f"{'='*60}")
 
-    # Resolve the storage path relative to the project root
+    # --- Resolve the storage path relative to the project root ---
     if storage and storage.startswith("sqlite:///") and not os.path.isabs(storage[10:]):
         from pathlib import Path
         project_root = Path(cfg.paths.data_dir).resolve().parent
@@ -544,8 +816,6 @@ def run_optimization(
             },
         )
 
-        # PRAGMAs only on the Optuna engine, not globally (avoids
-        # multiple registration with optimize_all over 4 models).
         def _set_sqlite_pragma(dbapi_conn, _):
             cur = dbapi_conn.cursor()
             try:
@@ -557,7 +827,6 @@ def run_optimization(
                 cur.close()
 
         event.listen(rdb_storage.engine, "connect", _set_sqlite_pragma)
-        # Also apply to the already open connection from the pool
         with rdb_storage.engine.connect() as _conn:
             _conn.exec_driver_sql("PRAGMA journal_mode=WAL")
             _conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
@@ -565,58 +834,54 @@ def run_optimization(
 
         storage_arg = rdb_storage
 
-    # Create the study
+    # --- Study (versioned name so a changed search space / metric never ---
+    # --- resumes into a study built under different distributions) ---
+    suffix = getattr(cfg.optimization, "study_suffix", None)
+    study_name = f"opt_{model_name}" + (f"_{suffix}" if suffix else "")
     study = optuna.create_study(
         direction="maximize",
-        study_name=f"opt_{model_name}",
+        study_name=study_name,
         storage=storage_arg,
         load_if_exists=True,
-        pruner=optuna.pruners.MedianPruner(
-            n_startup_trials=5,
-            n_warmup_steps=3,
-        ),
+        sampler=sampler,
+        pruner=pruner,
     )
+    study.set_user_attr("metric", metric)
+    study.set_user_attr("tune_until", str(tune_until) if tune_until else "")
 
-    # Transaction costs from the config
     fee = cfg.backtesting.transaction_cost_bps / 10_000
     signal_shift = cfg.backtesting.signal_shift
 
-    # Objective function with bound parameters
-    if model_name in ("MSM",):
-        objective = lambda trial: _OBJECTIVE_MAP[model_name](
-            trial, df, splits, fee, signal_shift,
-        )
-    else:
-        objective = lambda trial: _OBJECTIVE_MAP[model_name](
-            trial, df, splits, cfg, fee, signal_shift,
-        )
+    objective = lambda trial: _OBJECTIVE_MAP[model_name](
+        trial, df, splits, cfg, fee, signal_shift, metric, prune_enabled,
+    )
 
-    # Enqueue the default parameters as the first trial (baseline)
-    default_params = _get_default_params(model_name, cfg)
-    if default_params:
-        study.enqueue_trial(default_params)
+    # Enqueue the current config as a baseline trial (TPE only). For grid
+    # models the baseline is already a grid point, and enqueuing off-grid
+    # points would confuse the GridSampler's coverage bookkeeping.
+    if not use_grid:
+        default_params = _get_default_params(model_name, cfg)
+        if default_params:
+            study.enqueue_trial(default_params, skip_if_exists=True)
 
-    # Count already completed + pruned trials
     done = len([t for t in study.trials
                 if t.state in (optuna.trial.TrialState.COMPLETE,
                                optuna.trial.TrialState.PRUNED)])
     remaining = max(0, n_trials - done)
 
     if remaining == 0:
-        print(f"  ➜ {model_name}: {done}/{n_trials} trials already present, skipping.")
+        print(f"  -> {model_name}: {done}/{n_trials} trials already present, skipping.")
     else:
-        print(f"  ➜ {done} trials present, starting {remaining} more.")
+        print(f"  -> {done} trials present, starting {remaining} more.")
         study.optimize(objective, n_trials=remaining, show_progress_bar=True)
 
-    # Print the result
-    print(f"\n--- {model_name}: best parameters ---")
-    print(f"  Sharpe (median OOS): {study.best_value:.4f}")
+    print(f"\n--- {model_name}: best parameters ({metric}) ---")
+    print(f"  {metric} score: {study.best_value:.4f}")
     for k, v in study.best_params.items():
         print(f"  {k}: {v}")
     print(f"  Trials: {len(study.trials)} "
           f"(of which {len(study.get_trials(states=[optuna.trial.TrialState.PRUNED]))} pruned)")
 
-    # Save the visualizations (always, even on skip)
     try:
         from src.backtest.plots import save_optuna_plots
         save_optuna_plots(study, model_name, cfg)
@@ -625,6 +890,7 @@ def run_optimization(
 
     return study
 
+
 def optimize_all(
     df: pd.DataFrame,
     cfg,
@@ -632,28 +898,24 @@ def optimize_all(
     every_nth_fold: int | None = None,
     models: list[str] | None = None,
     storage: str | None = None,
+    metric: str | None = None,
 ) -> dict[str, optuna.Study]:
     """
     Optimize all (or selected) models sequentially.
 
-    Order: MSM → HMM → LSTM → Transformer
+    Order: MSM -> HMM -> HMM_Uni -> LSTM -> Transformer
 
     Parameters
     ----------
     models : list[str] | None
-        Models to optimize. None = all four.
-    n_trials : int | None
-        Explicit override for ALL models. None = read per model from
-        cfg.optimization.n_trials_per_model (thesis default:
-        50 for MSM/HMM, 30 for LSTM/Transformer).
-    every_nth_fold : int | None
-        Explicit override for ALL models. None = read per model from
-        cfg.optimization.every_nth_fold_per_model.
+        Models to optimize. None = all five.
+    n_trials, every_nth_fold, metric : optional overrides for ALL models.
+        None = read per model from the config.
     Remaining parameters : see run_optimization.
 
     Returns
     -------
-    Dict[model_name → optuna.Study].
+    Dict[model_name -> optuna.Study].
     """
     if models is None:
         models = ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
@@ -664,34 +926,34 @@ def optimize_all(
             model_name=model_name,
             df=df,
             cfg=cfg,
-            n_trials=n_trials,            # None → run_optimization reads from the config
-            every_nth_fold=every_nth_fold,  # None → run_optimization reads from the config
+            n_trials=n_trials,
+            every_nth_fold=every_nth_fold,
             storage=storage,
+            metric=metric,
         )
 
-    # Summary
     print(f"\n{'='*60}")
     print("Optimization complete: summary")
     print(f"{'='*60}")
     for name, study in studies.items():
-        print(f"\n{name}:")
-        print(f"  Best Sharpe: {study.best_value:.4f}")
+        m = study.user_attrs.get("metric", "score")
+        print(f"\n{name} (best {m}: {study.best_value:.4f}):")
         for k, v in study.best_params.items():
             print(f"  {k}: {v}")
 
     return studies
+
 
 def _format_param_value(v) -> str:
     """Format a hyperparameter value readably for Markdown tables."""
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):
-        return f"{v:,}".replace(",", " ")  # narrow no-break space
+        return f"{v:,}".replace(",", " ")  # narrow no-break space
     if isinstance(v, float):
         a = abs(v)
         if a > 0 and (a < 1e-3 or a >= 1e6):
             return f"{v:.3e}"
-        # 4 significant digits, without superfluous zeros
         return f"{float(f'{v:.4g}')}"
     return str(v)
 
@@ -699,18 +961,26 @@ def _format_param_value(v) -> str:
 def save_optuna_best_params(
     studies: dict[str, "optuna.Study"],
     cfg,
-    metric_label: str = "Sharpe (Median OOS)",
+    metric_label: str | None = None,
 ) -> str:
     """
     Persists the best hyperparameters of all Optuna studies as Markdown.
 
-    Format: overview table (model · best score · ✓/✂/total)
-    plus one parameter table per model with readably formatted values.
+    Overview table (model, best score, complete/pruned/total) plus, per model,
+    a parameter table and the secondary risk metrics of the best trial (Sharpe,
+    Sortino, Calmar, Martin, Ulcer, MaxDD) taken from its user_attrs. The
+    secondary metrics support the objective-sensitivity discussion (Issue #5).
     Target path: cfg.asset_path("optuna_best_params").
     """
     from pathlib import Path
     import datetime
     import optuna as _optuna
+
+    metric = getattr(cfg.optimization, "metric", "sharpe")
+    if metric_label is None:
+        metric_label = f"{metric} (pooled OOS)"
+
+    _sec_keys = ["sharpe", "sortino", "calmar", "martin", "ulcer", "max_drawdown", "cagr"]
 
     lines: list[str] = [
         "# Optuna: Best Hyperparameters",
@@ -747,6 +1017,17 @@ def save_optuna_best_params(
             lines.append(f"| `{k}` | `{_format_param_value(v)}` |")
         lines.append("")
 
+        attrs = study.best_trial.user_attrs
+        if any(k in attrs for k in _sec_keys):
+            lines.append("Secondary metrics of the best trial (pooled OOS):")
+            lines.append("")
+            lines.append("| Metric | Value |")
+            lines.append("|:---|---:|")
+            for k in _sec_keys:
+                if k in attrs:
+                    lines.append(f"| {k} | {attrs[k]:.4f} |")
+            lines.append("")
+
     path = Path(cfg.asset_path("optuna_best_params"))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -755,42 +1036,32 @@ def save_optuna_best_params(
 
 
 def _get_default_params(model_name: str, cfg) -> dict | None:
-    """Current config values as an Optuna trial dict."""
-    if model_name == "MSM":
-        return {
-            "threshold": cfg.models.msm.threshold,          # 0.5
-        }
-    if model_name == "HMM":
-        return {
-            "covariance_type": cfg.models.hmm.covariance_type,  # "full"
-            "threshold": cfg.models.hmm.threshold,          # 0.5
-        }
-    if model_name == "HMM_Uni":
-        return {
-            "threshold": cfg.models.hmm_uni.threshold,
-        }
+    """
+    Current config values as an Optuna trial dict (TPE baseline). Keys must
+    match the new search-space parameter names (cfg.optimization.search_spaces).
+    """
     if model_name == "LSTM":
         c = cfg.models.lstm
         return {
-            "window_size": c.window_size,       # 60
-            "units_l1": c.units_l1,             # 32
-            "units_l2": c.units_l2,             # 64
-            "learning_rate": c.learning_rate,   # 0.001
-            "dropout": c.dropout,               # 0.2
-            "epochs": c.epochs,                 # 30
-            "threshold": cfg.models.msm.threshold,  # 0.5
+            "window_size": c.window_size,
+            "units_l1": c.units_l1,
+            "units_l2": c.units_l2,
+            "batch_size": c.batch_size,
+            "learning_rate": c.learning_rate,
+            "dropout": c.dropout,
+            "threshold": c.threshold,
         }
     if model_name == "Transformer":
         c = cfg.models.transformer
         return {
-            "d_model": c.d_model,               # 64
-            "n_heads": c.n_heads,               # 4
-            "n_layers": c.n_layers,             # 2
-            "dim_feedforward": c.dim_feedforward, # 128
-            "learning_rate": c.learning_rate,   # 0.0001
-            "dropout": c.dropout,               # 0.1
-            "epochs": c.epochs,                 # 50
-            "window_size": c.window_size,       # 60
-            "threshold": cfg.models.msm.threshold,  # 0.5
+            "window_size": c.window_size,
+            "dmodel_nheads": f"{c.d_model}-{c.n_heads}",
+            "n_layers": c.n_layers,
+            "dim_feedforward": c.dim_feedforward,
+            "batch_size": c.batch_size,
+            "learning_rate": c.learning_rate,
+            "dropout": c.dropout,
+            "threshold": c.threshold,
         }
+    # Grid models (MSM/HMM/HMM_Uni) do not enqueue a baseline.
     return None

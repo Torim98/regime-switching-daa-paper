@@ -453,9 +453,9 @@ async def optimize_model(model_name: str):
     Optuna hyperparameter optimization for a single model.
     Uses walk-forward splits as inner CV.
 
-    Trial count and fold subsampling are read from the central config
-    (cfg.optimization.n_trials_per_model and every_nth_fold_per_model).
-    No API overrides (reproducibility of the thesis).
+    Sampler, trial budget, objective metric and the tune_until fold restriction
+    are read from the central config (cfg.optimization). No API overrides, so
+    the run stays reproducible from config.yaml alone.
     """
     cfg = get_cfg()
 
@@ -480,7 +480,8 @@ async def optimize_model(model_name: str):
     return {
         "status": "ok",
         "model": model_name,
-        "best_sharpe": round(study.best_value, 4),
+        "metric": study.user_attrs.get("metric", cfg.optimization.metric),
+        "best_score": round(study.best_value, 4),
         "best_params": study.best_params,
         "n_trials": len(study.trials),
     }
@@ -490,9 +491,10 @@ async def optimize_all_models():
     """
     Optimize all 5 models sequentially.
 
-    Trial count and fold subsampling are read per model from the central
-    config (cfg.optimization.n_trials_per_model and every_nth_fold_per_model):
-    50/30 split (MSM/HMM vs. LSTM/Transformer) per the thesis.
+    Sampler, trial budget, metric and fold restriction are read from the central
+    config (cfg.optimization): econometric models are searched exhaustively via
+    GridSampler, DL models via a multivariate TPESampler on the pooled-OOS
+    objective. See config.yaml (Issue #5) for the full setup.
     """
     cfg = get_cfg()
 
@@ -514,11 +516,35 @@ async def optimize_all_models():
 
     return {
         "status": "ok",
+        "metric": cfg.optimization.metric,
         "results": {
             name: {
-                "best_sharpe": round(s.best_value, 4),
+                "best_score": round(s.best_value, 4),
                 "best_params": s.best_params,
             }
             for name, s in studies.items()
         },
     }
+
+
+@router.post("/hpo-analysis")
+async def hpo_analysis(scope: str = "cheap"):
+    """
+    Post-HPO analysis reports (Issue #5). Runs against the persisted Optuna
+    studies and writes Markdown assets that statistics.md embeds and the
+    dashboard renders.
+
+    scope='cheap' (default): convergence + edge-of-range review and objective
+        sensitivity. Reads the logged trial metrics only, no retraining (seconds).
+    scope='full': additionally Deflated Sharpe Ratio, PBO/CSCV and multi-seed
+        reeval, which re-train the models on the GPU (minutes-hours).
+    """
+    if scope not in ("cheap", "full"):
+        raise HTTPException(400, "scope must be 'cheap' or 'full'")
+
+    cfg = get_cfg()
+    from src.backtest.hpo_analysis import generate_hpo_reports
+
+    df = pd.read_parquet(cfg.data_path("feature_engineered")) if scope == "full" else None
+    summary = generate_hpo_reports(cfg, df=df, scope=scope)
+    return {"status": "ok", "scope": scope, "assets": summary}

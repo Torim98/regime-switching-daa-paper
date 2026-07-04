@@ -29,6 +29,19 @@ services:
     environment:
       - PYTHONPATH=/app
       - TZ=Europe/Berlin
+      # TF grabs all GPU memory by default; growth mode leaves room for torch
+      # (LSTM/TF and Transformer/torch share the GPU in one process).
+      - TF_FORCE_GPU_ALLOW_GROWTH=true
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # GPU passthrough
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     depends_on:
       - data-service
     command: uvicorn services.model_service.main:app --host 0.0.0.0 --port 8002 --timeout-keep-alive 28800

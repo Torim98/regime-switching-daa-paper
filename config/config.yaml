@@ -42,7 +42,7 @@ models:
   msm:
     k_regimes: 2
     switching_variance: true
-    threshold: 0.7    # basis for the other models; bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.175  # basis for the other models; bear signal when prob >= threshold; thesis initial value 0.5
     train_test_split: &msm_train_test_split 0.8  # 0.8, only used when walk_forward.enabled: false
   hmm:
     features:
@@ -53,7 +53,7 @@ models:
     covariance_type: "tied"     # thesis initial value "full"
     n_iter: 1000
     random_state: 42
-    threshold: 0.35             # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.875            # bear signal when prob >= threshold; thesis initial value 0.5
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
   hmm_uni:
     features:
@@ -62,7 +62,7 @@ models:
     covariance_type: "full"     # univariate: full/diag/tied/spherical are equivalent
     n_iter: 1000
     random_state: 42
-    threshold: 0.35             # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.175            # bear signal when prob >= threshold; thesis initial value 0.5
   lstm:
     window_size: 120            # thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
@@ -117,30 +117,98 @@ walk_forward:
   dl_warm_start_epochs: 10
 
 # --- Backtesting (Backtest Service) ---
-## --- Hyperparameter Optimization (Optuna) ---
+## --- Hyperparameter Optimization (Optuna) --- (Issue #5: paper-grade HPO)
 optimization:
   enabled: false                    # Set to true to run Optuna; set to false if the found params are already in the config and only the final WF run remains.
-  metric: "sharpe"                  # optimization target: "sharpe", "sortino", "calmar"
+  # Objective metric on the POOLED OOS return series across all HPO folds
+  # (not the fold-wise median). Path-dependent tail metrics are driven by the
+  # rare crisis folds, which aligns the objective with the SORR/tail-risk goal.
+  # Options: "sharpe" | "sortino" | "calmar" | "martin" | "ulcer" | "max_drawdown".
+  # "martin" = CAGR / Ulcer index (depth AND duration of drawdowns; SORR-related).
+  metric: "martin"
   models:
     - "MSM"
     - "HMM"
     - "HMM_Uni"
     - "LSTM"
     - "Transformer"
-  # Trials per model. Econometric models are cheap (50 trials),
-  # DL models more expensive (30 trials). Same for every_nth_fold: DL subsamples more.
+  # Econometric models are searched EXHAUSTIVELY via GridSampler (the grid size
+  # overrides n_trials at runtime). DL models use a multivariate TPESampler.
+  grid_models: ["MSM", "HMM", "HMM_Uni"]
+  # TPE trial budgets for the DL models (min budget; a convergence review after
+  # each 100-trial block decides on continuation, see Issue #5
   n_trials_per_model:
-    MSM: 50
-    HMM: 50
-    HMM_Uni: 50
-    LSTM: 30
-    Transformer: 30
+    MSM: 36            # ignored: GridSampler uses the exact grid size (36)
+    HMM: 108           # ignored: grid size (3 x 36)
+    HMM_Uni: 36        # ignored: grid size (36)
+    LSTM: 300
+    Transformer: 400
+  # Inner CV now uses ALL folds (was 2 = every second fold, which starved the
+  # search of crisis folds).
   every_nth_fold_per_model:
-    MSM: 2
-    HMM: 2
-    HMM_Uni: 2
-    LSTM: 2
-    Transformer: 2
+    MSM: 1
+    HMM: 1
+    HMM_Uni: 1
+    LSTM: 1
+    Transformer: 1
+  sampler:
+    seed: 42                        # reproducibility (Issue #5 acceptance criterion)
+    multivariate: true             # model interactions (e.g. window x lr x dropout)
+    group: true
+    n_startup_trials:              # random exploration before TPE kicks in
+      LSTM: 50
+      Transformer: 60
+  pruning:
+    # Disabled for the DL headline run: the MedianPruner compares intermediate
+    # values over chronologically ordered folds, so a config that protects in
+    # the rare crisis folds (exactly what we want) looks mediocre in the early
+    # bullish folds and would be pruned. 100% complete trials also yield
+    # unbiased fANOVA importances and contour plots. Set true only under a
+    # compute budget cap; then n_warmup_steps should cover the early crises.
+    enabled: false
+    n_startup_trials: 5
+    n_warmup_steps: 10
+  # Selection vs. evaluation (Issue #5): optimize only on folds whose OOS
+  # test window ends on or before this date (development period: Dotcom + GFC).
+  # The final walk-forward run uses ALL folds, so the holdout (COVID, 2022)
+  # stays selection-free. Set to null/"" to tune on all folds.
+  tune_until: "2016-12-31"
+  # Epochs are no longer a tuned hyperparameter: a large ceiling combined with
+  # the trainers' early stopping governs the effective epoch count.
+  dl_max_epochs: 150
+  # Versioned study name so a resume never mixes trials from the old (Sharpe,
+  # 30-trial) search into the new distributions. Old DB kept as archive.
+  study_suffix: "v2_martin"
+  # Revised search spaces (Issue #5): edge-of-range optima from the thesis run
+  # (LSTM window=120/dropout=0.4/threshold=0.3, MSM threshold=0.7, d_model=32)
+  # are all un-bounded; the (d_model, n_heads) constraint is encoded as valid
+  # pairs instead of being pruned away.
+  search_spaces:
+    MSM:
+      threshold:       {type: float, low: 0.10, high: 0.975, step: 0.025}  # upper bound raised 0.90 -> 0.975 (HMM optimum sat at 0.875, one step below the old bound)
+    HMM:
+      covariance_type: {type: categorical, choices: ["full", "diag", "tied"]}
+      threshold:       {type: float, low: 0.10, high: 0.975, step: 0.025}  # upper bound raised 0.90 -> 0.975 (HMM optimum sat at 0.875, one step below the old bound)
+    HMM_Uni:
+      threshold:       {type: float, low: 0.10, high: 0.975, step: 0.025}  # upper bound raised 0.90 -> 0.975 (HMM optimum sat at 0.875, one step below the old bound)
+    LSTM:
+      window_size:     {type: int, low: 20, high: 250, step: 10}
+      units_l1:        {type: categorical, choices: [16, 32, 64, 128]}
+      units_l2:        {type: categorical, choices: [32, 64, 128, 256]}
+      batch_size:      {type: categorical, choices: [32, 64, 128]}
+      learning_rate:   {type: float, low: 1.0e-5, high: 1.0e-2, log: true}
+      dropout:         {type: float, low: 0.0, high: 0.6, step: 0.05}
+      threshold:       {type: float, low: 0.10, high: 0.90, step: 0.05}
+    Transformer:
+      window_size:     {type: int, low: 20, high: 250, step: 10}
+      # Valid (d_model, n_heads) pairs only -> guarantees d_model % n_heads == 0.
+      dmodel_nheads:   {type: categorical, choices: ["16-2", "32-2", "32-4", "64-4", "64-8", "128-4", "128-8"]}
+      n_layers:        {type: int, low: 1, high: 4, step: 1}
+      dim_feedforward: {type: categorical, choices: [32, 64, 128, 256]}
+      batch_size:      {type: categorical, choices: [32, 64, 128]}
+      learning_rate:   {type: float, low: 1.0e-5, high: 1.0e-2, log: true}
+      dropout:         {type: float, low: 0.0, high: 0.5, step: 0.05}
+      threshold:       {type: float, low: 0.10, high: 0.90, step: 0.05}
   storage: "sqlite:///models/optuna_studies.db"   # optional: persist the Optuna DB
 
 backtesting:
@@ -258,6 +326,13 @@ paths:
     optuna_contour: "optuna_{model}_contour.png"
     optuna_slice: "optuna_{model}_slice.png"
     optuna_best_params: "optuna_best_params.md"
+    # Issue #5: post-HPO analysis reports (generated by hpo_analysis / the
+    # /models/hpo-analysis route; embedded in statistics.md and shown in the dashboard)
+    objective_sensitivity: "objective_sensitivity.md"
+    hpo_convergence: "hpo_convergence.md"
+    hpo_dsr: "hpo_dsr.md"
+    hpo_pbo: "hpo_pbo.md"
+    hpo_multiseed: "hpo_multiseed.md"
     # Label analysis (Issue #21)
     label_concordance_matrix: "label_concordance_matrix.png"
     label_timeline_comparison: "label_timeline_comparison.png"

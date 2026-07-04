@@ -161,7 +161,48 @@
     </div>
   </section>
 
+  <!-- HPO Analysis reports (Issue #5) -->
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold mb-1">HPO Analysis</h2>
+    <p class="text-xs text-slate-500 mb-3">
+      Convergence &amp; edge-of-range review, objective sensitivity, DSR/PBO and multi-seed robustness.
+      Generate via the Control-Hub action &ldquo;HPO analysis reports&rdquo; (scope=cheap for the top two, scope=full for all).
+    </p>
+    <div class="space-y-3">
+      <details open class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <summary class="cursor-pointer font-medium text-sm">Convergence &amp; Edge-of-Range</summary>
+        <div id="hpo-convergence" class="hpo-md mt-2 overflow-x-auto"></div>
+      </details>
+      <details open class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <summary class="cursor-pointer font-medium text-sm">Objective Sensitivity</summary>
+        <div id="hpo-sensitivity" class="hpo-md mt-2 overflow-x-auto"></div>
+      </details>
+      <details class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <summary class="cursor-pointer font-medium text-sm">Deflated Sharpe Ratio (scope=full)</summary>
+        <div id="hpo-dsr" class="hpo-md mt-2 overflow-x-auto"></div>
+      </details>
+      <details class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <summary class="cursor-pointer font-medium text-sm">Probability of Backtest Overfitting (scope=full)</summary>
+        <div id="hpo-pbo" class="hpo-md mt-2 overflow-x-auto"></div>
+      </details>
+      <details class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+        <summary class="cursor-pointer font-medium text-sm">Multi-Seed Robustness (scope=full)</summary>
+        <div id="hpo-multiseed" class="hpo-md mt-2 overflow-x-auto"></div>
+      </details>
+    </div>
+  </section>
+
 </div>
+
+<style>
+  .hpo-md table { border-collapse: collapse; font-size: 0.78rem; margin: .4rem 0; }
+  .hpo-md th, .hpo-md td { border: 1px solid rgb(148 163 184 / .4); padding: 2px 8px; text-align: right; white-space: nowrap; }
+  .hpo-md th:first-child, .hpo-md td:first-child { text-align: left; }
+  .hpo-md h1 { font-size: 1rem; font-weight: 600; margin: .4rem 0; }
+  .hpo-md h2, .hpo-md h3 { font-size: .88rem; font-weight: 600; margin: .5rem 0 .2rem; }
+  .hpo-md p, .hpo-md li { font-size: .8rem; color: rgb(100 116 139); }
+  .hpo-md em { color: rgb(148 163 184); }
+</style>
 
 <script>
 function modelsPage() {
@@ -177,7 +218,23 @@ function modelsPage() {
         renderChart('chart-walk-forward',    '/api/chart/walk-forward-schema'),
         this.loadOptuna(),
         this.drawOptuna(),
+        this.loadHpoReports(),
       ]);
+    },
+    /** Render the HPO analysis Markdown assets (Issue #5). Missing files
+        (e.g. scope=full not yet run) show a graceful placeholder. */
+    async loadHpoReports() {
+      const map = {
+        'hpo-convergence': 'hpo_convergence.md',
+        'hpo-sensitivity': 'objective_sensitivity.md',
+        'hpo-dsr': 'hpo_dsr.md',
+        'hpo-pbo': 'hpo_pbo.md',
+        'hpo-multiseed': 'hpo_multiseed.md',
+      };
+      await Promise.all(Object.entries(map).map(async ([id, name]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = await fetchMd(name);
+      }));
     },
     async draw() {
       await renderChart('chart-regime-overlay',

@@ -125,7 +125,7 @@ def calculate_annualized_metrics(
 
     Convention (canonical per Sharpe, 1966; consistent with
     src/backtest/evaluation.py::evaluate_strategies and
-    src/backtest/optimize.py::_compute_oos_sharpe):
+    src/backtest/optimize.py::compute_oos_metrics):
 
     - Daily simple returns via pct_change (NOT log returns).
     - Sharpe / Sortino based on the arithmetic mean of the daily returns

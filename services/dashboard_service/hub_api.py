@@ -81,7 +81,7 @@ _CATALOG = [
             {
                 "id": "model.optimize_one", "method": "POST", "path": "/models/optimize/{model_name}",
                 "label": "Optuna HPO for one model",
-                "description": "Requires walk_forward.enabled=true. n_trials and every_nth_fold come per model from config.yaml (optimization.n_trials_per_model / every_nth_fold_per_model). Persisted in optuna_studies.db.",
+                "description": "Requires walk_forward.enabled=true. Sampler (grid/TPE), trial budget, objective metric and tune_until come from config.yaml (optimization.*). Persisted in optuna_studies.db.",
                 "params": [
                     {"name": "model_name", "in": "path", "type": "select",
                      "options": ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]},
@@ -91,9 +91,19 @@ _CATALOG = [
             {
                 "id": "model.optimize_all", "method": "POST", "path": "/models/optimize-all",
                 "label": "Optuna HPO for all models",
-                "description": "Sequentially MSM → HMM → HMM_Uni → LSTM → Transformer. n_trials and every_nth_fold come per model from config.yaml (thesis default: 50 for MSM/HMM/HMM_Uni, 30 for LSTM/Transformer).",
+                "description": "Sequentially MSM → HMM → HMM_Uni → LSTM → Transformer. Sampler (grid/TPE), trial budget, objective metric and tune_until come from config.yaml (optimization.*). Persisted in optuna_studies.db.",
                 "params": [],
                 "danger": True,
+            },
+            {
+                "id": "model.hpo_analysis", "method": "POST", "path": "/models/hpo-analysis",
+                "label": "HPO analysis reports",
+                "description": "Post-HPO reports from the Optuna studies. scope=cheap: convergence + edge-of-range review + objective sensitivity (seconds). scope=full: also DSR, PBO and multi-seed reeval (re-trains DL on the GPU, slow). Writes Markdown assets shown in statistics.md and the Models page.",
+                "params": [
+                    {"name": "scope", "in": "query", "type": "select",
+                     "options": ["cheap", "full"]},
+                ],
+                "danger": False,
             },
         ],
     },
