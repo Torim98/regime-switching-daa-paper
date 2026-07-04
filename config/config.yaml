@@ -343,6 +343,8 @@ paths:
     roc_curves:                  "roc_curves.png"
     pr_curves:                   "pr_curves.png"
     churning_stats:              "churning_stats.md"
+    # Issue #8: bear-market coverage of the walk-forward folds
+    bear_coverage:               "bear_coverage.md"
     threshold_sensitivity:       "threshold_sensitivity_{model}.md"
     regime_probability_heatmap:  "regime_probability_heatmap.png"
     ttr_table:                   "time_to_recovery_{model}.md"

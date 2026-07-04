@@ -14,6 +14,7 @@ from src.backtest.evaluation import (
     plot_regime_probability_heatmap,
 )
 from src.backtest.reporting import generate_statistics_report
+from src.backtest.bear_coverage import generate_bear_coverage_report
 from src.backtest.engine import (
     run_all_backtests, backtest,
     calculate_performance_summary,
@@ -227,6 +228,11 @@ def evaluate():
         min_phase_days=ext.whipsaw_min_phase_days,
     )
     churn.to_markdown(cfg.asset_path("churning_stats"))
+
+    # 3b) Bear-market coverage of the walk-forward folds (Issue #8)
+    bear_cov_path = generate_bear_coverage_report(cfg)
+    logger.info(f"Bear-coverage diagnostic written: {bear_cov_path}")
+
     for m, grid in vars(ext.threshold_grid).items():
         ts = threshold_sensitivity(
             test_df, backtest, m, list(grid),

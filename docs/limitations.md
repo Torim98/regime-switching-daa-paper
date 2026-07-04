@@ -125,3 +125,13 @@ The 10y/12m/12m configuration balances sufficient training data for stable model
 - **Rolling vs. expanding:** An expanding window would give the later folds in particular more training data, but could overweight older, less relevant market regimes.
 - **DL models with 10 years of training:** LSTM and Transformer typically benefit from larger datasets. Longer training windows could improve DL performance but would reduce the number of available folds.
 - **12-month folds:** Shorter folds (e.g., 6 months) would provide more data points for the evaluation but increase computation time and the risk of unstable estimates for the econometric models.
+
+### OOS Bear Coverage (Issue #8)
+
+To quantify how much crisis exposure the OOS test windows actually carry, the diagnostic in `src/backtest/bear_coverage.py` labels the full price history with the Pagan-Sossounov scheme and measures, per fold, the bear-day share, the number of overlapping bear phases, and whether a complete bear phase (peak and trough) falls inside the window. The full table is in [`assets/bear_coverage.md`](../assets/bear_coverage.md) and is reproducible via `python -m src.backtest.bear_coverage`.
+
+The result confirms the concern about fold granularity: across the 26 walk-forward folds, only 2 OOS test windows contain a complete Pagan-Sossounov bear phase (the 2022 rate shock and the partial final fold), 6 folds overlap at least one bear phase, and 20 folds carry no bear day at all. The major crises (Dotcom, GFC) span multiple consecutive 12-month folds and therefore enter the OOS windows as partial, window-truncated phases rather than as fully contained episodes. Every 10-year training window, by contrast, spans several complete bear phases, so model estimation is not starved of crisis data; the sparsity is specific to the OOS side.
+
+This concentration of crisis signal in a few folds was the original motivation for a fold-wise aggregation critique. That critique is mitigated by the pooled-OOS objective introduced in Issue #5: the hyperparameter search no longer optimizes a fold-median (which the many bullish folds would dominate) but a metric computed on the OOS return series pooled across all folds. Crisis periods therefore enter the optimization signal in proportion to their length instead of being averaged away as one fold among many.
+
+An expanding-window re-run remains open as a robustness variant (future work). It would give the later folds more training history and is a natural complement to this diagnostic, but it is not expected to change the OOS bear-coverage picture, which is governed by the 12-month fold length rather than by the training scheme.

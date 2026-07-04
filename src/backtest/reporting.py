@@ -86,6 +86,10 @@ def generate_statistics_report(cfg) -> str:
         cfg.asset_path("churning_stats"),
         fallback="*No churning statistics available.*",
     )
+    bear_coverage_md = load_markdown_asset(
+        cfg.asset_path("bear_coverage"),
+        fallback="*No bear-coverage diagnostic available.*",
+    )
     depletion_ci_md = load_markdown_asset(
         cfg.asset_path("depletion_ci"),
         fallback="*No depletion CI available.*",
@@ -324,6 +328,11 @@ The economic application of the regime signals via dynamic reallocation into the
 Rolling train/test windows over the entire study period. Each row corresponds to one fold; the blue bar marks the training window, the orange bar the OOS test window. The strict chronological separation prevents look-ahead bias.
 
 ![Walk-Forward Schema](../assets/{cfg.paths.assets.walk_forward_schema})
+
+### OOS Bear-Market Coverage (Issue #8)
+Per-fold Pagan-Sossounov bear-market exposure of the walk-forward windows: the share of bear days, the number of overlapping bear phases, and whether a complete bear phase (peak and trough) falls inside the window, for the OOS test window and the training window. This diagnostic documents the fold-granularity limitation (few OOS windows contain a full crisis) discussed in `docs/limitations.md`, Section 5. It is complemented by the pooled-OOS objective from Issue #5, which lets crisis periods enter the optimization signal in proportion to their length instead of being averaged away per fold.
+
+{bear_coverage_md}
 
 ### Equity Curves in Comparison
 ![Equity Curves](../assets/{cfg.paths.assets.equity_curves})

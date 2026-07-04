@@ -58,6 +58,17 @@
     <div id="chart-walk-forward" class="w-full"></div>
   </section>
 
+  <!-- OOS bear-market coverage of the folds (Issue #8) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-2">OOS Bear-Market Coverage</h2>
+    <p class="text-xs text-slate-500 mb-4">
+      Per-fold Pagan-Sossounov bear exposure of the walk-forward windows: bear-day share, number of overlapping
+      bear phases, and whether a complete bear phase (peak &amp; trough) falls inside the OOS test and train window.
+      Documents the fold-granularity limitation; complemented by the pooled-OOS objective (Issue #5).
+    </p>
+    <div id="bear-coverage" class="hpo-md overflow-x-auto"></div>
+  </section>
+
   <!-- Optuna — best hyperparameters (moved from backtest tab) -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
@@ -216,10 +227,16 @@ function modelsPage() {
         renderChart('chart-label-agreement', '/api/chart/label-agreement'),
         renderChart('chart-label-timeline',  '/api/chart/label-timeline'),
         renderChart('chart-walk-forward',    '/api/chart/walk-forward-schema'),
+        this.loadBearCoverage(),
         this.loadOptuna(),
         this.drawOptuna(),
         this.loadHpoReports(),
       ]);
+    },
+    /** Render the OOS bear-coverage diagnostic (Issue #8). */
+    async loadBearCoverage() {
+      const el = document.getElementById('bear-coverage');
+      if (el) el.innerHTML = await fetchMd('bear_coverage.md');
     },
     /** Render the HPO analysis Markdown assets (Issue #5). Missing files
         (e.g. scope=full not yet run) show a graceful placeholder. */
