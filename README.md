@@ -47,7 +47,7 @@ The research environment is built on a modern data-science stack that combines s
 *   **Data processing:** `Pandas`, `NumPy`, `PyArrow` (Parquet engine)
 *   **Econometrics & statistics:** `Statsmodels` (Markov regression), `hmmlearn` (Hidden Markov Models), `SciPy`
 *   **Machine learning:** `TensorFlow` / `Keras` (LSTM architectures), `PyTorch` (Transformer), `Scikit-Learn`
-*   **Hyperparameter optimization:** `Optuna` (Bayesian optimization via TPE)
+*   **Hyperparameter optimization:** `Optuna` (exhaustive grid for the econometric models, multivariate TPE for the deep-learning models)
 *   **Reporting:** `Matplotlib` (visualization), `Seaborn` (heatmaps), `Tabulate` (Markdown export)
 *   **Microservices:** `FastAPI`, `Uvicorn`, `Docker` / `Docker Compose`
 
@@ -119,7 +119,7 @@ A critical aspect of backtesting is preventing information leakage from the futu
 The framework is **fully dynamic**. A dedicated matching algorithm automatically identifies new model outputs based on a defined naming scheme (`Model_Signal`). New model architectures can therefore be integrated without manually adapting the code for backtesting, evaluation, or reporting. See [How to Add a ML Model](docs/how-to-add-ml-model.md).
 
 ### Hyperparameter Optimization (Optuna)
-All model parameters are searched systematically using Bayesian optimization (Optuna, TPE sampler). The optimization uses the walk-forward splits as inner cross-validation. Optuna only observes OOS metrics (median Sharpe ratio), so the parameter search introduces no look-ahead bias. The current config defaults are injected as a baseline trial (#0). Results are persisted in a SQLite database at `models/optuna_studies.db`, allowing optimization runs to be resumed. Sensitivity heatmaps and parameter-importance plots are automatically stored under `assets/`.
+All model parameters are searched using the walk-forward splits as inner cross-validation. The econometric models (MSM, HMM, HMM_Uni) are searched exhaustively via a `GridSampler`; the deep-learning models (LSTM, Transformer) via a multivariate TPE sampler. The objective is a configurable risk metric (default: the Martin ratio, CAGR / Ulcer index) computed on the **pooled** OOS return series across all folds, which aligns the search with the sequence-of-returns-risk goal instead of a symmetric median Sharpe. Optuna only observes OOS metrics, so the search introduces no look-ahead bias. Selection and evaluation are time-separated: the search runs on the development folds only (`tune_until`), while the final walk-forward run uses all folds, keeping the holdout (COVID, 2022) selection-free. Results are persisted in a SQLite database at `models/optuna_studies.db` (resumable), and a post-HPO analysis pass reports convergence, objective sensitivity, the Deflated Sharpe Ratio, PBO and multi-seed robustness under `assets/`. Full description: [docs/hyperparameter-optimization.md](docs/hyperparameter-optimization.md).
 In addition, the econometric models use only **filtered regime probabilities** P(regime_t | data up to t): the MSM uses `filtered_marginal_probabilities` (statsmodels), and both HMM variants use an explicit forward pass without backward recursion. Smoothed posteriors (forward-backward, e.g., hmmlearn's `predict_proba`) would carry information from the future of the test window into the signal and systematically bias the OOS results.
 
 ### Realistic Cost Simulation
@@ -164,7 +164,7 @@ The pipeline is designed as a sequence of service endpoints. Each step builds on
 
 1.  **Data Service** (`POST /data/ingest`): Download (YFinance) and cleaning of the multi-asset data (equities, bonds, cash), feature engineering (technical and macroeconomic indicators), and EDA.
 2.  **Data Service** (`POST /data/label-analysis`) *(optional)*: Comparison of alternative regime labelers (Pagan-Sossounov, Peak-to-Trough, Lunde-Timmermann, NBER) against MSM/HMM. Produces a concordance matrix and switch statistics; justifies the label choice (Pagan-Sossounov) for LSTM and Transformer.
-3.  **Model Service** (`POST /models/optimize-all`) *(optional)*: Bayesian hyperparameter optimization via Optuna with walk-forward as inner CV. Executed once before the final run.
+3.  **Model Service** (`POST /models/optimize-all`) *(optional)*: Hyperparameter optimization via Optuna (grid for the econometric models, TPE for the deep-learning models) with walk-forward as inner CV, on the development folds only. Executed once before the final run; `POST /models/hpo-analysis` then generates the post-HPO reports.
 4.  **Model Service** (`POST /models/train-all`): Training of the regime-switching models (MSM, HMM, HMM_Uni, LSTM, Transformer). With `walk_forward.enabled: false`, a classic 80/20 split with optional model persistence; with `true`, rolling walk-forward validation with OOS caching.
 5.  **Backtest Service** (`POST /backtest/run`): Simulation of realistic investment scenarios including variable withdrawals and transaction costs.
 6.  **Backtest Service** (`POST /backtest/evaluate`): Stress tests via block bootstrap (Monte Carlo simulation), hypothesis tests, and automated consolidation of all results into `docs/statistics.md`.

@@ -92,9 +92,13 @@ The central design principle of the pipeline is the **standardized signal interf
 
 > **Hyperparameter optimization:** Optuna can programmatically override
 > `config.yaml` parameters ([Issue #2](https://github.com/Torim98/regime-switching-daa/issues/2)).
-> To include a new model in the optimization, define an `objective_<model>`
-> function with the appropriate `trial.suggest_*()` calls in `src/backtest/optimize.py`
-> and register it in `_OBJECTIVE_MAP`.
+> To include a new model in the optimization, declare its search space under
+> `optimization.search_spaces.<Model>` in `config.yaml`, define an
+> `objective_<model>` function in `src/backtest/optimize.py` (sample via
+> `_suggest_space(trial, cfg.optimization.search_spaces.<Model>)` and pool the
+> per-fold OOS returns), and register it in `_OBJECTIVE_MAP`. Add the model to
+> `optimization.grid_models` to search it exhaustively with a `GridSampler`
+> instead of TPE. See [hyperparameter-optimization.md](./hyperparameter-optimization.md).
 
 ### Architecture Overview
 

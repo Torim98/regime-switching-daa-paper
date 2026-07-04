@@ -92,7 +92,7 @@ sequenceDiagram
 	opt Hyperparameter optimization (optional, one-time)
         Client->>MS: POST /models/optimize-all
         MS->>FS: read feature_engineered_data
-        MS->>MS: Optuna TPE (walk-forward CV as inner validation)
+        MS->>MS: Optuna grid/TPE on pooled OOS metric (walk-forward CV as inner validation)
         MS->>FS: save optuna_studies.db
         MS-->>Client: 200 OK (best_params per model)
     end

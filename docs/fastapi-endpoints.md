@@ -37,6 +37,10 @@ The `regime-switching-daa` project uses a microservice architecture: three conta
 - **Parameters**: none
 - **Description**: Optimizes all five models sequentially (MSM → HMM → HMM_Uni → LSTM → Transformer). Sampler, trial budget, objective metric and the `tune_until` fold restriction are read from `config.yaml` (`optimization.*`): the econometric models are searched exhaustively via GridSampler, the DL models via a multivariate TPESampler on the pooled-OOS objective. Returns `metric` and a dict with `best_score` and `best_params` per model.
 
+### `POST /models/hpo-analysis`
+- **Parameters**: `scope` (query, string: `cheap` | `full`, default `cheap`)
+- **Description**: Post-HPO analysis over the persisted Optuna studies (Issue #5). `scope=cheap` writes the convergence + edge-of-range review and the objective-sensitivity table (reads the logged trial metrics only, seconds). `scope=full` additionally computes the Deflated Sharpe Ratio, PBO/CSCV and the multi-seed re-evaluation, which re-train the DL models on the GPU (minutes to hours). Writes the Markdown assets (`hpo_convergence.md`, `objective_sensitivity.md`, `hpo_dsr.md`, `hpo_pbo.md`, `hpo_multiseed.md`) embedded in `statistics.md` (section G) and rendered on the Models dashboard page. See [hyperparameter-optimization.md](./hyperparameter-optimization.md). Returns `scope` and the map of written asset paths.
+
 ### `GET /models/status`
 - **Description**: Checks the filesystem and returns a boolean (`true`/`false`) for each of the four models indicating whether the model has already been trained and successfully persisted to disk.
 

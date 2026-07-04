@@ -27,8 +27,9 @@ Three services cover the pipeline; a fourth provides the interactive dashboard. 
 |---------|------|-------------|
 | POST | `/models/train/{model_name}` | Train a single model (only with `walk_forward.enabled: false`) |
 | POST | `/models/train-all` | Train all 4 models; single split or walk-forward depending on config |
-| POST | `/models/optimize/{model_name}` | Optuna optimization for one model (walk-forward as inner CV) |
-| POST | `/models/optimize-all` | Optimize all 4 models sequentially |
+| POST | `/models/optimize/{model_name}` | Optuna optimization for one model (grid/TPE, walk-forward as inner CV) |
+| POST | `/models/optimize-all` | Optimize all 5 models sequentially |
+| POST | `/models/hpo-analysis` | Post-HPO analysis reports (convergence, sensitivity, DSR, PBO, multi-seed) |
 | GET | `/models/status` | Persistence status of all models |
 
 ### Backtest Service (`:8003`)
@@ -126,7 +127,8 @@ regime-switching-daa/
 │   │   └── plots.py                  # Regime plots (MSM, HMM, DL, comparison)
 │   └── backtest/
 │       ├── engine.py                 # Backtesting logic
-│       ├── optimize.py               # Optuna hyperparameter optimization
+│       ├── optimize.py               # Optuna hyperparameter optimization (grid/TPE)
+│       ├── hpo_analysis.py           # Post-HPO analysis (convergence, DSR, PBO, multi-seed)
 │       ├── sorr.py                   # SORR simulation
 │       ├── evaluation.py             # Strategy evaluation, Monte Carlo
 │       ├── reporting.py              # statistics.md generation
