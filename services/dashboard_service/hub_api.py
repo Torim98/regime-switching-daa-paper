@@ -59,7 +59,7 @@ _CATALOG = [
             {
                 "id": "model.status", "method": "GET", "path": "/models/status",
                 "label": "Model persistence status",
-                "description": "Which models are stored on disk in models/?",
+                "description": "Which models are trained? (models/ files, or the walk-forward cache when walk_forward is on)",
                 "params": [], "danger": False,
             },
             {

@@ -462,15 +462,58 @@ def train_all():
         logger.info(f"All models trained in {elapsed:.1f}s")
         return {"status": "ok", "mode": "single_split", "results": results}
 
+# Status key -> canonical column prefix used by run_walk_forward in the
+# walk-forward cache ({Model}_Prob / {Model}_Signal).
+_WF_STATUS_COLUMNS = {
+    "msm": "MSM",
+    "hmm": "HMM",
+    "hmm_uni": "HMM_Uni",
+    "lstm": "LSTM",
+    "transformer": "Transformer",
+}
+
+
+def _walk_forward_status(cfg, keys):
+    """
+    Trained-model status in walk-forward mode.
+
+    No per-model files are written in walk-forward mode; run_walk_forward pools
+    the OOS predictions of every fold into the walk-forward cache
+    (data/silver/wf_cache.parquet), one {Model}_Signal column per model. A model
+    counts as trained when that column exists and carries at least one non-null
+    value. An all-NaN column means every fold for that model failed, so it stays
+    false.
+    """
+    status = {key: False for key in keys}
+    cache_path = Path(cfg.data_path("walk_forward_cache"))
+    if not cache_path.exists():
+        return status
+
+    df = pd.read_parquet(cache_path)
+    for key in keys:
+        col = f"{_WF_STATUS_COLUMNS[key]}_Signal"
+        status[key] = bool(col in df.columns and df[col].notna().any())
+    return status
+
+
 @router.get("/status")
 def model_status():
-    """Which models are persisted?"""
+    """
+    Which models are trained?
+
+    Single-split mode (walk_forward disabled): each model is persisted to
+    models/, so the filesystem is probed. Walk-forward mode: no per-model files
+    exist, so the walk-forward cache is checked for populated per-model signal
+    columns (see _walk_forward_status). Either way the response is a flat
+    {model_key: bool} map.
+    """
     cfg = get_cfg()
-    status = {}
-    for key in ["msm", "hmm", "hmm_uni","lstm", "transformer"]:
-        path = cfg.model_path(key)
-        status[key] = Path(path).exists()
-    return status
+    keys = ["msm", "hmm", "hmm_uni", "lstm", "transformer"]
+
+    if cfg.walk_forward.enabled:
+        return _walk_forward_status(cfg, keys)
+
+    return {key: Path(cfg.model_path(key)).exists() for key in keys}
     
 @router.post("/optimize/{model_name}")
 def optimize_model(model_name: str):

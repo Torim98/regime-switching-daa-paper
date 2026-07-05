@@ -42,7 +42,7 @@ The `regime-switching-daa` project uses a microservice architecture: three conta
 - **Description**: Post-HPO analysis over the persisted Optuna studies (Issue #5). `scope=cheap` writes the convergence + edge-of-range review and the objective-sensitivity table (reads the logged trial metrics only, seconds). `scope=full` additionally computes the Deflated Sharpe Ratio, PBO/CSCV and the multi-seed re-evaluation, which re-train the DL models on the GPU (minutes to hours). Writes the Markdown assets (`hpo_convergence.md`, `objective_sensitivity.md`, `hpo_dsr.md`, `hpo_pbo.md`, `hpo_multiseed.md`) embedded in `statistics.md` (section G) and rendered on the Models dashboard page. See [hyperparameter-optimization.md](./hyperparameter-optimization.md). Returns `scope` and the map of written asset paths.
 
 ### `GET /models/status`
-- **Description**: Checks the filesystem and returns a boolean (`true`/`false`) for each of the four models indicating whether the model has already been trained and successfully persisted to disk.
+- **Description**: Returns a boolean (`true`/`false`) for each model indicating whether it has been trained. In single-split mode (`walk_forward.enabled=false`) the filesystem under `models/` is probed for the persisted model file. In walk-forward mode no per-model files are written, so the walk-forward cache (`data/silver/wf_cache.parquet`) is checked instead: a model is `true` when its `{Model}_Signal` column exists and holds at least one non-null value (an all-NaN column, i.e. every fold failed, stays `false`). The response is a flat `{model_key: bool}` map in both modes.
 
 ---
 
