@@ -42,7 +42,7 @@ Zero-build frontend stack (everything via CDN, no npm toolchain required):
 | `/` | **Overview** | Status tiles (end date, WF, fast mode), pipeline artifact grid, coverage map for `statistics.md` |
 | `/hub` | **Control Hub** | Dynamically rendered service cards from `/api/hub/catalog`, health tiles, execute forms with spinner, JSON response viewer |
 | `/eda` | **EDA** | Returns chart (column & smoothing picker), feature correlation matrix, 60/40 capital curve, PNG gallery from `assets/` |
-| `/models` | **Models** | Regime overlay chart (MSM/HMM/HMM_Uni/LSTM/Transformer), label concordance, model plots, walk-forward schema, OOS bear-market coverage (Issue #8), Optuna heatmaps, HPO analysis reports (convergence, objective sensitivity, DSR/PBO, multi-seed) |
+| `/models` | **Models** | Regime overlay chart (MSM/HMM/HMM_Uni/LSTM/Transformer), label concordance, model plots, walk-forward schema, OOS bear-market coverage (Issue #8), Optuna heatmaps, HPO analysis reports (convergence, objective sensitivity, DSR/PBO, multi-seed), retraining-stability (seed sensitivity) report |
 | `/backtest` | **Backtest** | Equity curves, drawdown, rolling Sharpe (window slider), annualized metrics, crisis performance, SORR scenarios, pipeline timing |
 | `/evaluation` | **Evaluation** | Full `statistics.md` coverage: evaluation table, confusion/ROC/PR, churning, switch timing, regime heatmap, threshold sensitivity, TTR, MCS, bootstrap robustness (block vs. stationary, Issue #7), depletion CI, H1/H2 tests, break-even, withdrawal sensitivity |
 | `/config` | **Config editor** | Monaco-based YAML editor (Ctrl+S, dirty state, backup drawer, restore functionality) |

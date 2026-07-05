@@ -30,6 +30,7 @@ Three services cover the pipeline; a fourth provides the interactive dashboard. 
 | POST | `/models/optimize/{model_name}` | Optuna optimization for one model (grid/TPE, walk-forward as inner CV) |
 | POST | `/models/optimize-all` | Optimize all 5 models sequentially |
 | POST | `/models/hpo-analysis` | Post-HPO analysis reports (convergence, sensitivity, DSR, PBO, multi-seed) |
+| POST | `/models/seed-sensitivity` | Retraining-stability report: per-model seed CV of the OOS metrics (motivates the DL ensemble and HMM multi-start) |
 | GET | `/models/status` | Persistence status of all models |
 
 ### Backtest Service (`:8003`)
@@ -130,6 +131,7 @@ regime-switching-daa/
 │       ├── engine.py                 # Backtesting logic
 │       ├── optimize.py               # Optuna hyperparameter optimization (grid/TPE)
 │       ├── hpo_analysis.py           # Post-HPO analysis (convergence, DSR, PBO, multi-seed)
+│       ├── seed_sensitivity.py       # Retraining-stability quantification (per-model seed CV)
 │       ├── sorr.py                   # SORR simulation
 │       ├── evaluation.py             # Strategy evaluation, Monte Carlo
 │       ├── reporting.py              # statistics.md generation

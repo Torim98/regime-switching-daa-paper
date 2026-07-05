@@ -664,14 +664,14 @@ The following existing models in `src/models/` (`msm.py`, `hmm.py`, `lstm.py`, `
 - **Library:** `hmmlearn`
 - **Approach:** Identifies clusters in the data distributions without labeled data
 - **Output:** `HMM_Prob`, `HMM_Signal`
-- **Config key:** `models.hmm` (n_components, covariance_type, n_iter, random_state)
-- **Distinctive feature:** Requires a post-training check whether regime 0 or 1 corresponds to the bear regime (label alignment)
+- **Config key:** `models.hmm` (n_components, covariance_type, n_iter, random_state, n_init)
+- **Distinctive feature:** Requires a post-training check whether regime 0 or 1 corresponds to the bear regime (label alignment). `n_init > 1` refits the EM from several deterministic seeds and keeps the highest training-likelihood fit, which tames the seed sensitivity of the multivariate HMM (see `assets/seed_sensitivity.md`).
 
 ### B2. HMM_Uni (Univariate HMM): Ablation Variant, Econometrics
 - **Library:** `hmmlearn` (identical code to HMM: `src/models/hmm.py`, `train_hmm_fold` is feature-agnostic)
 - **Approach:** Like HMM, but with only `Returns` as input. Identical input space to the MSM. Separates the architectural effect from the feature contribution
 - **Output:** `HMM_Uni_Prob`, `HMM_Uni_Signal`
-- **Config key:** `models.hmm_uni` (features, n_components, covariance_type, n_iter, random_state, threshold)
+- **Config key:** `models.hmm_uni` (features, n_components, covariance_type, n_iter, random_state, n_init, threshold)
 - **Distinctive feature:** No dedicated module required; only a second config block that runs through the same fold function (`_run_hmm_fold` in `src/backtest/parallel.py`). Reference case showing that a new model can be integrated purely via configuration + orchestration.
 
 ### C. LSTM (Supervised): Machine Learning
@@ -693,7 +693,7 @@ The following existing models in `src/models/` (`msm.py`, `hmm.py`, `lstm.py`, `
 | Model | Config key | Most important parameters |
 |:---|:---|:---|
 | MSM | `cfg.models.msm` | `k_regimes`, `switching_variance` |
-| HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state` |
+| HMM | `cfg.models.hmm` | `n_components`, `covariance_type`, `n_iter`, `random_state`, `n_init` |
 | HMM_Uni | `cfg.models.hmm_uni` | `n_components`, `covariance_type`, `threshold` |
 | LSTM | `cfg.models.lstm` | `window_size`, `units_l1`, `units_l2`, `epochs`, `batch_size`, `learning_rate`, `dropout` |
 | Transformer | `cfg.models.transformer` | `window_size`, `d_model`, `n_heads`, `n_layers`, `epochs`, `threshold` |
