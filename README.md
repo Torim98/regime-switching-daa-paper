@@ -167,7 +167,8 @@ The pipeline is designed as a sequence of service endpoints. Each step builds on
 3.  **Model Service** (`POST /models/optimize-all`) *(optional)*: Hyperparameter optimization via Optuna (grid for the econometric models, TPE for the deep-learning models) with walk-forward as inner CV, on the development folds only. Executed once before the final run; `POST /models/hpo-analysis` then generates the post-HPO reports.
 4.  **Model Service** (`POST /models/train-all`): Training of the regime-switching models (MSM, HMM, HMM_Uni, LSTM, Transformer). With `walk_forward.enabled: false`, a classic 80/20 split with optional model persistence; with `true`, rolling walk-forward validation with OOS caching.
 5.  **Backtest Service** (`POST /backtest/run`): Simulation of realistic investment scenarios including variable withdrawals and transaction costs.
-6.  **Backtest Service** (`POST /backtest/evaluate`): Stress tests via block bootstrap (Monte Carlo simulation), hypothesis tests, and automated consolidation of all results into `docs/statistics.md`.
+6.  **Backtest Service** (`POST /backtest/evaluate`): Stress tests via bootstrap Monte Carlo simulation (block or stationary, selectable via `evaluation.mcs.bootstrap_method`), hypothesis tests, and automated consolidation of all results into `docs/statistics.md`.
+7.  **Backtest Service** (`POST /backtest/bootstrap-robustness`) *(optional)*: Re-runs the MCS with both resampling schemes (block and stationary, same seed, no re-training) and writes `assets/bootstrap_robustness.md` comparing depletion rate and median terminal capital (Issue #7).
 
 ---
 
@@ -204,7 +205,7 @@ Simulation of a withdrawal phase: how long does the capital last under market sh
 ![SORR Standard](./assets/sorr_sim_standard.png)
 
 ### 6. Statistical Significance (Monte Carlo Simulation)
-To assess statistical significance, 10,000 artificial market paths were simulated via block bootstrap.
+To assess statistical significance, 10,000 artificial market paths were simulated via stationary bootstrap (Politis & Romano 1994; selectable via `evaluation.mcs.bootstrap_method`, block bootstrap as the alternative).
 
 ![MCS Boxplots Standard](./assets/mcs_boxplot_standard.png)
 

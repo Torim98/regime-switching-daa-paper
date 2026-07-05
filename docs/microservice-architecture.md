@@ -38,6 +38,7 @@ Three services cover the pipeline; a fourth provides the interactive dashboard. 
 |---------|------|-------------|
 | POST | `/backtest/run` | Backtesting + equity curves + drawdown + rolling Sharpe + SORR + crisis performance |
 | POST | `/backtest/evaluate` | Evaluation table + Monte Carlo simulation + `statistics.md` |
+| POST | `/backtest/bootstrap-robustness` | Block vs. stationary bootstrap comparison -> `bootstrap_robustness.md` (Issue #7) |
 | POST | `/backtest/report` | Regenerate `statistics.md` |
 | GET | `/backtest/results` | Evaluation table as Markdown |
 

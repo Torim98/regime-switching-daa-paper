@@ -53,7 +53,11 @@ The `regime-switching-daa` project uses a microservice architecture: three conta
 - **Description**: Runs the historical backtesting. In walk-forward mode, `test_df` is trimmed to the common OOS window (`dropna(how="any")`). In addition to equity curves and transaction costs, produces annualized metrics, a crisis performance table, a rolling Sharpe plot, and a drawdown plot. Runs SORR simulations for all configured scenarios.
 
 ### `POST /backtest/evaluate`
-- **Description**: Evaluates all strategies in depth. Runs a block-bootstrap Monte Carlo simulation to test the robustness of the strategies. Produces detailed performance metrics, boxplots, quantile visualizations, and MCS paths, plus the extended-evaluation diagnostics (churning, threshold sensitivity, time-to-recovery, and the walk-forward bear-market coverage table `bear_coverage.md`, Issue #8). Automatically triggers the report generation at the end.
+- **Description**: Evaluates all strategies in depth. Runs a bootstrap Monte Carlo simulation (block or stationary, selectable via `evaluation.mcs.bootstrap_method`) to test the robustness of the strategies. Produces detailed performance metrics, boxplots, quantile visualizations, and MCS paths, plus the extended-evaluation diagnostics (churning, threshold sensitivity, time-to-recovery, and the walk-forward bear-market coverage table `bear_coverage.md`, Issue #8). Automatically triggers the report generation at the end.
+
+### `POST /backtest/bootstrap-robustness`
+- **Description**: Robustness comparison of the two MCS resampling schemes (Issue #7). Re-runs the Monte Carlo simulation twice on the existing return/signal paths, once with the fixed-length block bootstrap and once with the stationary bootstrap (Politis & Romano 1994), using the same seed and `n_paths` (no model re-training). Writes `assets/bootstrap_robustness.md` with depletion rate (Wilson CI) and median terminal capital per scenario and strategy, plus signed difference columns and a data-driven robustness summary. Requires a prior `/backtest/run`.
+- **Parameters**: `n_paths` (int, optional) overrides the configured path count for a quick check.
 
 ### `POST /backtest/report`
 - **Description**: Collects all generated tables, metrics, and Markdown snippets and combines them into a final statistics report (usually `statistics.md`), made available in the `assets/` or `docs/` directory.
