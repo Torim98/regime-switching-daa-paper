@@ -139,6 +139,31 @@ Calls the pipeline services via `httpx`. Read timeout: 8 h (for walk-forward tra
 - **Parameters**: `service` (`data` | `model` | `backtest`), `path` (e.g. `/data/ingest`), `method` (`GET` | `POST`), `query` (optional: JSON string with query params)
 - **Description**: Generic proxy call. Used by the UI to trigger any endpoint of the pipeline services. Response: `{status_code, ok, body}`; for non-JSON responses, the body is wrapped as `{"text": ...}`.
 
+#### Full Pipeline Run (orchestrator)
+
+Runs the whole pipeline as one sequential background job so a single run produces every paper asset. Canonical order (bracketed steps are optional, toggled per run):
+
+```
+[clean] → ingest → [optimize] → [hpo-analysis] → train-all → [seed-sensitivity]
+        → [label-analysis] → backtest/run → [bootstrap-robustness] → evaluate
+        → [notebooks] → report
+```
+
+Each step is executed via the same `httpx` proxy against the pipeline services; the `notebooks` step runs `jupyter/*.ipynb` in place (needs `nbclient` + the `./jupyter` mount). A **core** step failure aborts the run; an **optional** step failure is recorded (`state: done_with_errors`) but the run continues.
+
+##### `GET /api/hub/pipeline/plan`
+- **Description**: Canonical step catalog (key, label, service, path, params, core flag) plus the deletable clean targets. Drives the Full Pipeline Run panel.
+
+##### `GET /api/hub/pipeline/status`
+- **Description**: Current job snapshot: overall `state` (`idle`/`running`/`done`/`done_with_errors`/`failed`/`stopped`), per-step status (`pending`/`running`/`ok`/`failed`/`skipped`) with timings, cleaned files and `optional_failures`. Polled by the UI (~1.5 s).
+
+##### `POST /api/hub/pipeline/run`
+- **Body**: `{ "steps": {key: bool}, "params": {key: {name: value}}, "clean": {target: bool} }` (omitted step keys fall back to their default). Clean targets: `wf_cache`, `derived_data`, `assets`, `optuna_db`.
+- **Description**: Starts the run in a background thread. Returns `{status: "started", steps: [...]}`. Responds `409` while a run is already in progress.
+
+##### `POST /api/hub/pipeline/stop`
+- **Description**: Requests a graceful stop. The currently running step finishes, no further step starts (state → `stopped`). If an HPO step is running, its `optimize-stop` is forwarded so the study halts after the current trial (resumable from `optuna_studies.db`).
+
 ### Config Editor
 
 Safety net when writing: (1) YAML parse → (2) required-sections check → (3) `.bak` backup → (4) atomic swap via tempfile → (5) `PipelineConfig()` reload verification → (6) rollback from backup on reload error.

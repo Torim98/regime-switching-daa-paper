@@ -6,7 +6,7 @@ The **Dashboard Service** (port 8004) is the interactive control and visualizati
 2. **Control hub**: all FastAPI endpoints of the three pipeline services (`data`, `model`, `backtest`) can be called directly from the UI.
 3. **Operational self-service**: edit the configuration (`config.yaml`) and stream live container logs without leaving the browser.
 
-The service is designed **dev-only** and bound exclusively to `127.0.0.1`. It remains untouched by every pipeline run. No write access except to `config/config.yaml` (with backup/rollback).
+The service is designed **dev-only** and bound exclusively to `127.0.0.1`. Beyond editing `config/config.yaml` (with backup/rollback), the **Full Pipeline Run** orchestrator (see below) can optionally delete selected pipeline artifacts before a run and execute the `jupyter/` figure notebooks in place, so the dashboard also has write access to `data/`, `assets/`, `docs/`, `models/` and `jupyter/`.
 
 ---
 
@@ -40,7 +40,7 @@ Zero-build frontend stack (everything via CDN, no npm toolchain required):
 | Route | Page | Content |
 |-------|-------|--------|
 | `/` | **Overview** | Status tiles (end date, WF, fast mode), pipeline artifact grid, coverage map for `statistics.md` |
-| `/hub` | **Control Hub** | Dynamically rendered service cards from `/api/hub/catalog`, health tiles, execute forms with spinner, JSON response viewer |
+| `/hub` | **Control Hub** | **Full Pipeline Run** panel (sequential one-time run of the whole pipeline with per-step progress, optional steps and pre-run cleanup), plus dynamically rendered service cards from `/api/hub/catalog`, health tiles, execute forms with spinner, JSON response viewer |
 | `/eda` | **EDA** | Returns chart (column & smoothing picker), feature correlation matrix, 60/40 capital curve, PNG gallery from `assets/` |
 | `/models` | **Models** | Regime overlay chart (MSM/HMM/HMM_Uni/LSTM/Transformer), label concordance, model plots, walk-forward schema, OOS bear-market coverage (Issue #8), Optuna heatmaps, HPO analysis reports (convergence, objective sensitivity, DSR/PBO, multi-seed), retraining-stability (seed sensitivity) report |
 | `/backtest` | **Backtest** | Equity curves, drawdown, rolling Sharpe (window slider), annualized metrics, crisis performance, SORR scenarios, pipeline timing |
@@ -81,11 +81,50 @@ Calls the FastAPI endpoints of the three pipeline services via `httpx`. Long rea
 | GET | `/api/hub/catalog` | Returns the endpoint catalog for dynamic UI rendering |
 | GET | `/api/hub/health` | Ping to all three services (OpenAPI JSON as marker) |
 | POST | `/api/hub/call?service=&path=&method=&query=` | Generic proxy call |
+| GET | `/api/hub/pipeline/plan` | Canonical step catalog + clean targets for the Full Pipeline Run panel |
+| GET | `/api/hub/pipeline/status` | Current orchestrator job snapshot (polled by the UI) |
+| POST | `/api/hub/pipeline/run` | Starts the full pipeline in a background thread (409 while one is running) |
+| POST | `/api/hub/pipeline/stop` | Graceful stop: the current step finishes, no further step starts (forwards HPO stop) |
 
 Service URLs configurable via environment variables:
 - `DATA_SERVICE_URL` (default: `http://data-service:8001`)
 - `MODEL_SERVICE_URL` (default: `http://model-service:8002`)
 - `BACKTEST_SERVICE_URL` (default: `http://backtest-service:8003`)
+
+#### Full Pipeline Run (orchestrator)
+
+`POST /api/hub/pipeline/run` walks the canonical sequence in one background job so
+that a single run produces every paper asset:
+
+```
+[clean] → ingest → [optimize] → [hpo-analysis] → train-all → [seed-sensitivity]
+        → [label-analysis] → backtest/run → [bootstrap-robustness] → evaluate
+        → [notebooks] → report
+```
+
+Steps in brackets are optional (toggled per run); the rest are core. The request
+body selects steps, per-step params (e.g. `hpo-analysis` scope, `seed-sensitivity`
+seeds/models, `bootstrap` n_paths) and clean targets:
+
+```jsonc
+{
+  "steps":  { "optimize": false, "seed_sensitivity": true, "notebooks": true },
+  "params": { "seed_sensitivity": { "seeds": 5, "models": "all" } },
+  "clean":  { "wf_cache": true, "derived_data": true }
+}
+```
+
+Clean targets deletable before the run: `wf_cache` (essential, otherwise a cache
+hit skips retraining), `derived_data` (test_df, backtesting_*, mcs_data), `assets`
+(all generated assets + `docs/statistics.md`), `optuna_db` (HPO history).
+
+**Failure policy:** a **core** step failure aborts the run and skips the rest; an
+**optional** step failure is recorded (`state: done_with_errors`) but the run
+continues, so a single flaky extra never blocks the core paper assets. Progress is
+polled via `/api/hub/pipeline/status` (per-step `pending/running/ok/failed/skipped`
+with timings); `/api/hub/pipeline/stop` halts at the next step boundary. The
+`notebooks` step needs `nbclient`/`nbformat`/`ipykernel` in the image and the
+`./jupyter` mount; without them the step reports a clear error instead of crashing.
 
 ### Config Editor (`/api/config/*`)
 
@@ -118,7 +157,7 @@ Path traversal protection: only file names within `logs/` are allowed.
 ## Security
 
 - **Binding:** `127.0.0.1:8004:8004` in `docker-compose.yml`. The service is **not** exposed to the network, only reachable locally.
-- **Write scope:** The only writable path is `config/config.yaml` (with backup + rollback). All other volumes (`data/`, `assets/`, `logs/`, `docs/`) are read-only for the dashboard.
+- **Write scope:** `config/config.yaml` is written with backup + rollback. The chart/asset/log adapters treat `data/`, `assets/`, `docs/`, `logs/` as read-only, but the **Full Pipeline Run** orchestrator can write to them: it deletes selected artifacts under `data/`, `assets/`, `docs/` and `models/` when a clean target is chosen, and the `notebooks` step writes figures into `assets/` and executes files under `jupyter/`. These are deliberate, explicitly triggered actions confirmed in the UI, safe under the local-only binding.
 - **Path traversal:** Both the asset endpoint and the WS log endpoint validate file names against `..` and `/`.
 - **Proxy semantics:** The control hub proxy restricts `service` via regex to `(data|model|backtest)` and `method` to `(GET|POST)`; free URL input is not possible.
 
@@ -128,30 +167,42 @@ For production use, authentication (Basic / OIDC), CSRF tokens for the writing e
 
 ## Dependencies
 
-The service is deliberately lightweight, with no ML libraries in the container. Only `[services]` + `[dashboard]` are installed (see `pyproject.toml`):
+The service carries no heavy ML training frameworks (no TensorFlow/PyTorch). Only `[services]` + `[dashboard]` are installed (see `pyproject.toml`):
 
 ```toml
 dashboard = [
     "jinja2==3.1.4",
     "python-multipart==0.0.20",
-    "watchfiles==1.1.0",
-    "websockets==14.2",
+    "optuna==4.8.0",       # read-only access to the Optuna studies DB
+    "nbclient==0.10.2",    # execute the jupyter/ paper-figure notebooks
+    "nbformat==5.10.4",    #   (Full Pipeline Run "notebooks" step)
+    "ipykernel==6.29.5",   #   kernel for nbclient
 ]
 ```
 
-Image size: approx. 220 MB (vs. ~5 GB for the Model Service with TensorFlow + PyTorch).
+`watchfiles`/`websockets` come transitively from `uvicorn[standard]` in the
+`[services]` extra. The notebooks themselves only need the core deps
+(numpy/pandas/matplotlib/scipy/yfinance), which are already present, so no ML
+training stack is pulled in. Image size stays modest (roughly 250 MB, vs. ~5 GB
+for the Model Service with TensorFlow + PyTorch).
 
 ---
 
 ## Volumes
 
+All non-config volumes are read-only for the visualization adapters; the Full
+Pipeline Run orchestrator additionally deletes selected artifacts (clean targets)
+and the `notebooks` step writes figures, hence the R/W where noted.
+
 | Volume | Mode | Purpose |
 |--------|:----:|-------|
-| `./data` | R | Parquet artifacts from the medallion architecture |
-| `./assets` | R | PNG and MD assets for the gallery |
-| `./docs` | R | `statistics.md` for the evaluation panel |
+| `./data` | R/W | Parquet artifacts (read for charts; clean deletes wf_cache/derived data) |
+| `./assets` | R/W | PNG/MD assets (read for the gallery; clean/notebooks write here) |
+| `./docs` | R/W | `statistics.md` (read for the evaluation panel; clean can delete it) |
 | `./config` | R/W | `config.yaml` + `.bak` files |
 | `./logs` | R | Service and pipeline logs (file tail) |
+| `./models` | R/W | Optuna studies DB (read for best-params; clean can delete it) |
+| `./jupyter` | R/W | Paper-figure notebooks, executed in place by the `notebooks` step |
 
 ---
 

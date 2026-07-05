@@ -156,6 +156,8 @@ curl -X POST http://localhost:8003/backtest/evaluate
 # Swagger UIs: http://localhost:8001/docs, :8002/docs, :8003/docs, :8004/docs
 ```
 
+**One-time full run (all assets).** The Control Hub (`/hub`) has a **Full Pipeline Run** panel at the top that walks the whole sequence (data, model, backtest, report) in one background job with per-step progress. Core steps are pre-selected; optional steps (HPO, HPO analysis, seed sensitivity, label analysis, bootstrap robustness, the `jupyter/` figure notebooks) are checkboxes, and previous artifacts (e.g. the walk-forward cache) can be deleted before the run. This produces every asset needed to write the paper. Executing the notebooks step needs the notebook dependencies in the dashboard image.
+
 ---
 
 ## The Research Pipeline (Modular Design)

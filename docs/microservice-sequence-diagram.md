@@ -128,7 +128,7 @@ sequenceDiagram
 
 ## Dashboard Service: Control Hub & Visualization
 
-The Dashboard Service (`:8004`) is not a pipeline step but a UI layer on top. It reads the artifacts read-only from the filesystem and proxies pipeline calls to the three services. The following diagram shows the typical interaction paths.
+The Dashboard Service (`:8004`) is not a pipeline step but a UI layer on top. It reads the artifacts for visualization and proxies pipeline calls to the three services. Its **Full Pipeline Run** orchestrator can additionally drive the whole sequence in one background job (and optionally delete prior artifacts or execute the `jupyter/` notebooks). The following diagram shows the typical interaction paths.
 
 ```mermaid
 sequenceDiagram
@@ -163,6 +163,26 @@ sequenceDiagram
     DS->>FS: write pipeline artifacts
     DS-->>DB: 200 OK {rows, columns}
     DB-->>User: {status_code: 200, ok: true, body: {...}}
+
+    Note over User,FS: Full Pipeline Run (background orchestrator)
+    User->>DB: POST /api/hub/pipeline/run {steps, params, clean}
+    DB->>FS: delete selected clean targets (wf_cache, derived data, ...)
+    DB-->>User: {status: started} (returns immediately)
+    Note over DB: background thread walks the sequence
+    DB->>DS: POST /data/ingest
+    DS->>FS: write artifacts
+    DB->>MS: POST /models/train-all (+ optional optimize / seed-sensitivity)
+    MS->>FS: write test_df + model plots
+    DB->>BS: POST /backtest/run → /backtest/evaluate
+    BS->>FS: backtest + MCS + statistics.md
+    opt notebooks step
+        DB->>FS: execute jupyter/*.ipynb → assets/*.png
+    end
+    DB->>BS: POST /backtest/report (consolidate all assets)
+    loop Polling (~1.5 s)
+        User->>DB: GET /api/hub/pipeline/status
+        DB-->>User: {state, steps[status,elapsed], optional_failures}
+    end
 
     Note over User,FS: Live log streaming (WebSocket)
     User->>DB: WS /ws/logs/data_service.log?tail=500

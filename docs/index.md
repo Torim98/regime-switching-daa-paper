@@ -165,7 +165,7 @@ Interactive UI, control hub, config editor, live log streaming.
 | [services/dashboard_service/routes.py](../services/dashboard_service/routes.py) | HTML page routes |
 | [services/dashboard_service/data_adapters.py](../services/dashboard_service/data_adapters.py) | Parquet/MD to Plotly JSON adapters for the UI |
 | [services/dashboard_service/config_api.py](../services/dashboard_service/config_api.py) | Config editor API (read/write `config.yaml`) |
-| [services/dashboard_service/hub_api.py](../services/dashboard_service/hub_api.py) | Control hub proxy to the data/model/backtest services via httpx |
+| [services/dashboard_service/hub_api.py](../services/dashboard_service/hub_api.py) | Control hub proxy to the data/model/backtest services via httpx, plus the Full Pipeline Run orchestrator (`/api/hub/pipeline/*`, background job) |
 | [services/dashboard_service/websockets.py](../services/dashboard_service/websockets.py) | WebSocket tailing of the `logs/*.log` files |
 | [services/dashboard_service/Dockerfile](../services/dashboard_service/Dockerfile) | Container image definition, Dashboard Service |
 
@@ -175,7 +175,7 @@ Interactive UI, control hub, config editor, live log streaming.
 |-------|-------------|
 | [services/dashboard_service/templates/base.html](../services/dashboard_service/templates/base.html) | Base layout (header, sidebar, footer) |
 | [services/dashboard_service/templates/index.html](../services/dashboard_service/templates/index.html) | Landing page/overview |
-| [services/dashboard_service/templates/hub.html](../services/dashboard_service/templates/hub.html) | Control hub for triggering pipeline stages |
+| [services/dashboard_service/templates/hub.html](../services/dashboard_service/templates/hub.html) | Control hub: Full Pipeline Run panel + per-endpoint triggers for the pipeline stages |
 | [services/dashboard_service/templates/config_editor.html](../services/dashboard_service/templates/config_editor.html) | YAML config editor |
 | [services/dashboard_service/templates/eda.html](../services/dashboard_service/templates/eda.html) | EDA visualizations |
 | [services/dashboard_service/templates/models.html](../services/dashboard_service/templates/models.html) | Model comparison (regime classification, metrics) |

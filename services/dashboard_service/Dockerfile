@@ -17,6 +17,9 @@ COPY services/__init__.py services/__init__.py
 COPY services/logging_config.py services/logging_config.py
 COPY services/warnings_config.py services/warnings_config.py
 COPY services/dashboard_service/ services/dashboard_service/
+# Note: the jupyter/ notebooks for the full-pipeline "notebooks" step are NOT
+# copied (they are in .dockerignore). They are provided at runtime by the
+# ./jupyter bind mount in docker-compose.yml, same as data/ and assets/.
 
 ENV PYTHONPATH=/app
 

@@ -51,6 +51,7 @@ Three services cover the pipeline; a fourth provides the interactive dashboard. 
 | GET | `/api/status` | Pipeline artifact overview |
 | GET | `/api/chart/{...}` | Plotly JSON for EDA, backtest, regime overlay, MCS quantiles |
 | GET/POST | `/api/hub/{catalog,health,call}` | Control hub proxy to `:8001/:8002/:8003` |
+| GET/POST | `/api/hub/pipeline/{plan,status,run,stop}` | Full Pipeline Run orchestrator (sequential one-time run, background job) |
 | GET/POST | `/api/config`, `/api/config/backups`, `/api/config/restore` | YAML editor with backup + rollback |
 | GET | `/api/logs/files`, `/api/logs/snapshot/{file}` | Log listing + initial tail |
 | WS | `/ws/logs/{file}?tail=` | Live log streaming (file tail) |
@@ -65,7 +66,7 @@ The pipeline services must be called in the following order, since they communic
 Data Service → Model Service → Backtest Service
 ```
 
-The dashboard consumes the artifacts read-only and proxies writing calls (training/backtest) to the pipeline services. It is not a mandatory pipeline step but a control and visualization layer on top.
+The dashboard consumes the artifacts for visualization and proxies writing calls (training/backtest) to the pipeline services. It is not a mandatory pipeline step but a control and visualization layer on top. Its **Full Pipeline Run** orchestrator can drive this whole ordering in one background job (optionally deleting prior artifacts first and executing the `jupyter/` figure notebooks), so a single run produces every paper asset.
 
 `docker-compose.yml` maps the dependencies via `depends_on`:
 - `model-service` depends_on `data-service`
@@ -184,7 +185,7 @@ regime-switching-daa/
 | Business logic | `src/` (identical) | consumes artifacts, proxies services |
 | Configuration | `config/config.yaml` (identical) | in-UI editor with validation + rollback |
 | Plot generation | `src/*/plots.py` + `matplotlib.use("Agg")` | Plotly.js (client-side, interactive) |
-| Data persistence | Parquet (medallion) | read-only consumption |
+| Data persistence | Parquet (medallion) | consumes artifacts; orchestrator can clean/regenerate them |
 | Timing report | Logs per service | Live log stream via WebSocket |
 
 See also: [Sequence Diagram: Microservice Pipeline](microservice-sequence-diagram.md) for the detailed flow of a pipeline run and [Dashboard Service](dashboard-service.md) for the architecture and page structure of the frontend.

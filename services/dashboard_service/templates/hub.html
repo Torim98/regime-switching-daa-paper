@@ -5,6 +5,150 @@
 {% block content %}
 <div x-data="hubPage()" x-init="init()" class="space-y-6">
 
+  <!-- ============================================================= -->
+  <!-- Full pipeline run: one-time "produce all assets" orchestrator -->
+  <!-- ============================================================= -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border-2 border-brand-300 dark:border-brand-700/60 p-6">
+    <div class="flex items-baseline justify-between mb-1">
+      <h2 class="text-lg font-semibold flex items-center gap-2">
+        <span>Full Pipeline Run</span>
+      </h2>
+      <span class="text-xs text-slate-500">sequential, one-time: produces every paper asset</span>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      Runs the canonical sequence (data → model → backtest → report) in one go. Core steps are
+      pre-selected; optional steps and pre-run cleanup are toggles. The run happens in the background;
+      watch the <a href="/logs" class="underline">live logs</a> in parallel.
+    </p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Steps -->
+      <div class="lg:col-span-2">
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Steps</div>
+        <div class="space-y-2">
+          <template x-for="s in pipelinePlan.steps" :key="s.key">
+            <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3"
+                 :class="pipeSteps[s.key] ? '' : 'opacity-60'">
+              <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" x-model="pipeSteps[s.key]" :disabled="pipeRunning"
+                       class="mt-0.5 accent-brand-600" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-medium" x-text="s.label"></span>
+                    <span x-show="s.core" class="text-[10px] px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-600/20 text-brand-700 dark:text-brand-300">core</span>
+                    <span x-show="!s.core" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">optional</span>
+                  </div>
+                  <div class="text-xs text-slate-500 mt-0.5" x-text="s.desc"></div>
+
+                  <!-- inline params -->
+                  <div class="mt-2 flex flex-wrap gap-3" x-show="s.params.length > 0">
+                    <template x-for="p in s.params" :key="s.key + '-' + p.name">
+                      <label class="flex items-center gap-1 text-xs">
+                        <span class="text-slate-500" x-text="p.name"></span>
+                        <template x-if="p.type === 'select'">
+                          <select x-model="pipeParams[s.key][p.name]" :disabled="pipeRunning || !pipeSteps[s.key]"
+                                  class="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5 font-mono">
+                            <template x-for="opt in p.options" :key="opt"><option x-text="opt"></option></template>
+                          </select>
+                        </template>
+                        <template x-if="p.type === 'int'">
+                          <input type="number" x-model.number="pipeParams[s.key][p.name]"
+                                 :disabled="pipeRunning || !pipeSteps[s.key]"
+                                 class="w-24 bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5 font-mono" />
+                        </template>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Clean + run controls -->
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          Delete previous results before run
+        </div>
+        <div class="space-y-2 mb-5">
+          <template x-for="c in pipelinePlan.clean" :key="c.key">
+            <label class="flex items-start gap-2 text-xs cursor-pointer border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+              <input type="checkbox" x-model="pipeClean[c.key]" :disabled="pipeRunning" class="mt-0.5 accent-rose-600" />
+              <div>
+                <div class="font-medium" x-text="c.label"></div>
+                <div class="text-slate-500" x-text="c.desc"></div>
+              </div>
+            </label>
+          </template>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button @click="runPipeline()" :disabled="pipeRunning"
+                  class="flex-1 px-3 py-2 rounded text-white text-sm font-semibold transition
+                         bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300">
+            <span x-show="!pipeRunning">▶ Run full pipeline</span>
+            <span x-show="pipeRunning">running…</span>
+          </button>
+          <button @click="stopPipeline()" :disabled="!pipeRunning || pipeStopping"
+                  class="px-3 py-2 rounded text-white text-sm font-medium transition
+                         bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 disabled:cursor-not-allowed">
+            <span x-show="!pipeStopping">■ Stop</span>
+            <span x-show="pipeStopping">stopping…</span>
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">
+          Stop finishes the current step, then halts. A running HPO step also receives its own
+          graceful stop (resumes from optuna_studies.db).
+        </p>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="mt-6" x-show="job.state && job.state !== 'idle'">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">Progress</div>
+        <span class="text-xs font-mono px-2 py-0.5 rounded"
+              :class="{
+                'bg-brand-100 text-brand-700 dark:bg-brand-600/20 dark:text-brand-300': job.state === 'running',
+                'bg-emerald-100 text-emerald-700 dark:bg-emerald-600/20 dark:text-emerald-300': job.state === 'done',
+                'bg-rose-100 text-rose-700 dark:bg-rose-600/20 dark:text-rose-300': job.state === 'failed',
+                'bg-amber-100 text-amber-700 dark:bg-amber-600/20 dark:text-amber-300': job.state === 'stopped' || job.state === 'done_with_errors'
+              }" x-text="job.state"></span>
+      </div>
+
+      <div x-show="job.clean && job.clean.deleted && job.clean.deleted.length"
+           class="text-[11px] text-slate-500 mb-2 font-mono"
+           x-text="'cleaned: ' + (job.clean?.deleted?.length || 0) + ' file(s)'"></div>
+
+      <div x-show="job.optional_failures && job.optional_failures.length"
+           class="text-[11px] text-amber-600 dark:text-amber-400 mb-2 font-mono"
+           x-text="'optional steps failed (core assets still produced): ' + (job.optional_failures || []).join(', ')"></div>
+
+      <div class="space-y-1">
+        <template x-for="st in (job.steps || [])" :key="st.key">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="w-5 text-center"
+                  x-text="{pending:'○', running:'◐', ok:'✓', failed:'✕', skipped:'–'}[st.status] || '○'"
+                  :class="{
+                    'text-slate-400': st.status === 'pending' || st.status === 'skipped',
+                    'text-brand-600 animate-pulse': st.status === 'running',
+                    'text-emerald-600': st.status === 'ok',
+                    'text-rose-600': st.status === 'failed'
+                  }"></span>
+            <span class="flex-1" :class="st.status === 'skipped' ? 'text-slate-400 line-through' : ''"
+                  x-text="st.label"></span>
+            <span class="text-xs font-mono text-slate-500"
+                  x-text="st.elapsed_s != null ? st.elapsed_s + 's' : (st.http_status || '')"></span>
+          </div>
+        </template>
+      </div>
+
+      <pre x-show="job.error" class="mt-3 p-3 bg-rose-950/90 text-rose-100 rounded text-xs overflow-auto max-h-40 font-mono"
+           x-text="job.error"></pre>
+    </div>
+  </section>
+
   <!-- Health status tiles -->
   <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <template x-for="(h, svc) in health" :key="svc">
@@ -139,14 +283,27 @@ function hubPage() {
     busyId: null,
     stoppingId: null,
 
+    // --- Full pipeline run state ---
+    pipelinePlan: { steps: [], clean: [] },
+    pipeSteps: {},     // step key -> included?
+    pipeParams: {},    // step key -> { param: value }
+    pipeClean: {},     // clean target key -> included?
+    job: { state: 'idle', steps: [] },
+    pipeStopping: false,
+    _pollTimer: null,
+
+    get pipeRunning() { return this.job.state === 'running'; },
+
     async init() {
-      const [c, h] = await Promise.all([
+      const [c, h, plan, status] = await Promise.all([
         fetch('/api/hub/catalog').then(r => r.json()),
         fetch('/api/hub/health').then(r => r.json()),
+        fetch('/api/hub/pipeline/plan').then(r => r.json()),
+        fetch('/api/hub/pipeline/status').then(r => r.json()),
       ]);
       this.catalog = c;
       this.health = h;
-      // set defaults
+      // set defaults for the per-endpoint forms
       for (const b of this.catalog.services) {
         for (const ep of b.endpoints) {
           for (const p of ep.params) {
@@ -154,6 +311,79 @@ function hubPage() {
             this.formState[key] = p.default ?? (p.options ? p.options[0] : '');
           }
         }
+      }
+      // set defaults for the full-pipeline section
+      this.pipelinePlan = plan;
+      for (const s of plan.steps) {
+        this.pipeSteps[s.key] = s.default;
+        this.pipeParams[s.key] = {};
+        for (const p of s.params) {
+          this.pipeParams[s.key][p.name] = p.default ?? (p.options ? p.options[0] : '');
+        }
+      }
+      for (const c of plan.clean) this.pipeClean[c.key] = c.default;
+      // resume view if a job is already running (survives page reload)
+      this.job = status && status.state ? status : { state: 'idle', steps: [] };
+      if (this.job.state === 'running') this._startPolling();
+    },
+
+    _startPolling() {
+      if (this._pollTimer) return;
+      this._pollTimer = setInterval(async () => {
+        try {
+          this.job = await fetch('/api/hub/pipeline/status').then(r => r.json());
+          if (this.job.state !== 'running') {
+            this._stopPolling();
+            this.pipeStopping = false;
+            setRunning(false);
+            if (this.job.state === 'done')    toast('Full pipeline complete ✓', 'success');
+            if (this.job.state === 'done_with_errors') toast('Pipeline done, optional steps failed: ' + (this.job.optional_failures || []).join(', '), 'info');
+            if (this.job.state === 'failed')  toast('Pipeline failed: ' + (this.job.error || ''), 'error');
+            if (this.job.state === 'stopped') toast('Pipeline stopped', 'info');
+          }
+        } catch (e) { /* keep polling; transient */ }
+      }, 1500);
+    },
+
+    _stopPolling() {
+      if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+    },
+
+    async runPipeline() {
+      const selected = this.pipelinePlan.steps.filter(s => this.pipeSteps[s.key]).map(s => s.label);
+      const cleaned  = this.pipelinePlan.clean.filter(c => this.pipeClean[c.key]).map(c => c.label);
+      let msg = `Start full pipeline run?\n\n${selected.length} step(s) selected.`;
+      if (cleaned.length) msg += `\n\nWill DELETE first:\n- ${cleaned.join('\n- ')}`;
+      if (!confirm(msg)) return;
+
+      const payload = { steps: { ...this.pipeSteps }, params: { ...this.pipeParams }, clean: { ...this.pipeClean } };
+      try {
+        const r = await fetch('/api/hub/pipeline/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json();
+        if (!r.ok) { toast('Could not start: ' + (j.detail || r.status), 'error'); return; }
+        toast('Pipeline started: ' + (j.steps?.length || 0) + ' steps', 'success');
+        setRunning(true);
+        this.job = { state: 'running', steps: [] };
+        this._startPolling();
+      } catch (e) {
+        toast('Error: ' + e, 'error');
+      }
+    },
+
+    async stopPipeline() {
+      if (!this.pipeRunning) return;
+      this.pipeStopping = true;
+      try {
+        const r = await fetch('/api/hub/pipeline/stop', { method: 'POST' });
+        const j = await r.json();
+        toast('Stop requested, finishing current step…' + (j.forwarded_hpo_stop ? ' (HPO stop sent)' : ''), 'info');
+      } catch (e) {
+        toast('Error: ' + e, 'error');
+        this.pipeStopping = false;
       }
     },
 

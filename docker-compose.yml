@@ -81,6 +81,7 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./models:/app/models  # read-only access to Optuna DB for /api/optuna/best-params
+      - ./jupyter:/app/jupyter  # full-pipeline "notebooks" step executes these in place
     environment:
       - PYTHONPATH=/app
       - TZ=Europe/Berlin
