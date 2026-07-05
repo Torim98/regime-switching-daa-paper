@@ -1,52 +1,92 @@
-# Optuna — Beste Hyperparameter
+# Optuna: Best Hyperparameters
 
-_Generiert am 2026-04-21 22:01:55_  
-Optimierungs-Metrik: **Sharpe (Median OOS)**
+_Generated at 2026-07-05 10:38:33_  
+Optimization metric: **martin (pooled OOS)**
 
-## Übersicht
+## Overview
 
-| Modell | Best Score | ✓ Complete | ✗ Pruned | Total |
+| Model | Best Score | ✓ Complete | ✗ Pruned | Total |
 |:---|---:|---:|---:|---:|
-| **MSM** | 0.9308 | 23 | 27 | 50 |
-| **HMM** | 1.2843 | 50 | 0 | 50 |
-| **LSTM** | 1.4595 | 16 | 14 | 30 |
-| **Transformer** | 1.0530 | 19 | 11 | 30 |
+| **MSM** | 1.6508 | 36 | 0 | 36 |
+| **HMM** | 1.2037 | 108 | 0 | 108 |
+| **HMM_Uni** | 1.6384 | 36 | 0 | 36 |
+| **LSTM** | 2.6426 | 194 | 0 | 203 |
 
-### MSM — Best Score `0.9308`
+### MSM: Best Score `1.6508`
 
-| Parameter | Wert |
+| Parameter | Value |
 |:---|---:|
-| `threshold` | `0.7` |
+| `threshold` | `0.175` |
 
-### HMM — Best Score `1.2843`
+Secondary metrics of the best trial (pooled OOS):
 
-| Parameter | Wert |
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.8513 |
+| sortino | 1.0119 |
+| calmar | 0.6465 |
+| martin | 1.6508 |
+| ulcer | 3.1627 |
+| max_drawdown | -0.0808 |
+| cagr | 0.0522 |
+
+### HMM: Best Score `1.2037`
+
+| Parameter | Value |
 |:---|---:|
 | `covariance_type` | `tied` |
-| `threshold` | `0.35` |
+| `threshold` | `0.875` |
 
-### LSTM — Best Score `1.4595`
+Secondary metrics of the best trial (pooled OOS):
 
-| Parameter | Wert |
+| Metric | Value |
 |:---|---:|
-| `window_size` | `120` |
-| `units_l1` | `32` |
-| `units_l2` | `64` |
-| `learning_rate` | `1.053e-04` |
-| `dropout` | `0.4` |
-| `epochs` | `40` |
-| `threshold` | `0.3` |
+| sharpe | 0.7243 |
+| sortino | 0.8796 |
+| calmar | 0.4153 |
+| martin | 1.2037 |
+| ulcer | 3.9259 |
+| max_drawdown | -0.1138 |
+| cagr | 0.0473 |
 
-### Transformer — Best Score `1.0530`
+### HMM_Uni: Best Score `1.6384`
 
-| Parameter | Wert |
+| Parameter | Value |
 |:---|---:|
-| `d_model` | `32` |
-| `n_heads` | `4` |
-| `n_layers` | `3` |
-| `dim_feedforward` | `128` |
-| `learning_rate` | `3.282e-05` |
-| `dropout` | `0.1` |
-| `epochs` | `40` |
-| `window_size` | `40` |
-| `threshold` | `0.55` |
+| `threshold` | `0.175` |
+
+Secondary metrics of the best trial (pooled OOS):
+
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.8420 |
+| sortino | 0.9987 |
+| calmar | 0.6752 |
+| martin | 1.6384 |
+| ulcer | 3.1419 |
+| max_drawdown | -0.0762 |
+| cagr | 0.0515 |
+
+### LSTM: Best Score `2.6426`
+
+| Parameter | Value |
+|:---|---:|
+| `window_size` | `250` |
+| `units_l1` | `16` |
+| `units_l2` | `32` |
+| `batch_size` | `32` |
+| `learning_rate` | `1.329e-05` |
+| `dropout` | `0.45` |
+| `threshold` | `0.15` |
+
+Secondary metrics of the best trial (pooled OOS):
+
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.9785 |
+| sortino | 0.9191 |
+| calmar | 0.6183 |
+| martin | 2.6426 |
+| ulcer | 2.0269 |
+| max_drawdown | -0.0866 |
+| cagr | 0.0536 |

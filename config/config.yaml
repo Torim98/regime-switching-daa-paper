@@ -214,6 +214,20 @@ optimization:
 backtesting:
   transaction_cost_bps: 10    # Basis points (10 = 0.1%)
   signal_shift: 1             # T+1 shift for look-ahead bias prevention
+  # --- Signal Smoothing / Hysteresis (Issue #10 ablation) ---
+  # Post-processes the RAW walk-forward regime signals to reduce churning.
+  # Applied after the walk-forward cache, so toggling does NOT trigger a
+  # retraining: set `enabled: false` to fully restore the un-smoothed baseline.
+  # Both mechanisms are causal (no look-ahead) and may be combined.
+  signal_smoothing:
+    enabled: false            # master toggle; false = pass raw signals through unchanged
+    min_holding_days: 5       # dwell-time lock: switch immediately, then hold the new regime for >= N obs
+                              # before switching back (crisis entry is never delayed); 0/1 = off
+    confidence_buffer: 0.1    # Schmitt-trigger half-width on the probability around each model's
+                              # threshold; ON at threshold+buffer, OFF at threshold-buffer (0.0 = off).
+                              # 0.1 = largest round value keeping both trigger bounds strictly inside
+                              # (0,1) for all tuned thresholds (HMM 0.875+0.1, LSTM 0.15-0.1); chosen
+                              # ex ante, NOT selected on OOS results (holdout stays selection-free)
   sorr:
     scenarios:
       Standard:

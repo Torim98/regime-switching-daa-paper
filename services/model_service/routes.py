@@ -373,6 +373,22 @@ def train_all():
             if use_cache:
                 save_walk_forward_cache(test_df, fingerprint, cache_path)
 
+        # 3b. Signal smoothing / hysteresis (Issue #10 ablation).
+        # Applied on the RAW signals AFTER the walk-forward cache, so toggling
+        # signal_smoothing.enabled never invalidates the cache or forces a
+        # retraining. When disabled, test_df passes through unchanged.
+        from src.backtest.smoothing import smooth_signal_columns
+        smoothing_cfg = getattr(cfg.backtesting, "signal_smoothing", None)
+        if smoothing_cfg is not None and getattr(smoothing_cfg, "enabled", False):
+            logger.info(
+                f"Signal smoothing ENABLED: min_holding_days="
+                f"{getattr(smoothing_cfg, 'min_holding_days', 0)}, "
+                f"confidence_buffer={getattr(smoothing_cfg, 'confidence_buffer', 0.0)}"
+            )
+            test_df = smooth_signal_columns(test_df, cfg)
+        else:
+            logger.info("Signal smoothing disabled (raw walk-forward signals).")
+
         # 4. Validation + individual plots per model
         asset_key_map = {
             "MSM": "markov_model",
