@@ -91,7 +91,7 @@
 
   <!-- MCS -->
   <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold mb-4">Monte-Carlo-Simulation (Block-Bootstrap)</h2>
+    <h2 class="text-lg font-semibold mb-4">Monte-Carlo-Simulation (Stationary Bootstrap)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdMcs"></div>
     <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
       <label>Scenario
@@ -125,6 +125,16 @@
       </div>
       <div id="chart-mcs-dist" class="w-full"></div>
     </div>
+  </section>
+
+  <!-- Bootstrap robustness (block vs. stationary) -->
+  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h2 class="text-lg font-semibold mb-1">Bootstrap Robustness — Block vs. Stationary</h2>
+    <p class="text-sm text-slate-500 mb-4">
+      Depletion rate (Wilson CI) and median terminal capital under both resampling
+      schemes. Generate via the Hub step <span class="font-mono">backtest.bootstrap-robustness</span>.
+    </p>
+    <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdBoot"></div>
   </section>
 
   <!-- Depletion rate + hypothesis tests -->
@@ -179,7 +189,7 @@ function evalPage() {
       { key: 'violin',  label: 'Violin' },
     ],
     mdEval: '', mdClass: '', mdChurn: '', mdSwitch: '', mdMcs: '',
-    mdDep: '', mdH1: '', mdH2: '', mdBe: '', mdWd: '',
+    mdDep: '', mdH1: '', mdH2: '', mdBe: '', mdWd: '', mdBoot: '',
     thresholdMd: {}, ttrMd: {},
     async init() {
       const pairs = await Promise.all([
@@ -193,9 +203,10 @@ function evalPage() {
         fetchMd('h2_transformer_test.md'),
         fetchMd('break_even_costs.md'),
         fetchMd('withdrawal_sensitivity.md'),
+        fetchMd('bootstrap_robustness.md'),
       ]);
       [this.mdEval, this.mdClass, this.mdChurn, this.mdSwitch, this.mdMcs,
-       this.mdDep, this.mdH1, this.mdH2, this.mdBe, this.mdWd] = pairs;
+       this.mdDep, this.mdH1, this.mdH2, this.mdBe, this.mdWd, this.mdBoot] = pairs;
 
       for (const m of ['MSM','HMM','HMM_Uni','LSTM','Transformer']) {
         this.thresholdMd[m] = await fetchMd(`threshold_sensitivity_${m}.md`);

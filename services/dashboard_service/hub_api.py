@@ -119,8 +119,18 @@ _CATALOG = [
             {
                 "id": "backtest.evaluate", "method": "POST", "path": "/backtest/evaluate",
                 "label": "Evaluation + MCS",
-                "description": "Block-bootstrap MCS + classification + ROC/PR + churning + H1/H2 tests.",
+                "description": "Bootstrap MCS (configurable: block or stationary) + classification + ROC/PR + churning + H1/H2 tests.",
                 "params": [], "danger": False,
+            },
+            {
+                "id": "backtest.bootstrap-robustness", "method": "POST",
+                "path": "/backtest/bootstrap-robustness",
+                "label": "Bootstrap robustness (block vs. stationary)",
+                "description": "Issue #7: re-runs the MCS with the block and the stationary bootstrap (same seed, no re-training) and writes assets/bootstrap_robustness.md comparing depletion rate (Wilson CI) and median terminal capital. Requires /backtest/run. Optional n_paths overrides the config for a quick check.",
+                "params": [
+                    {"name": "n_paths", "in": "query", "type": "number"},
+                ],
+                "danger": False,
             },
             {
                 "id": "backtest.report", "method": "POST", "path": "/backtest/report",

@@ -9,6 +9,7 @@ from src.backtest.evaluation import (
     churning_stats, threshold_sensitivity,
     time_to_recovery, switch_timing_vs_peak,
     mcs_final_capitals, depletion_rate_with_ci,
+    compare_bootstrap_methods, bootstrap_robustness_summary,
     test_h1_drawdown, test_h2_transformer, plot_mcs_violins,
     break_even_transaction_cost, plot_break_even, withdrawal_sensitivity,
     plot_regime_probability_heatmap,
@@ -167,6 +168,7 @@ def evaluate():
         random_seed=mcs_cfg.random_seed,
         sim_years=mcs_cfg.sim_years,
         trading_days_per_year=mcs_cfg.trading_days_per_year,
+        bootstrap_method=getattr(mcs_cfg, "bootstrap_method", "block"),
     )
 
     # Persist the MCS data
@@ -343,6 +345,77 @@ def generate_report():
 
     logger.info(f"Statistics report saved to {output_path}")
     return {"status": "ok", "path": output_path}
+
+@router.post("/bootstrap-robustness")
+def bootstrap_robustness(n_paths: int | None = None):
+    """Bootstrap robustness comparison (Issue #7, Arbeitspaket 4 Teil A).
+
+    Runs the MCS twice on the existing return/signal paths, once with the
+    fixed-length block bootstrap and once with the stationary bootstrap
+    (Politis & Romano 1994), using the same seed and n_paths. Writes a
+    side-by-side comparison of depletion rate (Wilson CI) and median terminal
+    capital per scenario and strategy to assets/bootstrap_robustness.md.
+
+    No model re-training is involved; only the resampling scheme changes.
+    Optional `n_paths` overrides the config value (useful for a quick check).
+    """
+    start = time.time()
+    cfg = get_cfg()
+    logger.info("Starting bootstrap robustness comparison (block vs. stationary)...")
+
+    backtesting_results = pd.read_parquet(cfg.data_path("backtesting_results"))
+    test_df = pd.read_parquet(cfg.data_path("test_data"))
+
+    scenarios = build_sorr_scenarios(cfg.backtesting.sorr.scenarios)
+    scenarios_list = list(vars(cfg.backtesting.sorr.scenarios).keys())
+    strategies = list(backtesting_results.columns)
+    daily_rets = backtesting_results.pct_change().dropna()
+
+    mcs_cfg = cfg.evaluation.mcs
+    paths = int(n_paths) if n_paths else mcs_cfg.n_paths
+
+    def _run(method: str) -> dict:
+        # Same seed for both methods -> paired, reproducible comparison.
+        _, mcs_paths = run_monte_carlo_simulation(
+            daily_rets=daily_rets,
+            test_df=test_df,
+            scenarios=scenarios,
+            n_simulations=paths,
+            block_size=mcs_cfg.block_length,
+            random_seed=mcs_cfg.random_seed,
+            sim_years=mcs_cfg.sim_years,
+            trading_days_per_year=mcs_cfg.trading_days_per_year,
+            bootstrap_method=method,
+        )
+        return mcs_final_capitals(mcs_paths, scenarios_list, strategies)
+
+    finals_block = _run("block")
+    finals_stationary = _run("stationary")
+
+    table = compare_bootstrap_methods(
+        finals_block, finals_stationary, alpha=cfg.evaluation.extended.alpha,
+    )
+    summary = bootstrap_robustness_summary(finals_block, finals_stationary)
+
+    out_path = cfg.asset_path("bootstrap_robustness")
+    header = (
+        "# Bootstrap Robustness: Block vs. Stationary\n\n"
+        f"Monte-Carlo depletion analysis on {paths:,} paths per cell, "
+        f"seed {mcs_cfg.random_seed}, mean block length {mcs_cfg.block_length} "
+        "trading days. Both runs share the same seed and paths; only the "
+        "resampling scheme differs (fixed-length block bootstrap vs. the "
+        "stationary bootstrap of Politis & Romano 1994).\n\n"
+    )
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(header)
+        # disable_numparse: keep the signed "+x.xx" Delta strings verbatim
+        # (tabulate would otherwise reparse them and drop the sign/decimals).
+        f.write(table.to_markdown(disable_numparse=True))
+        f.write("\n\n" + summary + "\n")
+
+    elapsed = time.time() - start
+    logger.info(f"Bootstrap robustness comparison written to {out_path} in {elapsed:.1f}s")
+    return {"status": "ok", "path": out_path, "n_paths": paths, "cells": len(table)}
 
 @router.get("/results")
 def get_results():

@@ -234,6 +234,7 @@ evaluation:
   mcs:
     n_paths: 10000
     block_length: 20
+    bootstrap_method: "stationary"     # "block" (fixed-length) | "stationary" (Politis & Romano 1994)
     random_seed: 42
     sim_years: 10
     trading_days_per_year: 252
@@ -356,6 +357,8 @@ paths:
     break_even_table:            "break_even_costs.md"
     break_even_plot:             "break_even_costs.png"
     withdrawal_sensitivity:      "withdrawal_sensitivity.md"
+    # Issue #7: block vs. stationary bootstrap robustness comparison
+    bootstrap_robustness:        "bootstrap_robustness.md"
 
 labels:
   supervised_label_source: "pagan_sossounov"   # "hmm" | "pagan_sossounov" | "peak_to_trough"

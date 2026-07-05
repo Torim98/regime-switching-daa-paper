@@ -67,6 +67,14 @@ def generate_statistics_report(cfg) -> str:
     mcs_summary_md = load_markdown_asset(
         os.path.join(ASSETS_DIR, cfg.asset_path("mcs_summary"))
     )
+    # MCS resampling scheme (Issue #7): reflect the configured bootstrap method.
+    _mcs_method = getattr(cfg.evaluation.mcs, "bootstrap_method", "block")
+    mcs_bootstrap_label = (
+        "stationary bootstrap (Politis & Romano 1994)"
+        if _mcs_method == "stationary"
+        else "block bootstrap"
+    )
+    mcs_n_paths = cfg.evaluation.mcs.n_paths
     feature_corr_table_md = load_markdown_asset(cfg.asset_path("feature_correlation_table"))
     annualized_metrics_md = load_markdown_asset(
         cfg.asset_path("annualized_metrics"),
@@ -417,9 +425,9 @@ Capital development of the different scenarios:
 ![SORR Aggressive](../assets/{cfg.paths.assets.sorr_sim_aggressive})
 ![SORR Low Capital](../assets/{cfg.paths.assets.sorr_sim_low_capital})
 
-### MCS: Block-Bootstrap Robustness Check
+### MCS: {mcs_bootstrap_label.split(" (")[0].title()} Robustness Check
 
-To assess statistical significance, 10,000 artificial market paths were simulated via block bootstrap.
+To assess statistical significance, {mcs_n_paths:,} artificial market paths were simulated via {mcs_bootstrap_label}.
 ![MCS Paths](../assets/{cfg.paths.assets.mcs_paths})
 {mcs_summary_md}
 

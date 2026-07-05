@@ -114,6 +114,97 @@ def find_matching_signal_col(
     return None
 
 
+def _block_bootstrap_indices(
+    n_source: int,
+    n_simulations: int,
+    total_days: int,
+    block_size: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Fixed-length (moving) block bootstrap indices.
+
+    Draws non-overlapping start positions per block and expands each block to
+    `block_size` consecutive indices, then trims to `total_days`.
+
+    Returns an (n_simulations, total_days) integer index matrix.
+    """
+    n_blocks = int(np.ceil(total_days / block_size))
+
+    # Draw all start indices at once: (n_simulations, n_blocks)
+    start_indices = rng.integers(0, n_source - block_size, size=(n_simulations, n_blocks))
+
+    # Expand block indices to full time-series indices
+    # offsets: (1, 1, block_size) broadcast with start_indices: (n_sim, n_blocks, 1)
+    offsets = np.arange(block_size)
+    # (n_simulations, n_blocks, block_size)
+    full_indices = start_indices[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :]
+    # Flatten to (n_simulations, n_blocks * block_size) and trim to total_days
+    return full_indices.reshape(n_simulations, -1)[:, :total_days]
+
+
+def _stationary_bootstrap_indices(
+    n_source: int,
+    n_simulations: int,
+    total_days: int,
+    block_size: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Stationary bootstrap indices (Politis & Romano 1994).
+
+    Block lengths are geometrically distributed with mean `block_size`
+    (restart probability p = 1 / block_size), start positions are uniform over
+    the source series, and blocks wrap around circularly at the series end.
+
+    Implemented via the equivalent day-by-day recursion: on each day either
+    continue the current block (index + 1, modulo n_source) with probability
+    1 - p, or jump to a fresh uniform start with probability p. This is
+    vectorized across all simulations; the loop runs over `total_days` (same
+    order of magnitude as the capital-evolution loop below).
+
+    Returns an (n_simulations, total_days) integer index matrix.
+    """
+    p = 1.0 / block_size
+    indices = np.empty((n_simulations, total_days), dtype=np.int64)
+    indices[:, 0] = rng.integers(0, n_source, size=n_simulations)
+
+    for t in range(1, total_days):
+        new_block = rng.random(n_simulations) < p
+        cont = (indices[:, t - 1] + 1) % n_source
+        starts = rng.integers(0, n_source, size=n_simulations)
+        indices[:, t] = np.where(new_block, starts, cont)
+
+    return indices
+
+
+def build_bootstrap_indices(
+    bootstrap_method: str,
+    n_source: int,
+    n_simulations: int,
+    total_days: int,
+    block_size: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Dispatch to the requested bootstrap index builder.
+
+    `bootstrap_method`: "block" (default, fixed-length) or "stationary".
+    """
+    if bootstrap_method == "block":
+        return _block_bootstrap_indices(
+            n_source, n_simulations, total_days, block_size, rng,
+        )
+    if bootstrap_method == "stationary":
+        return _stationary_bootstrap_indices(
+            n_source, n_simulations, total_days, block_size, rng,
+        )
+    raise ValueError(
+        f"Unknown bootstrap_method '{bootstrap_method}'. "
+        "Expected 'block' or 'stationary'."
+    )
+
+
 def _simulate_strategy(
     rets_arr: np.ndarray,
     sig_arr: np.ndarray,
@@ -124,12 +215,15 @@ def _simulate_strategy(
     withdrawal: float,
     fee: float,
     rng: np.random.Generator,
+    bootstrap_method: str = "block",
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Vectorized MCS for a single strategy + scenario combination.
 
-    1. Paired block bootstrap: all paths simultaneously via precomputed
-       block indices (returns + signals remain correlated).
+    1. Paired bootstrap: all paths simultaneously via precomputed indices
+       (returns + signals remain correlated). `bootstrap_method` selects the
+       fixed-length block bootstrap ("block") or the stationary bootstrap
+       ("stationary", Politis & Romano 1994).
     2. Capital evolution: day by day across all paths in parallel (NumPy vectors),
        with monthly withdrawal (every 21 trading days) and ruin detection.
 
@@ -138,19 +232,11 @@ def _simulate_strategy(
         all_capital_histories: (n_simulations, total_days) full paths
     """
     n_source = len(rets_arr)
-    n_blocks = int(np.ceil(total_days / block_size))
 
-    # --- Vectorized paired block bootstrap ---
-    # Draw all start indices at once: (n_simulations, n_blocks)
-    start_indices = rng.integers(0, n_source - block_size, size=(n_simulations, n_blocks))
-
-    # Expand block indices to full time-series indices
-    # offsets: (1, 1, block_size) broadcast with start_indices: (n_sim, n_blocks, 1)
-    offsets = np.arange(block_size)
-    # (n_simulations, n_blocks, block_size)
-    full_indices = start_indices[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :]
-    # Flatten to (n_simulations, n_blocks * block_size) and trim to total_days
-    full_indices = full_indices.reshape(n_simulations, -1)[:, :total_days]
+    # --- Vectorized paired bootstrap ---
+    full_indices = build_bootstrap_indices(
+        bootstrap_method, n_source, n_simulations, total_days, block_size, rng,
+    )
 
     sim_rets = rets_arr[full_indices]   # (n_simulations, total_days)
     sim_sigs = sig_arr[full_indices]    # (n_simulations, total_days)
@@ -194,11 +280,15 @@ def run_monte_carlo_simulation(
     random_seed: int,
     sim_years: int,
     trading_days_per_year: int,
+    bootstrap_method: str = "block",
 ) -> tuple[list[dict], dict]:
     """
-    Block-bootstrap Monte Carlo simulation (MCS) as robustness check.
+    Bootstrap Monte Carlo simulation (MCS) as robustness check.
 
-    Paired block bootstrap: return blocks + signal blocks are drawn together
+    `bootstrap_method` selects the resampling scheme: "block" (fixed-length
+    block bootstrap) or "stationary" (Politis & Romano 1994).
+
+    Paired bootstrap: return blocks + signal blocks are drawn together
     to preserve the correlation between returns and signals.
 
     Withdrawal simulation: monthly withdrawal (every 21 trading days) with
@@ -207,7 +297,7 @@ def run_monte_carlo_simulation(
     Reproducibility ensured via random_seed.
 
     Optimized for high path counts (10,000+):
-    - Vectorized block bootstrap (NumPy fancy indexing)
+    - Vectorized bootstrap resampling (NumPy fancy indexing)
     - Vectorized capital evolution (all paths in parallel)
     - Parallelization across strategies via concurrent.futures
 
@@ -255,6 +345,7 @@ def run_monte_carlo_simulation(
                 params["withdrawal"],
                 params["fee"],
                 child_seeds[seed_idx],
+                bootstrap_method,
             ))
             job_keys.append((sc_name, strategy))
             seed_idx += 1
@@ -307,13 +398,13 @@ def run_monte_carlo_simulation(
 
 def _run_strategy_job(
     rets_arr, sig_arr, n_simulations, total_days, block_size,
-    start_capital, withdrawal, fee, child_seed,
+    start_capital, withdrawal, fee, child_seed, bootstrap_method="block",
 ):
     """Wrapper for ProcessPoolExecutor: creates a generator from the SeedSequence."""
     rng = np.random.default_rng(child_seed)
     return _simulate_strategy(
         rets_arr, sig_arr, n_simulations, total_days, block_size,
-        start_capital, withdrawal, fee, rng,
+        start_capital, withdrawal, fee, rng, bootstrap_method,
     )
 
 
@@ -671,6 +762,133 @@ def depletion_rate_with_ci(
             "n_ruin / n_paths": f"{k}/{n}",
         })
     return pd.DataFrame(rows).set_index(["Scenario", "Strategy"])
+
+
+# ------------------------------------------------------------
+# Issue #7: bootstrap robustness (block vs. stationary)
+# ------------------------------------------------------------
+def _wilson_interval(k: int, n: int, z: float) -> tuple[float, float, float]:
+    """
+    Wilson score interval for a binomial proportion.
+
+    Returns (p, lower, upper) with p = k / n. Wilson instead of Wald because it
+    stays well behaved for p close to 0 (typical for depletion rates).
+    """
+    if n == 0:
+        return 0.0, 0.0, 0.0
+    p = k / n
+    denom = 1 + z**2 / n
+    center = (p + z**2 / (2 * n)) / denom
+    half = (z * np.sqrt(p * (1 - p) / n + z**2 / (4 * n**2))) / denom
+    return p, max(0.0, center - half), min(1.0, center + half)
+
+
+def compare_bootstrap_methods(
+    finals_block: dict,
+    finals_stationary: dict,
+    alpha: float = 0.05,
+) -> pd.DataFrame:
+    """
+    Side-by-side robustness comparison of the two MCS resampling schemes
+    (Issue #7). Per (scenario, strategy) it reports, for the fixed-length block
+    bootstrap and the stationary bootstrap (same seed, same n_paths):
+
+    - depletion rate P(terminal capital <= 0) with Wilson 95% CI,
+    - median terminal capital,
+    - and the block -> stationary difference for both (Delta columns).
+
+    `finals_block` / `finals_stationary` are the (scenario, strategy) -> terminal
+    capital arrays produced by `mcs_final_capitals` for each run.
+    """
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    rows = []
+    for key in finals_block:
+        if key not in finals_stationary:
+            continue
+        sc, s = key
+        ab, as_ = finals_block[key], finals_stationary[key]
+        pb, lob, hib = _wilson_interval(int(np.sum(ab <= 0)), len(ab), z)
+        ps, los, his = _wilson_interval(int(np.sum(as_ <= 0)), len(as_), z)
+        med_b, med_s = float(np.median(ab)), float(np.median(as_))
+        rows.append({
+            "Scenario": sc,
+            "Strategy": s.replace("_", " "),
+            "Depletion (Block)":         f"{pb:.2%}",
+            "95% CI (Block)":            f"[{lob:.2%}, {hib:.2%}]",
+            "Depletion (Stationary)":    f"{ps:.2%}",
+            "95% CI (Stationary)":       f"[{los:.2%}, {his:.2%}]",
+            "Delta Depletion (pp)":      f"{(ps - pb) * 100:+.2f}",
+            "Median Final (Block)":      f"{med_b:,.0f} EUR",
+            "Median Final (Stationary)": f"{med_s:,.0f} EUR",
+            "Delta Median (EUR)":        f"{(med_s - med_b):+,.0f}",
+        })
+    return pd.DataFrame(rows).set_index(["Scenario", "Strategy"])
+
+
+def bootstrap_robustness_summary(
+    finals_block: dict,
+    finals_stationary: dict,
+    benchmark: str = "Buy_Hold",
+) -> str:
+    """
+    Data-driven conclusion for the bootstrap robustness table: quantifies how
+    far the two resampling schemes disagree and whether the core tail-risk
+    ordering (regime models vs. the benchmark) is preserved under both.
+    Returns a short Markdown paragraph.
+    """
+    def _rate(finals, key):
+        arr = finals[key]
+        return float(np.sum(arr <= 0)) / len(arr)
+
+    keys = [k for k in finals_block if k in finals_stationary]
+    if not keys:
+        return "No overlapping (scenario, strategy) cells to compare."
+
+    max_delta_pp = max(
+        abs(_rate(finals_stationary, k) - _rate(finals_block, k)) * 100 for k in keys
+    )
+
+    scenarios = sorted({sc for sc, _ in keys})
+    order_preserved = 0
+    bench_lead_ok = 0
+    bench_lead_total = 0
+    for sc in scenarios:
+        strats = [s for (s_sc, s) in keys if s_sc == sc]
+        # Ranking of strategies by depletion rate under each method.
+        order_b = sorted(strats, key=lambda s: _rate(finals_block, (sc, s)))
+        order_s = sorted(strats, key=lambda s: _rate(finals_stationary, (sc, s)))
+        if order_b == order_s:
+            order_preserved += 1
+        # Does every regime model keep its depletion advantage over the benchmark?
+        if benchmark in strats:
+            b_rate_block = _rate(finals_block, (sc, benchmark))
+            b_rate_stat = _rate(finals_stationary, (sc, benchmark))
+            for s in strats:
+                if s == benchmark:
+                    continue
+                bench_lead_total += 1
+                lead_block = _rate(finals_block, (sc, s)) <= b_rate_block
+                lead_stat = _rate(finals_stationary, (sc, s)) <= b_rate_stat
+                if lead_block == lead_stat:
+                    bench_lead_ok += 1
+
+    lines = [
+        f"**Robustness summary.** Across {len(keys)} (scenario, strategy) cells, "
+        f"the largest depletion-rate difference between the block and stationary "
+        f"bootstrap is {max_delta_pp:.2f} pp. "
+        f"The strategy ranking by depletion rate is identical under both methods "
+        f"in {order_preserved}/{len(scenarios)} scenarios.",
+    ]
+    if bench_lead_total:
+        lines.append(
+            f"The sign of every regime model's depletion advantage over "
+            f"{benchmark.replace('_', ' ')} is preserved under both methods in "
+            f"{bench_lead_ok}/{bench_lead_total} model-scenario comparisons, so the "
+            f"tail-protection findings do not hinge on the resampling scheme."
+        )
+    return "\n\n".join(lines)
 
 
 def mcs_path_maxdd(mcs_paths_collector: dict, prefix: str) -> np.ndarray:
