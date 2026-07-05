@@ -648,3 +648,47 @@ async def hpo_analysis(scope: str = "cheap"):
     df = pd.read_parquet(cfg.data_path("feature_engineered")) if scope == "full" else None
     summary = generate_hpo_reports(cfg, df=df, scope=scope)
     return {"status": "ok", "scope": scope, "assets": summary}
+
+
+@router.post("/seed-sensitivity")
+def seed_sensitivity(seeds: int = 5, models: str = "all"):
+    """
+    Quantify the retraining stability of the production config: re-run every
+    model on the config.yaml hyperparameters and the full walk-forward fold set,
+    varying only its random source (EM init for HMM/HMM_Uni, global RNG for
+    LSTM/Transformer; MSM is the deterministic zero-variance control). Writes
+    assets/seed_sensitivity.md (rendered on the Models page).
+
+    Parameters
+    ----------
+    seeds : int
+        Number of seeds per stochastic model (0..seeds-1). Each seed is one full
+        DL retraining across all folds, so this is GPU-bound and slow.
+    models : str
+        "all"  -> MSM, HMM, HMM_Uni, LSTM, Transformer.
+        "dl"   -> LSTM, Transformer only (the two seed-sensitive models; fastest
+                  useful check).
+    """
+    if seeds < 2:
+        raise HTTPException(400, "seeds must be >= 2 to measure a spread.")
+    if models not in ("all", "dl"):
+        raise HTTPException(400, "models must be 'all' or 'dl'")
+
+    cfg = get_cfg()
+    from src.backtest.seed_sensitivity import run_and_write
+
+    model_list = ["LSTM", "Transformer"] if models == "dl" else None
+    df = pd.read_parquet(cfg.data_path("feature_engineered"))
+    result = run_and_write(df, cfg, models=model_list, seeds=seeds, save=True)
+
+    # Compact JSON summary: headline CV per model for the API response.
+    summary = {}
+    for model_name in result.index.get_level_values("model").unique():
+        cagr = result.loc[(model_name, "cagr")]
+        martin = result.loc[(model_name, "martin")]
+        summary[model_name] = {
+            "cagr_mean": cagr["mean"], "cagr_cv": cagr["cv"],
+            "martin_mean": martin["mean"], "martin_cv": martin["cv"],
+            "n_seeds": int(result.loc[model_name]["n_seeds"].iloc[0]),
+        }
+    return {"status": "ok", "seeds": seeds, "models": models, "summary": summary}

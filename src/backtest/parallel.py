@@ -35,6 +35,7 @@ def _run_hmm_fold(df, train_idx, test_idx, hmm_cfg):
             n_iter=hmm_cfg.n_iter,
             random_state=hmm_cfg.random_state,
             threshold=hmm_cfg.threshold,
+            n_init=getattr(hmm_cfg, "n_init", 1),
         )
         return {"ok": True, "test_idx": test_idx, "train_idx": train_idx,
                 "probs": probs, "signal": signal, "signal_train": signal_train}

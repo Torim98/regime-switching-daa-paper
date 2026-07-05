@@ -1,20 +1,20 @@
 |                                | Ruin Probability   | Median Terminal Capital   |
 |:-------------------------------|:-------------------|:--------------------------|
-| ('Low_Capital', 'HMM')         | 0.01%              | 207,896.30 €              |
-| ('Aggressive', 'HMM')          | 0.74%              | 235,949.61 €              |
-| ('Standard', 'HMM')            | 0.00%              | 485,283.95 €              |
-| ('Aggressive', 'MSM')          | 0.87%              | 171,422.78 €              |
+| ('Aggressive', 'HMM Uni')      | 0.66%              | 178,794.31 €              |
+| ('Standard', 'HMM Uni')        | 0.00%              | 407,937.81 €              |
+| ('Aggressive', 'Transformer')  | 2.00%              | 264,289.72 €              |
+| ('Standard', 'Transformer')    | 0.00%              | 514,287.91 €              |
+| ('Standard', 'MSM')            | 0.00%              | 409,611.17 €              |
+| ('Low_Capital', 'MSM')         | 0.00%              | 170,515.56 €              |
+| ('Low_Capital', 'HMM')         | 0.47%              | 139,065.14 €              |
 | ('Low_Capital', 'Buy Hold')    | 0.55%              | 204,973.28 €              |
-| ('Standard', 'LSTM')           | 0.01%              | 455,137.45 €              |
-| ('Standard', 'Transformer')    | 0.00%              | 456,262.76 €              |
-| ('Aggressive', 'HMM Uni')      | 0.86%              | 170,252.61 €              |
-| ('Standard', 'Buy Hold')       | 0.01%              | 473,380.85 €              |
-| ('Standard', 'MSM')            | 0.00%              | 399,032.11 €              |
-| ('Aggressive', 'Transformer')  | 3.23%              | 217,136.79 €              |
-| ('Low_Capital', 'MSM')         | 0.01%              | 163,842.75 €              |
-| ('Aggressive', 'LSTM')         | 5.27%              | 215,175.67 €              |
+| ('Aggressive', 'HMM')          | 6.16%              | 133,616.59 €              |
+| ('Aggressive', 'LSTM')         | 2.72%              | 251,205.68 €              |
 | ('Aggressive', 'Buy Hold')     | 5.03%              | 227,946.92 €              |
-| ('Standard', 'HMM Uni')        | 0.00%              | 397,306.37 €              |
-| ('Low_Capital', 'HMM Uni')     | 0.01%              | 162,246.59 €              |
-| ('Low_Capital', 'LSTM')        | 0.58%              | 194,619.62 €              |
-| ('Low_Capital', 'Transformer') | 0.29%              | 193,522.14 €              |
+| ('Standard', 'HMM')            | 0.00%              | 353,735.34 €              |
+| ('Standard', 'Buy Hold')       | 0.01%              | 473,380.85 €              |
+| ('Standard', 'LSTM')           | 0.00%              | 498,266.14 €              |
+| ('Aggressive', 'MSM')          | 0.48%              | 180,561.29 €              |
+| ('Low_Capital', 'HMM Uni')     | 0.00%              | 168,178.37 €              |
+| ('Low_Capital', 'LSTM')        | 0.16%              | 216,265.97 €              |
+| ('Low_Capital', 'Transformer') | 0.23%              | 221,930.40 €              |

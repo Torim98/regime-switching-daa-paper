@@ -59,6 +59,7 @@ def train_hmm_fold(
     n_iter: int,
     random_state: int,
     threshold: float,
+    n_init: int = 1,
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
     """
     Train the hidden Markov model on a walk-forward fold.
@@ -86,6 +87,16 @@ def train_hmm_fold(
         bear-state identification on the train predictions.
     n_components, covariance_type, n_iter, random_state, threshold :
         Same meaning as in train_hmm / predict_hmm.
+    n_init : int
+        Number of EM restarts. A single GaussianHMM fit is sensitive to its
+        random_state initialization: different seeds converge to different local
+        optima, which moves the OOS tail metrics materially (the seed-sensitivity
+        analysis measured a Martin CV of ~0.24 for the multivariate HMM). With
+        n_init > 1 the model is fit n_init times from distinct, deterministic
+        seeds (random_state, random_state+1, ...) and the fit with the highest
+        training log-likelihood is kept. This is the maximum-likelihood choice
+        and, given the fixed seed base, fully reproducible. n_init=1 reproduces
+        the previous single-fit behavior.
 
     Returns
     -------
@@ -116,14 +127,27 @@ def train_hmm_fold(
     X_train_scaled = scaler.fit_transform(features_df_train.values)
     X_test_scaled = scaler.transform(features_df_test.values)
 
-    # --- 3. Fit the HMM on train ---
-    model = GaussianHMM(
-        n_components=n_components,
-        covariance_type=covariance_type,
-        n_iter=n_iter,
-        random_state=random_state,
-    )
-    model.fit(X_train_scaled)
+    # --- 3. Fit the HMM on train (multi-start EM, keep the best log-likelihood) ---
+    # Fit n_init times from distinct, deterministic seeds and keep the fit with
+    # the highest training log-likelihood (score = log P(X_train | model)). This
+    # is the maximum-likelihood choice and tames the EM init sensitivity that the
+    # seed-sensitivity analysis exposed for the multivariate HMM. n_init=1 keeps
+    # the previous single-fit behavior.
+    best_model, best_ll = None, -np.inf
+    for i in range(max(1, int(n_init))):
+        candidate = GaussianHMM(
+            n_components=n_components,
+            covariance_type=covariance_type,
+            n_iter=n_iter,
+            random_state=random_state + i,
+        )
+        candidate.fit(X_train_scaled)
+        ll = candidate.score(X_train_scaled)
+        if np.isfinite(ll) and ll > best_ll:
+            best_ll, best_model = ll, candidate
+    # Fallback: if every restart produced a non-finite score (degenerate
+    # covariances), keep the last candidate so the fold still yields a signal.
+    model = best_model if best_model is not None else candidate
 
     # --- 4. Bear-state identification from the TRAIN predictions ---
     # Which regime has the higher return volatility in training?

@@ -29,6 +29,9 @@ services:
     environment:
       - PYTHONPATH=/app
       - TZ=Europe/Berlin
+      # Unbuffered stdout so print() progress (fold fallbacks, warnings) shows
+      # live in the Docker logs during long GPU jobs instead of block-buffering.
+      - PYTHONUNBUFFERED=1
       # TF grabs all GPU memory by default; growth mode leaves room for torch
       # (LSTM/TF and Transformer/torch share the GPU in one process).
       - TF_FORCE_GPU_ALLOW_GROWTH=true

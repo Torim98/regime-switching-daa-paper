@@ -203,6 +203,21 @@
     </div>
   </section>
 
+  <!-- Seed sensitivity / retraining stability -->
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold mb-1">Retraining Stability (Seed Sensitivity)</h2>
+    <p class="text-xs text-slate-500 mb-3">
+      How much each model's OOS metrics move when only its random source changes
+      (EM init for HMM/HMM_Uni, global RNG for LSTM/Transformer; MSM is the
+      deterministic control). Generate via the Control-Hub action &ldquo;Seed
+      sensitivity (retraining stability)&rdquo;.
+    </p>
+    <details open class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+      <summary class="cursor-pointer font-medium text-sm">Seed sensitivity report</summary>
+      <div id="seed-sensitivity" class="hpo-md mt-2 overflow-x-auto"></div>
+    </details>
+  </section>
+
 </div>
 
 <style>
@@ -247,6 +262,7 @@ function modelsPage() {
         'hpo-dsr': 'hpo_dsr.md',
         'hpo-pbo': 'hpo_pbo.md',
         'hpo-multiseed': 'hpo_multiseed.md',
+        'seed-sensitivity': 'seed_sensitivity.md',
       };
       await Promise.all(Object.entries(map).map(async ([id, name]) => {
         const el = document.getElementById(id);

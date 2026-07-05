@@ -1,6 +1,7 @@
 """Walk-forward validation: splitter and helpers for rolling OOS evaluation."""
 
 import warnings
+import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import hashlib
@@ -233,10 +234,24 @@ def run_walk_forward(
     # for fold N (rolling window -> ~90% train overlap -> legitimate, since
     # fold N-1 has never seen the fold-N test data).
     # For the first fold or after failures: cold start (state = None).
-    lstm_state = None
-    transformer_state = None
+    #
+    # Seed-averaged ensemble: the seed-sensitivity analysis showed LSTM and
+    # Transformer swing between retrainings (headline CV ~0.12). We therefore
+    # train dl_ensemble_size members per fold with distinct global seeds and
+    # average their OOS probabilities before thresholding, which shrinks the
+    # prediction variance ~1/sqrt(N). Each member keeps its OWN warm-start state
+    # across folds (states are lists of length N). dl_ensemble_size=1 reduces to
+    # a single, now seed-pinned (hence reproducible) model.
+    from src.backtest.hpo_analysis import _set_global_seeds
+
     dl_warm_start = getattr(cfg.walk_forward, "dl_warm_start", False)
     epochs_warm = getattr(cfg.walk_forward, "dl_warm_start_epochs", None)
+    n_ens = max(1, int(getattr(cfg.walk_forward, "dl_ensemble_size", 1)))
+    seed_base = int(getattr(cfg.walk_forward, "dl_ensemble_seed_base", 0))
+    logger.info(f"Walk-forward DL ensemble size: {n_ens} (seed base {seed_base})")
+
+    lstm_states = [None] * n_ens
+    transformer_states = [None] * n_ens
 
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
         df_train = df.loc[train_idx]
@@ -245,19 +260,27 @@ def run_walk_forward(
         if "LSTM" in models_to_run:
             try:
                 c = cfg.models.lstm
-                probs_raw, pred_idx, lstm_state = train_lstm_fold(
-                    df_train=df_train, df_test=df_test,
-                    features=features, labels_col=label_col,
-                    window_size=c.window_size, units_l1=c.units_l1, units_l2=c.units_l2,
-                    return_sequences=c.return_sequences, dropout=c.dropout,
-                    dense=c.dense, activation=c.activation, optimizer=c.optimizer,
-                    metrics=c.metrics, epochs=c.epochs, batch_size=c.batch_size,
-                    validation_split=c.validation_split, verbose=0,
-                    init_weights=lstm_state if dl_warm_start else None,
-                    epochs_warm=epochs_warm if (dl_warm_start and lstm_state is not None) else None,
-                )
-                signal = (probs_raw >= c.threshold).astype(int)
-                result_df.loc[pred_idx, "LSTM_Prob"]   = probs_raw
+                member_probs, new_states, pred_idx = [], [], None
+                for m in range(n_ens):
+                    _set_global_seeds(seed_base + m)
+                    st = lstm_states[m]
+                    probs_raw, pred_idx, st_new = train_lstm_fold(
+                        df_train=df_train, df_test=df_test,
+                        features=features, labels_col=label_col,
+                        window_size=c.window_size, units_l1=c.units_l1, units_l2=c.units_l2,
+                        return_sequences=c.return_sequences, dropout=c.dropout,
+                        dense=c.dense, activation=c.activation, optimizer=c.optimizer,
+                        metrics=c.metrics, epochs=c.epochs, batch_size=c.batch_size,
+                        validation_split=c.validation_split, verbose=0,
+                        init_weights=st if dl_warm_start else None,
+                        epochs_warm=epochs_warm if (dl_warm_start and st is not None) else None,
+                    )
+                    member_probs.append(np.asarray(probs_raw, dtype=float))
+                    new_states.append(st_new)
+                lstm_states = new_states
+                probs_mean = np.mean(member_probs, axis=0)
+                signal = (probs_mean >= c.threshold).astype(int)
+                result_df.loc[pred_idx, "LSTM_Prob"]   = probs_mean
                 result_df.loc[pred_idx, "LSTM_Signal"] = signal
             except Exception as e:
                 import traceback
@@ -265,25 +288,33 @@ def run_walk_forward(
                 if failed_folds["LSTM"] < 2:
                     traceback.print_exc()
                 failed_folds["LSTM"] += 1
-                # Discard the warm start so that the next fold starts cold again.
-                lstm_state = None
+                # Discard the warm starts so that the next fold starts cold again.
+                lstm_states = [None] * n_ens
 
         if "Transformer" in models_to_run:
             try:
                 c = cfg.models.transformer
-                probs_raw, pred_idx, transformer_state = train_transformer_fold(
-                    df_train=df_train, df_test=df_test,
-                    features=features, labels_col=label_col,
-                    window_size=c.window_size, d_model=c.d_model, n_heads=c.n_heads,
-                    n_layers=c.n_layers, dim_feedforward=c.dim_feedforward,
-                    dropout=c.dropout, learning_rate=c.learning_rate,
-                    epochs=c.epochs, batch_size=c.batch_size,
-                    validation_split=c.validation_split, verbose=0,
-                    init_state_dict=transformer_state if dl_warm_start else None,
-                    epochs_warm=epochs_warm if (dl_warm_start and transformer_state is not None) else None,
-                )
-                signal = (probs_raw >= c.threshold).astype(int)
-                result_df.loc[pred_idx, "Transformer_Prob"]   = probs_raw
+                member_probs, new_states, pred_idx = [], [], None
+                for m in range(n_ens):
+                    _set_global_seeds(seed_base + m)
+                    st = transformer_states[m]
+                    probs_raw, pred_idx, st_new = train_transformer_fold(
+                        df_train=df_train, df_test=df_test,
+                        features=features, labels_col=label_col,
+                        window_size=c.window_size, d_model=c.d_model, n_heads=c.n_heads,
+                        n_layers=c.n_layers, dim_feedforward=c.dim_feedforward,
+                        dropout=c.dropout, learning_rate=c.learning_rate,
+                        epochs=c.epochs, batch_size=c.batch_size,
+                        validation_split=c.validation_split, verbose=0,
+                        init_state_dict=st if dl_warm_start else None,
+                        epochs_warm=epochs_warm if (dl_warm_start and st is not None) else None,
+                    )
+                    member_probs.append(np.asarray(probs_raw, dtype=float))
+                    new_states.append(st_new)
+                transformer_states = new_states
+                probs_mean = np.mean(member_probs, axis=0)
+                signal = (probs_mean >= c.threshold).astype(int)
+                result_df.loc[pred_idx, "Transformer_Prob"]   = probs_mean
                 result_df.loc[pred_idx, "Transformer_Signal"] = signal
                 try:
                     import torch
@@ -297,8 +328,8 @@ def run_walk_forward(
                 if failed_folds["Transformer"] < 2:
                     traceback.print_exc()
                 failed_folds["Transformer"] += 1
-                # Discard the warm start so that the next fold starts cold again.
-                transformer_state = None
+                # Discard the warm starts so that the next fold starts cold again.
+                transformer_states = [None] * n_ens
 
     logger.info("Walk-forward DL phase done")
 
@@ -331,10 +362,12 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "hmm_n_iter": cfg.models.hmm.n_iter,
         "hmm_threshold": cfg.models.hmm.threshold,
         "hmm_covariance_type": cfg.models.hmm.covariance_type,
+        "hmm_n_init": getattr(cfg.models.hmm, "n_init", 1),
         "hmm_uni_n_components": cfg.models.hmm_uni.n_components,
         "hmm_uni_n_covariance_type": cfg.models.hmm_uni.covariance_type,
         "hmm_uni_n_iter": cfg.models.hmm_uni.n_iter,
         "hmm_uni_threshold": cfg.models.hmm_uni.threshold,
+        "hmm_uni_n_init": getattr(cfg.models.hmm_uni, "n_init", 1),
         "lstm_window": cfg.models.lstm.window_size,
         "lstm_epochs": cfg.models.lstm.epochs,
         "lstm_units_l1": cfg.models.lstm.units_l1,
@@ -344,6 +377,8 @@ def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
         "transformer_d_model": cfg.models.transformer.d_model,
         "transformer_batch_size": cfg.models.transformer.batch_size,
         "dl_warm_start": getattr(cfg.walk_forward, "dl_warm_start", False),
+        "dl_ensemble_size": getattr(cfg.walk_forward, "dl_ensemble_size", 1),
+        "dl_ensemble_seed_base": getattr(cfg.walk_forward, "dl_ensemble_seed_base", 0),
         "supervised_label_source": cfg.labels.supervised_label_source,
         "pag_soss_params": vars(cfg.labels.pagan_sossounov),
         "p2t_params": vars(cfg.labels.peak_to_trough),

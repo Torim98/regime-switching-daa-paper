@@ -109,6 +109,17 @@ _CATALOG = [
                 ],
                 "danger": False,
             },
+            {
+                "id": "model.seed_sensitivity", "method": "POST", "path": "/models/seed-sensitivity",
+                "label": "Seed sensitivity (retraining stability)",
+                "description": "Re-runs every model on the production config and the full walk-forward fold set, varying only its random source (EM init for HMM/HMM_Uni, global RNG for LSTM/Transformer; MSM is the zero-variance control). Reports mean/std/CV of the OOS metrics to quantify the jumping DL performance between retrainings. Re-trains DL on the GPU per seed (slow). Writes assets/seed_sensitivity.md, shown on the Models page. models='dl' restricts to LSTM+Transformer for a faster check.",
+                "params": [
+                    {"name": "seeds", "in": "query", "type": "int", "default": 5},
+                    {"name": "models", "in": "query", "type": "select",
+                     "options": ["all", "dl"]},
+                ],
+                "danger": False,
+            },
         ],
     },
     {
@@ -132,7 +143,7 @@ _CATALOG = [
                 "label": "Bootstrap robustness (block vs. stationary)",
                 "description": "Issue #7: re-runs the MCS with the block and the stationary bootstrap (same seed, no re-training) and writes assets/bootstrap_robustness.md comparing depletion rate (Wilson CI) and median terminal capital. Requires /backtest/run. Optional n_paths overrides the config for a quick check.",
                 "params": [
-                    {"name": "n_paths", "in": "query", "type": "number"},
+                    {"name": "n_paths", "in": "query", "type": "int", "default": 10000},
                 ],
                 "danger": False,
             },
