@@ -7,15 +7,16 @@
 
   <!-- ============================================================= -->
   <!-- Full pipeline run: one-time "produce all assets" orchestrator -->
+  <!-- Collapsed by default (like the HPO Analysis section).          -->
   <!-- ============================================================= -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border-2 border-brand-300 dark:border-brand-700/60 p-6">
-    <div class="flex items-baseline justify-between mb-1">
-      <h2 class="text-lg font-semibold flex items-center gap-2">
+  <details class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border-2 border-brand-300 dark:border-brand-700/60 p-6">
+    <summary class="cursor-pointer select-none flex items-baseline justify-between gap-2">
+      <h2 class="text-lg font-semibold inline-flex items-center gap-2">
         <span>Full Pipeline Run</span>
       </h2>
       <span class="text-xs text-slate-500">sequential, one-time: produces every paper asset</span>
-    </div>
-    <p class="text-xs text-slate-500 mb-4">
+    </summary>
+    <p class="text-xs text-slate-500 mb-4 mt-3">
       Runs the canonical sequence (data → model → backtest → report) in one go. Core steps are
       pre-selected; optional steps and pre-run cleanup are toggles. The run happens in the background;
       watch the <a href="/logs" class="underline">live logs</a> in parallel.
@@ -147,7 +148,7 @@
       <pre x-show="job.error" class="mt-3 p-3 bg-rose-950/90 text-rose-100 rounded text-xs overflow-auto max-h-40 font-mono"
            x-text="job.error"></pre>
     </div>
-  </section>
+  </details>
 
   <!-- Health status tiles -->
   <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
