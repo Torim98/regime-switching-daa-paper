@@ -12,7 +12,7 @@ The backtesting simulation accounts for **transaction costs** (0.1% per rebalanc
 
 ### Rationale
 
-1. **The relative comparison remains valid:** All four models (MSM, HMM, LSTM, Transformer) and the buy-and-hold benchmark operate under identical tax conditions. A capital gains tax would reduce the absolute returns of all strategies equally without changing the relative ranking of the risk-adjusted metrics (Sharpe ratio, Sortino ratio, Calmar ratio).
+1. **The relative comparison remains valid:** All five models (MSM, HMM, HMM_Uni, LSTM, Transformer) and the buy-and-hold benchmark operate under identical tax conditions. A capital gains tax would reduce the absolute returns of all strategies equally without changing the relative ranking of the risk-adjusted metrics (Sharpe ratio, Sortino ratio, Calmar ratio).
 
 2. **Jurisdiction neutrality:** Tax regulations differ substantially between jurisdictions (e.g., the German flat-rate withholding tax of 26.375% incl. solidarity surcharge vs. US capital gains tax with short-/long-term differentiation). Modeling taxes would tie the results to a specific tax system and limit generalizability.
 
@@ -135,3 +135,24 @@ The result confirms the concern about fold granularity: across the 26 walk-forwa
 This concentration of crisis signal in a few folds was the original motivation for a fold-wise aggregation critique. That critique is mitigated by the pooled-OOS objective introduced in Issue #5: the hyperparameter search no longer optimizes a fold-median (which the many bullish folds would dominate) but a metric computed on the OOS return series pooled across all folds. Crisis periods therefore enter the optimization signal in proportion to their length instead of being averaged away as one fold among many.
 
 An expanding-window re-run remains open as a robustness variant (future work). It would give the later folds more training history and is a natural complement to this diagnostic, but it is not expected to change the OOS bear-coverage picture, which is governed by the 12-month fold length rather than by the training scheme.
+
+---
+
+## 6. DL Claim Scoping Under the Pagan-Sossounov Labeling Scheme
+
+**Status:** Deliberate scope boundary (Issue #9, retraining deferred by decision)
+
+The supervised deep-learning models (LSTM, Transformer) are trained exclusively on regime labels produced by the Pagan-Sossounov turning-point algorithm (`labels.supervised_label_source: pagan_sossounov`). Their results, including the reported crisis behavior, therefore hold specifically under this labeling scheme and should not be read as architecture-intrinsic properties of the LSTM or Transformer.
+
+### Label Granularity and Short Crises
+
+The Pagan-Sossounov censoring rule enforces a minimum phase length (here `min_phase_months: 4`) and a minimum full-cycle length (`min_cycle_months: 16`). Short, V-shaped drawdowns that peak and recover inside this window are structurally censored and never receive a bear label. Two of the most severe recent episodes fall exactly into this gap:
+
+- **COVID crash (Feb/Mar 2020):** roughly 26 trading days from peak to trough, far below the minimum phase length,
+- **2022 rate shock:** a rapid repricing that the algorithm resolves only partially into a labeled phase.
+
+Because the training targets carry no bear signal for these episodes, the DL models receive no supervised signal from which to learn them. The misclassifications observed in the COVID crash and the 2022 rate shock are therefore, at least in part, an artifact of the label choice rather than necessarily a failure of the DL architectures. The label-comparison diagnostics (`assets/label_concordance_matrix.png`, `assets/label_kappa_matrix.png`, `assets/label_timeline_comparison.png`) illustrate how differently the candidate schemes segment exactly these periods.
+
+### Consequence for the Claims
+
+The paper accordingly scopes its DL claims to the Pagan-Sossounov scheme instead of generalizing them to a broad statement that DL models cannot time short crises. Retraining the DL models on alternative label sources (for example the HMM-derived or peak-to-trough labels already selectable via `labels.supervised_label_source`, or an optional multi-class bull/bear/sideways segmentation) remains future work. Such a re-run would test directly whether the COVID and 2022 timing failures shrink under a finer labeling scheme, but it requires a full walk-forward DL re-training per label variant and was deliberately left out of scope for the current submission (see Issue #9).
