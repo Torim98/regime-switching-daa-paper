@@ -44,6 +44,7 @@ in the final walk-forward run (walk_forward.py).
 
 import warnings
 import math
+from typing import Callable
 import numpy as np
 import pandas as pd
 import optuna
@@ -704,6 +705,7 @@ def run_optimization(
     every_nth_fold: int | None = None,
     storage: str | None = None,
     metric: str | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> optuna.Study:
     """
     Run an Optuna study for a single model.
@@ -727,6 +729,11 @@ def run_optimization(
         Optuna storage URL (e.g. "sqlite:///optuna.db"). None = in-memory.
     metric : str | None
         Objective metric. None = cfg.optimization.metric.
+    should_stop : Callable[[], bool] | None
+        Cooperative cancellation hook. Checked once after every completed trial;
+        when it returns True the study stops gracefully. All finished trials stay
+        persisted in the Optuna storage, so a re-run resumes from exactly this
+        point (the completed trials are skipped, only the remaining ones run).
 
     Returns
     -------
@@ -869,11 +876,30 @@ def run_optimization(
                                optuna.trial.TrialState.PRUNED)])
     remaining = max(0, n_trials - done)
 
+    # Cooperative stop: a callback runs after every completed trial and asks
+    # study.stop() to end the loop gracefully. The current trial always finishes
+    # first, so its result is persisted too and a resume never re-runs it.
+    callbacks = None
+    if should_stop is not None:
+        def _stop_callback(study_, trial_):
+            if should_stop():
+                study_.stop()
+        callbacks = [_stop_callback]
+
     if remaining == 0:
         print(f"  -> {model_name}: {done}/{n_trials} trials already present, skipping.")
+    elif should_stop is not None and should_stop():
+        print(f"  -> {model_name}: stop already requested, not starting new trials.")
     else:
         print(f"  -> {done} trials present, starting {remaining} more.")
-        study.optimize(objective, n_trials=remaining, show_progress_bar=True)
+        study.optimize(objective, n_trials=remaining, show_progress_bar=True,
+                       callbacks=callbacks)
+        if should_stop is not None and should_stop():
+            n_done = len([t for t in study.trials
+                          if t.state in (optuna.trial.TrialState.COMPLETE,
+                                         optuna.trial.TrialState.PRUNED)])
+            print(f"  -> {model_name}: stopped on request at {n_done}/{n_trials} "
+                  f"trials; re-run to resume from here.")
 
     print(f"\n--- {model_name}: best parameters ({metric}) ---")
     print(f"  {metric} score: {study.best_value:.4f}")
@@ -899,6 +925,7 @@ def optimize_all(
     models: list[str] | None = None,
     storage: str | None = None,
     metric: str | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, optuna.Study]:
     """
     Optimize all (or selected) models sequentially.
@@ -911,6 +938,11 @@ def optimize_all(
         Models to optimize. None = all five.
     n_trials, every_nth_fold, metric : optional overrides for ALL models.
         None = read per model from the config.
+    should_stop : Callable[[], bool] | None
+        Cooperative cancellation hook (see run_optimization). Besides ending the
+        current model's study early, a set flag also skips the remaining models
+        so the whole optimize-all run returns promptly. Every completed study
+        stays persisted, so a re-run resumes model by model.
     Remaining parameters : see run_optimization.
 
     Returns
@@ -930,7 +962,12 @@ def optimize_all(
             every_nth_fold=every_nth_fold,
             storage=storage,
             metric=metric,
+            should_stop=should_stop,
         )
+        if should_stop is not None and should_stop():
+            print(f"\nOptimization stopped on request after {model_name}; "
+                  f"{len(studies)}/{len(models)} models done, the rest is skipped.")
+            break
 
     print(f"\n{'='*60}")
     print("Optimization complete: summary")

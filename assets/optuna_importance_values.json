@@ -16,15 +16,14 @@
       "learning_rate": 0.03
     },
     "Transformer": {
-      "epochs": 0.23,
-      "window_size": 0.2,
-      "dropout": 0.16,
-      "learning_rate": 0.14,
-      "n_layers": 0.14,
-      "dim_feedforward": 0.05,
-      "n_heads": 0.04,
-      "threshold": 0.03,
-      "d_model": 0.02
+      "window_size": 0.3877282367241708,
+      "dmodel_nheads": 0.3509743825653532,
+      "n_layers": 0.0623846055730534,
+      "batch_size": 0.05481482668803719,
+      "dim_feedforward": 0.050661007557116895,
+      "threshold": 0.04344417186556475,
+      "learning_rate": 0.025844712592414464,
+      "dropout": 0.024148056434289397
     },
     "HMM_Uni": {}
   }

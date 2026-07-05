@@ -82,6 +82,20 @@
                   running…
                 </span>
               </button>
+
+              <!-- Stop button (only for stoppable endpoints, e.g. HPO). Enabled
+                   while this endpoint is running; a graceful cancel that resumes
+                   from the same Optuna study on the next run. -->
+              <button x-show="ep.stop_path"
+                      @click="stopEndpoint(block.service, ep)"
+                      :disabled="busyId !== ep.id || stoppingId === ep.id"
+                      title="Stop after the current trial; a re-run resumes from here"
+                      class="px-3 py-1.5 rounded text-white text-sm font-medium transition
+                             bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 disabled:cursor-not-allowed">
+                <span x-show="stoppingId !== ep.id">■ Stop</span>
+                <span x-show="stoppingId === ep.id">stopping…</span>
+              </button>
+
               <span x-show="lastResult[ep.id]" class="text-xs font-mono"
                     :class="lastResult[ep.id]?.ok ? 'text-emerald-600' : 'text-rose-600'"
                     x-text="lastResult[ep.id] ? ('HTTP ' + lastResult[ep.id].status_code) : ''"></span>
@@ -105,6 +119,9 @@
           <code class="font-mono">train-all</code>, <code class="font-mono">optimize-all</code>, <code class="font-mono">evaluate</code>
           can run for several hours in WF mode. The button status stays "running…" until the service responds.
           You can watch the <a href="/logs" class="underline">live logs</a> in parallel.
+          The HPO buttons carry a <span class="text-rose-600 dark:text-rose-400 font-medium">■ Stop</span>: it ends the run
+          gracefully after the current trial. All finished trials stay in <code class="font-mono">optuna_studies.db</code>,
+          so re-running the same button resumes from exactly that point.
         </p>
       </div>
       <a href="/logs" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded text-sm whitespace-nowrap">→ Live-Logs</a>
@@ -120,6 +137,7 @@ function hubPage() {
     formState: {},
     lastResult: {},
     busyId: null,
+    stoppingId: null,
 
     async init() {
       const [c, h] = await Promise.all([
@@ -143,6 +161,7 @@ function hubPage() {
       if (ep.danger && !confirm(`Run '${ep.label}'?\n\n${ep.method} ${ep.path}`)) return;
 
       this.busyId = ep.id;
+      this.stoppingId = null;
       this.lastResult[ep.id] = null;
       setRunning(true);   // → document.title gets a "running… " prefix
 
@@ -171,8 +190,35 @@ function hubPage() {
         toast(`Error: ${e}`, 'error');
       } finally {
         this.busyId = null;
+        this.stoppingId = null;
         setRunning(false);
       }
+    },
+
+    async stopEndpoint(service, ep) {
+      // Only meaningful while this endpoint is running.
+      if (this.busyId !== ep.id || !ep.stop_path) return;
+      this.stoppingId = ep.id;
+
+      const url = `/api/hub/call?service=${encodeURIComponent(service)}`
+                + `&path=${encodeURIComponent(ep.stop_path)}`
+                + `&method=POST`
+                + `&query=${encodeURIComponent('{}')}`;
+
+      try {
+        const r = await fetch(url, { method: 'POST' });
+        const j = await r.json();
+        if (j.ok) toast(`${ep.label}: stop requested — finishing current trial…`, 'success');
+        else {
+          toast(`Stop — HTTP ${j.status_code}`, 'error');
+          this.stoppingId = null;   // let the user retry
+        }
+      } catch (e) {
+        toast(`Error: ${e}`, 'error');
+        this.stoppingId = null;
+      }
+      // On success stoppingId stays set (button shows "stopping…") until the
+      // run request returns and runEndpoint's finally clears it.
     },
   };
 }

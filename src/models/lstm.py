@@ -200,9 +200,10 @@ def train_lstm_fold(
         rows, otherwise not a single training sequence can be formed.
     df_test : pd.DataFrame
         Test slice (DatetimeIndex). Must lie strictly after df_train in time.
-        The first window_size rows CANNOT be predicted because of the
-        sequence construction; predictions therefore start at
-        df_test.index[window_size:].
+        A warm-up buffer of the last window_size train rows is prepended, so
+        every test day gets a prediction; the prediction index spans the full
+        df_test.index. df_test may therefore be shorter than window_size (the
+        buffer supplies the missing history), it only has to be non-empty.
     features, labels_col, window_size, ... :
         Same meaning as in train_lstm. Passed through 1:1 from cfg.models.lstm.
 
@@ -220,11 +221,11 @@ def train_lstm_fold(
 
     Notes
     -----
-    - Sequence boundary: by applying create_sequences only to df_test,
-      NO test sequence can contain training inputs. This is the
-      conservative, leakage-free variant. The alternative (warm-up buffer from
-      the last window_size train rows) was deliberately NOT implemented here
-      to keep the logic transparent and verifiable.
+    - Sequence boundary: the test sequences use a warm-up buffer of the last
+      window_size rows of df_train as history, so the first test day can already
+      be predicted (predictions cover the full df_test range). Those buffer rows
+      only supply input features; they are never trained on and carry train
+      labels only, so no OOS label leaks into training.
     - pos_weight is computed exclusively from the train labels.
     - validation_split acts as in train_lstm: the last X% of the generated
       X_train tensor serve as Keras-internal validation. Since X_train is
@@ -237,9 +238,9 @@ def train_lstm_fold(
         raise ValueError(
             f"df_train has only {len(df_train)} rows, requires > window_size={window_size}."
         )
-    if len(df_test) < window_size:
+    if len(df_test) < 1:
         raise ValueError(
-            f"df_test has only {len(df_test)} rows, requires >= window_size={window_size}."
+            f"df_test is empty ({len(df_test)} rows); at least 1 test row is required."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(

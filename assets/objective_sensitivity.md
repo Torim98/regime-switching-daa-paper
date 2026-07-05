@@ -1,6 +1,6 @@
 # Objective Sensitivity of the Selected Hyperparameters
 
-_Generated at 2026-07-04 13:59:29_  
+_Generated at 2026-07-05 09:39:22_  
 Best config under each candidate metric, valued across all metrics (from the search trials' logged OOS metrics; no retraining). `same_as_objective` marks configs identical to the actual objective's pick.
 
 ## MSM (objective: martin, 36 trials)
@@ -48,18 +48,35 @@ Selected configs:
 - best under **martin**: threshold=0.175
 - best under **ulcer**: threshold=0.15
 
-## LSTM (objective: martin, 57 trials)
+## LSTM (objective: martin, 187 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      55 | True                |   1.885  |   0.7214 |    0.7761 |   0.2932 |  3.0792 |        -0.1979 | 0.058  |
-| sharpe          |      54 | False               |   1.2498 |   0.7813 |    0.9017 |   0.2878 |  4.2568 |        -0.1849 | 0.0532 |
-| sortino         |      39 | False               |   1.5072 |   0.7463 |    0.9151 |   0.3407 |  4.4745 |        -0.1979 | 0.0674 |
-| calmar          |      39 | False               |   1.5072 |   0.7463 |    0.9151 |   0.3407 |  4.4745 |        -0.1979 | 0.0674 |
-| ulcer           |      55 | True                |   1.885  |   0.7214 |    0.7761 |   0.2932 |  3.0792 |        -0.1979 | 0.058  |
-| max_drawdown    |      54 | False               |   1.2498 |   0.7813 |    0.9017 |   0.2878 |  4.2568 |        -0.1849 | 0.0532 |
+| martin          |     129 | True                |   2.6426 |   0.9785 |    0.9191 |   0.6183 |  2.0269 |        -0.0866 | 0.0536 |
+| sharpe          |     129 | True                |   2.6426 |   0.9785 |    0.9191 |   0.6183 |  2.0269 |        -0.0866 | 0.0536 |
+| sortino         |      99 | False               |   1.8536 |   0.8679 |    1.1122 |   0.3773 |  3.8388 |        -0.1886 | 0.0712 |
+| calmar          |     148 | False               |   2.4283 |   0.8726 |    1.0941 |   0.6963 |  2.5232 |        -0.088  | 0.0613 |
+| ulcer           |     160 | False               |   2.3163 |   0.8811 |    0.7852 |   0.5187 |  1.948  |        -0.087  | 0.0451 |
+| max_drawdown    |     181 | False               |   1.7748 |   0.8285 |    0.6782 |   0.5021 |  2.0816 |        -0.0736 | 0.0369 |
 
 Selected configs:
-- best under **martin**: window_size=250, units_l1=64, units_l2=32, batch_size=32, learning_rate=1.630044194460958e-05, dropout=0.55, threshold=0.2
-- best under **sharpe**: window_size=230, units_l1=64, units_l2=32, batch_size=32, learning_rate=1.6386746906216097e-05, dropout=0.55, threshold=0.15000000000000002
-- best under **sortino**: window_size=110, units_l1=64, units_l2=32, batch_size=64, learning_rate=0.00020531693199466844, dropout=0.55, threshold=0.35
+- best under **martin**: window_size=250, units_l1=16, units_l2=32, batch_size=32, learning_rate=1.3292520737887431e-05, dropout=0.45, threshold=0.15000000000000002
+- best under **sortino**: window_size=250, units_l1=32, units_l2=256, batch_size=128, learning_rate=4.471806844913538e-05, dropout=0.45, threshold=0.30000000000000004
+- best under **calmar**: window_size=250, units_l1=16, units_l2=256, batch_size=128, learning_rate=4.076527319051499e-05, dropout=0.4, threshold=0.15000000000000002
+- best under **ulcer**: window_size=210, units_l1=16, units_l2=64, batch_size=128, learning_rate=2.0149507145662965e-05, dropout=0.55, threshold=0.1
+- best under **max_drawdown**: window_size=230, units_l1=16, units_l2=32, batch_size=64, learning_rate=1.0355058430277764e-05, dropout=0.4, threshold=0.2
+
+## Transformer (objective: martin, 39 trials)
+
+| optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
+|:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
+| martin          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| sharpe          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| sortino         |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| calmar          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| ulcer           |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| max_drawdown    |      11 | False               |   0.4869 |   0.6015 |    0.5703 |   0.2006 |  6.3571 |        -0.1543 | 0.031  |
+
+Selected configs:
+- best under **martin**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
+- best under **max_drawdown**: window_size=40, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=32, learning_rate=2.015647705936502e-05, dropout=0.35000000000000003, threshold=0.1

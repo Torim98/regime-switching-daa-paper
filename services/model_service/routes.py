@@ -12,12 +12,21 @@ from src.backtest.plots import plot_walk_forward_schema
 from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
 from pathlib import Path
 import pandas as pd
+import threading
 import time
 import logging
 
 router = APIRouter(prefix="/models", tags=["models"])
 
 logger = logging.getLogger("model_service")
+
+# Cooperative cancellation flag for the running HPO. The optimize endpoints run
+# in Starlette's threadpool (they are plain `def`), so the event loop stays free
+# to serve POST /models/optimize-stop, which sets this event. run_optimization
+# checks it after every completed trial and stops the study gracefully; all
+# finished trials remain in optuna_studies.db, so a re-run resumes where it left
+# off. One process / one uvicorn worker, so a module-level Event is shared.
+_HPO_CANCEL = threading.Event()
 
 def get_cfg():
     return PipelineConfig()
@@ -448,7 +457,7 @@ def model_status():
     return status
     
 @router.post("/optimize/{model_name}")
-async def optimize_model(model_name: str):
+def optimize_model(model_name: str):
     """
     Optuna hyperparameter optimization for a single model.
     Uses walk-forward splits as inner CV.
@@ -456,6 +465,10 @@ async def optimize_model(model_name: str):
     Sampler, trial budget, objective metric and the tune_until fold restriction
     are read from the central config (cfg.optimization). No API overrides, so
     the run stays reproducible from config.yaml alone.
+
+    Plain `def` (runs in the threadpool): keeps the event loop free so that
+    POST /models/optimize-stop can interrupt it mid-run. On stop the study
+    returns with whatever trials finished; a re-run resumes from there.
     """
     cfg = get_cfg()
 
@@ -468,6 +481,7 @@ async def optimize_model(model_name: str):
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
 
+    _HPO_CANCEL.clear()
     from src.backtest.optimize import run_optimization
     study = run_optimization(
         model_name=model_name,
@@ -475,11 +489,13 @@ async def optimize_model(model_name: str):
         cfg=cfg,
         # n_trials / every_nth_fold → from the config (per model)
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
+        should_stop=_HPO_CANCEL.is_set,
     )
 
     return {
         "status": "ok",
         "model": model_name,
+        "cancelled": _HPO_CANCEL.is_set(),
         "metric": study.user_attrs.get("metric", cfg.optimization.metric),
         "best_score": round(study.best_value, 4),
         "best_params": study.best_params,
@@ -487,7 +503,7 @@ async def optimize_model(model_name: str):
     }
 
 @router.post("/optimize-all")
-async def optimize_all_models():
+def optimize_all_models():
     """
     Optimize all 5 models sequentially.
 
@@ -495,6 +511,10 @@ async def optimize_all_models():
     config (cfg.optimization): econometric models are searched exhaustively via
     GridSampler, DL models via a multivariate TPESampler on the pooled-OOS
     objective. See config.yaml (Issue #5) for the full setup.
+
+    Plain `def` (runs in the threadpool): keeps the event loop free so that
+    POST /models/optimize-stop can interrupt it mid-run. A stop ends the current
+    model's study and skips the remaining models; a re-run resumes model by model.
     """
     cfg = get_cfg()
 
@@ -503,19 +523,22 @@ async def optimize_all_models():
 
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
 
+    _HPO_CANCEL.clear()
     from src.backtest.optimize import optimize_all, save_optuna_best_params
     studies = optimize_all(
         df=df,
         cfg=cfg,
         # n_trials / every_nth_fold → per model from the config
         storage=f"sqlite:///{cfg.model_path('optuna_db')}",
+        should_stop=_HPO_CANCEL.is_set,
     )
 
-    # Persist the best params under assets/
+    # Persist the best params under assets/ (for whatever models finished)
     save_optuna_best_params(studies, cfg)
 
     return {
         "status": "ok",
+        "cancelled": _HPO_CANCEL.is_set(),
         "metric": cfg.optimization.metric,
         "results": {
             name: {
@@ -524,6 +547,24 @@ async def optimize_all_models():
             }
             for name, s in studies.items()
         },
+    }
+
+@router.post("/optimize-stop")
+def stop_optimization():
+    """
+    Request a graceful stop of the currently running HPO (single model or
+    optimize-all). The current trial finishes, then the study stops; every
+    completed trial stays persisted in optuna_studies.db, so re-running the same
+    optimize endpoint resumes from exactly this point.
+
+    Returns immediately; it only sets a flag. If no HPO is running, the flag is
+    cleared again at the start of the next optimize run, so it has no effect.
+    """
+    _HPO_CANCEL.set()
+    logger.info("HPO stop requested; finishing the current trial, then halting.")
+    return {
+        "status": "stopping",
+        "detail": "HPO stops after the current trial; a re-run resumes from here.",
     }
 
 

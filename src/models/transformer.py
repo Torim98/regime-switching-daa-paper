@@ -306,9 +306,9 @@ def train_transformer_fold(
         raise ValueError(
             f"df_train has only {len(df_train)} rows, requires > window_size={window_size}."
         )
-    if len(df_test) < window_size:
+    if len(df_test) < 1:
         raise ValueError(
-            f"df_test has only {len(df_test)} rows, requires >= window_size={window_size}."
+            f"df_test is empty ({len(df_test)} rows); at least 1 test row is required."
         )
     if df_train.index.max() >= df_test.index.min():
         raise ValueError(

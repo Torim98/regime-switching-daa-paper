@@ -64,40 +64,40 @@ models:
     random_state: 42
     threshold: 0.175            # bear signal when prob >= threshold; thesis initial value 0.5
   lstm:
-    window_size: 120            # thesis initial value 60
+    window_size: 250            # thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
-    units_l1: 32                # thesis initial value 32
-    units_l2: 64                # thesis initial value 64
+    units_l1: 16                # thesis initial value 32
+    units_l2: 32                # thesis initial value 64
     return_sequences: true
     epochs: 40                  # thesis initial value 30
     batch_size: 32
-    learning_rate: 0.0001053    # thesis initial value 0.001
-    dropout: 0.4                # thesis initial value 0.2
+    learning_rate: 0.000013292520737887431    # thesis initial value 0.001
+    dropout: 0.45               # thesis initial value 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.3              # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.15000000000000002            # bear signal when prob >= threshold; thesis initial value 0.5
   transformer:
     # --- Data ---
-    window_size: 40              # same sequence length as LSTM; thesis initial value 60
+    window_size: 250             # same sequence length as LSTM; thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
     # --- Architecture ---
-    d_model: 32                  # embedding dimension (Transformer internal dimension); thesis initial value 64
-    n_heads: 4                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
+    d_model: 16                  # embedding dimension (Transformer internal dimension); thesis initial value 64
+    n_heads: 2                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
     n_layers: 3                  # number of Transformer encoder layers; thesis initial value 2
-    dim_feedforward: 128         # dimension of the feed-forward network in the encoder; thesis initial value 128
-    dropout: 0.1                 # dropout rate (regularization); thesis initial value 0.1
+    dim_feedforward: 32          # dimension of the feed-forward network in the encoder; thesis initial value 128
+    dropout: 0.45                # dropout rate (regularization); thesis initial value 0.1
     # --- Training ---
     epochs: 40                   # thesis initial value 50
-    batch_size: 32
-    learning_rate: 0.00003282    # thesis initial value 0.0001
+    batch_size: 64
+    learning_rate: 0.0003589128083678785    # thesis initial value 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.55              # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.7000000000000001           # bear signal when prob >= threshold; thesis initial value 0.5
      # --- Class Balancing ---
     pos_weight_auto: true        # automatic weighting for bear class
 

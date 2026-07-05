@@ -87,6 +87,8 @@ _CATALOG = [
                      "options": ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]},
                 ],
                 "danger": True,
+                # Stop button: graceful cancel, resumes from the same study on re-run.
+                "stop_path": "/models/optimize-stop",
             },
             {
                 "id": "model.optimize_all", "method": "POST", "path": "/models/optimize-all",
@@ -94,6 +96,8 @@ _CATALOG = [
                 "description": "Sequentially MSM → HMM → HMM_Uni → LSTM → Transformer. Sampler (grid/TPE), trial budget, objective metric and tune_until come from config.yaml (optimization.*). Persisted in optuna_studies.db.",
                 "params": [],
                 "danger": True,
+                # Stop button: graceful cancel, resumes from the same study on re-run.
+                "stop_path": "/models/optimize-stop",
             },
             {
                 "id": "model.hpo_analysis", "method": "POST", "path": "/models/hpo-analysis",
