@@ -291,6 +291,12 @@ def run_monte_carlo_simulation(
     Paired bootstrap: return blocks + signal blocks are drawn together
     to preserve the correlation between returns and signals.
 
+    Common random numbers across strategies: all (scenario, strategy) cells
+    share one bootstrap index stream, so path s uses the identical resampled
+    trading days for every strategy and differs only through each strategy's
+    own returns and signals. This makes the downstream paired Wilcoxon tests
+    (test_h1_drawdown, test_h2_transformer) genuinely paired.
+
     Withdrawal simulation: monthly withdrawal (every 21 trading days) with
     a liquidity fee if invested in a bull phase.
 
@@ -314,8 +320,17 @@ def run_monte_carlo_simulation(
     if daily_rets.empty:
         raise ValueError("daily_rets is empty. Check the data source backtesting_results.")
 
-    # Reproducible, independent seeds per job via SeedSequence
-    seed_seq = np.random.SeedSequence(random_seed)
+    # Common random numbers (CRN): every (scenario, strategy) cell resamples
+    # with the SAME bootstrap index stream, so path s draws the identical
+    # sequence of source trading days for all strategies. Only each strategy's
+    # own returns and signals differ along those shared days, which is the
+    # pairing that the Wilcoxon tests in test_h1_drawdown / test_h2_transformer
+    # assume ("same bootstrap indices -> paired paths"). Because n_source,
+    # n_simulations, total_days and block_size are identical across all cells,
+    # passing one shared seed reproduces the identical index matrix inside every
+    # worker, so no large index array has to cross the process boundary.
+    # Determinism is preserved via random_seed.
+    shared_seed = np.random.SeedSequence(random_seed)
 
     all_mc_summaries = []
     mcs_paths_collector = {}
@@ -323,8 +338,6 @@ def run_monte_carlo_simulation(
     # --- Prepare jobs: (scenario, strategy) pairs ---
     jobs = []
     job_keys = []
-    child_seeds = seed_seq.spawn(len(scenarios) * len(daily_rets.columns))
-    seed_idx = 0
 
     for sc_name, params in scenarios.items():
         for strategy in daily_rets.columns:
@@ -344,11 +357,10 @@ def run_monte_carlo_simulation(
                 params["start"],
                 params["withdrawal"],
                 params["fee"],
-                child_seeds[seed_idx],
+                shared_seed,
                 bootstrap_method,
             ))
             job_keys.append((sc_name, strategy))
-            seed_idx += 1
 
     # --- Run in parallel or sequentially ---
     n_workers = min(len(jobs), max(1, os.cpu_count() - 1))
@@ -375,7 +387,7 @@ def run_monte_carlo_simulation(
 
     # --- Aggregate results ---
     for (sc_name, strategy), (final_capitals, all_histories) in results.items():
-        print(f"  ✓ {sc_name} / {strategy}")
+        print(f"  [done] {sc_name} / {strategy}")
 
         # Write paths into the collector
         for s in range(n_simulations):
@@ -398,10 +410,17 @@ def run_monte_carlo_simulation(
 
 def _run_strategy_job(
     rets_arr, sig_arr, n_simulations, total_days, block_size,
-    start_capital, withdrawal, fee, child_seed, bootstrap_method="block",
+    start_capital, withdrawal, fee, seed, bootstrap_method="block",
 ):
-    """Wrapper for ProcessPoolExecutor: creates a generator from the SeedSequence."""
-    rng = np.random.default_rng(child_seed)
+    """Wrapper for ProcessPoolExecutor: builds a generator from `seed`.
+
+    `seed` is the SAME SeedSequence for every (scenario, strategy) cell, so all
+    cells reconstruct the identical bootstrap index matrix (common random
+    numbers). Reusing a SeedSequence yields identical streams by design, which
+    is exactly the intended pairing (contrast SeedSequence.spawn, which would
+    give independent streams).
+    """
+    rng = np.random.default_rng(seed)
     return _simulate_strategy(
         rets_arr, sig_arr, n_simulations, total_days, block_size,
         start_capital, withdrawal, fee, rng, bootstrap_method,

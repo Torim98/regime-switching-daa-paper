@@ -145,3 +145,52 @@ def test_robustness_summary_mentions_metrics():
     assert "pp" in summary
     # HMM beats Buy_Hold under both methods -> lead sign preserved.
     assert "1/1 scenarios" in summary
+
+
+# ---------------------------------------------------------------------------
+# Common random numbers across strategies (paired Wilcoxon prerequisite)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("method", ["block", "stationary"])
+def test_common_random_numbers_pairs_strategies(method):
+    """Two strategies with identical returns and signals must yield identical
+    path outcomes.
+
+    This only holds if every (scenario, strategy) cell shares one bootstrap
+    index stream (common random numbers). Under independent per-cell seeds the
+    two columns would resample different trading days and their terminal-capital
+    arrays would differ. Guards the pairing assumed by test_h1_drawdown and
+    test_h2_transformer ("same bootstrap indices -> paired paths").
+    """
+    import pandas as pd
+
+    from src.backtest.evaluation import (
+        run_monte_carlo_simulation,
+        mcs_final_capitals,
+    )
+
+    n_source = 300
+    idx = pd.date_range("2000-01-03", periods=n_source, freq="B")
+    gen = np.random.default_rng(7)  # independent of the simulation seed
+    rets = gen.normal(0.0004, 0.011, size=n_source)
+    sigs = gen.integers(0, 2, size=n_source)
+
+    daily_rets = pd.DataFrame({"A": rets, "B": rets}, index=idx)
+    test_df = pd.DataFrame({"A_Signal": sigs, "B_Signal": sigs}, index=idx)
+    scenarios = {"Standard": {"start": 100_000.0, "withdrawal": 500.0, "fee": 0.001}}
+
+    _, paths = run_monte_carlo_simulation(
+        daily_rets=daily_rets,
+        test_df=test_df,
+        scenarios=scenarios,
+        n_simulations=200,  # < 1000 -> sequential branch, no multiprocessing
+        block_size=BLOCK_SIZE,
+        random_seed=SEED,
+        sim_years=1,
+        trading_days_per_year=252,
+        bootstrap_method=method,
+    )
+
+    finals = mcs_final_capitals(paths, ["Standard"], ["A", "B"])
+    np.testing.assert_array_equal(
+        finals[("Standard", "A")], finals[("Standard", "B")]
+    )

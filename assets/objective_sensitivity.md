@@ -1,6 +1,6 @@
 # Objective Sensitivity of the Selected Hyperparameters
 
-_Generated at 2026-07-05 09:39:22_  
+_Generated at 2026-07-09 10:00:34_  
 Best config under each candidate metric, valued across all metrics (from the search trials' logged OOS metrics; no retraining). `same_as_objective` marks configs identical to the actual objective's pick.
 
 ## MSM (objective: martin, 36 trials)
@@ -48,7 +48,7 @@ Selected configs:
 - best under **martin**: threshold=0.175
 - best under **ulcer**: threshold=0.15
 
-## LSTM (objective: martin, 187 trials)
+## LSTM (objective: martin, 194 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
@@ -66,17 +66,19 @@ Selected configs:
 - best under **ulcer**: window_size=210, units_l1=16, units_l2=64, batch_size=128, learning_rate=2.0149507145662965e-05, dropout=0.55, threshold=0.1
 - best under **max_drawdown**: window_size=230, units_l1=16, units_l2=32, batch_size=64, learning_rate=1.0355058430277764e-05, dropout=0.4, threshold=0.2
 
-## Transformer (objective: martin, 39 trials)
+## Transformer (objective: martin, 190 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| sharpe          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| sortino         |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| calmar          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| ulcer           |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| max_drawdown    |      11 | False               |   0.4869 |   0.6015 |    0.5703 |   0.2006 |  6.3571 |        -0.1543 | 0.031  |
+| martin          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
+| sharpe          |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| sortino         |      84 | False               |   0.8467 |   0.6852 |    0.9236 |   0.2245 |  6.8603 |        -0.2587 | 0.0581 |
+| calmar          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
+| ulcer           |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| max_drawdown    |      51 | False               |   0.2719 |   0.4477 |    0.4366 |   0.1581 |  8.8183 |        -0.1517 | 0.024  |
 
 Selected configs:
-- best under **martin**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
+- best under **martin**: window_size=80, dmodel_nheads=128-4, n_layers=3, dim_feedforward=128, batch_size=128, learning_rate=0.002661901888489057, dropout=0.15000000000000002, threshold=0.15000000000000002
+- best under **sharpe**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
+- best under **sortino**: window_size=220, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=128, learning_rate=0.0028818323079306337, dropout=0.30000000000000004, threshold=0.6
 - best under **max_drawdown**: window_size=40, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=32, learning_rate=2.015647705936502e-05, dropout=0.35000000000000003, threshold=0.1

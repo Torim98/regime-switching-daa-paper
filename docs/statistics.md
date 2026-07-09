@@ -1,7 +1,7 @@
 
 # Detailed Statistical Evaluation & Research Results
 
-This page documents the numerical and graphical results of the research pipeline. All evaluations are based on the dataset up to yesterday (2026-07-05) and are updated automatically.
+This page documents the numerical and graphical results of the research pipeline. All evaluations are based on the dataset up to yesterday (2026-07-09) and are updated automatically.
 
 ---
 
@@ -210,15 +210,15 @@ Best value and trial, fANOVA importance, and a flag for optima sitting within on
 
 # HPO Convergence & Edge-of-Range Review
 
-_Generated at 2026-07-05 09:39:21_
+_Generated at 2026-07-09 10:00:33_
 
-| model       | metric   |   best_value |   best_trial |   conv_frac |   n_complete |   n_pruned | top_importance                                      | edge_flags                                                                                                                                                         |
-|:------------|:---------|-------------:|-------------:|------------:|-------------:|-----------:|:----------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| MSM         | martin   |       1.6508 |           19 |        0.54 |           36 |          0 |                                                     | -                                                                                                                                                                  |
-| HMM         | martin   |       1.2037 |            4 |        0.04 |          108 |          0 | covariance_type=1.00                                | -                                                                                                                                                                  |
-| HMM_Uni     | martin   |       1.6384 |           19 |        0.54 |           36 |          0 |                                                     | -                                                                                                                                                                  |
-| LSTM        | martin   |       2.6426 |          129 |        0.66 |          187 |          0 | units_l1=0.26, threshold=0.20, dropout=0.17         | window_size=250 near UPPER bound 250; learning_rate=1.3292520737887431e-05 near LOWER bound 1e-05; threshold=0.15000000000000002 near LOWER bound 0.1              |
-| Transformer | martin   |       1.3506 |           14 |        0.35 |           39 |          0 | window_size=0.38, dmodel_nheads=0.32, n_layers=0.07 | window_size=250 near UPPER bound 250; n_layers=3 near UPPER bound 4; learning_rate=0.0003589128083678785 near LOWER bound 1e-05; dropout=0.45 near UPPER bound 0.5 |
+| model       | metric   |   best_value |   best_trial |   conv_frac |   n_complete |   n_pruned | top_importance                                         | edge_flags                                                                                                                                            |
+|:------------|:---------|-------------:|-------------:|------------:|-------------:|-----------:|:-------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|
+| MSM         | martin   |       1.6508 |           19 |        0.54 |           36 |          0 |                                                        | -                                                                                                                                                     |
+| HMM         | martin   |       1.2037 |            4 |        0.04 |          108 |          0 | covariance_type=1.00                                   | -                                                                                                                                                     |
+| HMM_Uni     | martin   |       1.6384 |           19 |        0.54 |           36 |          0 |                                                        | -                                                                                                                                                     |
+| LSTM        | martin   |       2.6426 |          129 |        0.64 |          194 |          0 | units_l1=0.27, threshold=0.21, dropout=0.15            | window_size=250 near UPPER bound 250; learning_rate=1.3292520737887431e-05 near LOWER bound 1e-05; threshold=0.15000000000000002 near LOWER bound 0.1 |
+| Transformer | martin   |       1.3728 |           42 |        0.22 |          190 |          0 | learning_rate=0.50, dmodel_nheads=0.18, threshold=0.12 | n_layers=3 near UPPER bound 4; threshold=0.15000000000000002 near LOWER bound 0.1                                                                     |
 
 
 #### G.2 Objective Sensitivity
@@ -226,7 +226,7 @@ Which config would have been selected under each candidate metric, valued across
 
 # Objective Sensitivity of the Selected Hyperparameters
 
-_Generated at 2026-07-05 09:39:22_  
+_Generated at 2026-07-09 10:00:34_  
 Best config under each candidate metric, valued across all metrics (from the search trials' logged OOS metrics; no retraining). `same_as_objective` marks configs identical to the actual objective's pick.
 
 ## MSM (objective: martin, 36 trials)
@@ -274,7 +274,7 @@ Selected configs:
 - best under **martin**: threshold=0.175
 - best under **ulcer**: threshold=0.15
 
-## LSTM (objective: martin, 187 trials)
+## LSTM (objective: martin, 194 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
@@ -292,19 +292,21 @@ Selected configs:
 - best under **ulcer**: window_size=210, units_l1=16, units_l2=64, batch_size=128, learning_rate=2.0149507145662965e-05, dropout=0.55, threshold=0.1
 - best under **max_drawdown**: window_size=230, units_l1=16, units_l2=32, batch_size=64, learning_rate=1.0355058430277764e-05, dropout=0.4, threshold=0.2
 
-## Transformer (objective: martin, 39 trials)
+## Transformer (objective: martin, 190 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| sharpe          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| sortino         |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| calmar          |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| ulcer           |      14 | True                |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| max_drawdown    |      11 | False               |   0.4869 |   0.6015 |    0.5703 |   0.2006 |  6.3571 |        -0.1543 | 0.031  |
+| martin          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
+| sharpe          |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| sortino         |      84 | False               |   0.8467 |   0.6852 |    0.9236 |   0.2245 |  6.8603 |        -0.2587 | 0.0581 |
+| calmar          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
+| ulcer           |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
+| max_drawdown    |      51 | False               |   0.2719 |   0.4477 |    0.4366 |   0.1581 |  8.8183 |        -0.1517 | 0.024  |
 
 Selected configs:
-- best under **martin**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
+- best under **martin**: window_size=80, dmodel_nheads=128-4, n_layers=3, dim_feedforward=128, batch_size=128, learning_rate=0.002661901888489057, dropout=0.15000000000000002, threshold=0.15000000000000002
+- best under **sharpe**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
+- best under **sortino**: window_size=220, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=128, learning_rate=0.0028818323079306337, dropout=0.30000000000000004, threshold=0.6
 - best under **max_drawdown**: window_size=40, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=32, learning_rate=2.015647705936502e-05, dropout=0.35000000000000003, threshold=0.1
 
 
@@ -313,28 +315,32 @@ DSR deflates the selected config's Sharpe for the number of tested configs; PBO 
 
 # Deflated Sharpe Ratio (multiple-testing adjusted)
 
-_Generated at 2026-07-04 11:52:05_
+_Generated at 2026-07-09 10:09:36_
 
-| model   |   n_trials |   sr_ann_best |   sr_star_ann |    dsr | significant_5pct   |
-|:--------|-----------:|--------------:|--------------:|-------:|:-------------------|
-| MSM     |         36 |        0.8513 |        0.3085 | 0.9843 | True               |
-| HMM     |        108 |        0.7243 |        0.4648 | 0.8478 | False              |
-| HMM_Uni |         36 |        0.842  |        0.3216 | 0.9804 | True               |
+| model       |   n_trials |   sr_ann_best |   sr_star_ann |    dsr | significant_5pct   |
+|:------------|-----------:|--------------:|--------------:|-------:|:-------------------|
+| MSM         |         36 |        0.8513 |        0.3085 | 0.9843 | True               |
+| HMM         |        108 |        0.7243 |        0.4648 | 0.8478 | False              |
+| HMM_Uni     |         36 |        0.842  |        0.3216 | 0.9804 | True               |
+| LSTM        |        194 |        0.8604 |        0.378  | 0.9717 | True               |
+| Transformer |        190 |        0.3075 |        0.3105 | 0.4952 | False              |
 
 DSR = P(true Sharpe > 0) after deflating the best trial's Sharpe for the number of tested configs. `significant_5pct` = DSR > 0.95.
 
 
 # Probability of Backtest Overfitting (CSCV)
 
-_Generated at 2026-07-04 11:54:21_
+_Generated at 2026-07-09 11:23:27_
 
-| model   |   folds |   configs |   pbo |
-|:--------|--------:|----------:|------:|
-| MSM     |      16 |         5 | 0.873 |
-| HMM     |      16 |         5 | 0.083 |
-| HMM_Uni |      16 |         5 | 0.909 |
+| model       |   folds |   configs |   pbo |
+|:------------|--------:|----------:|------:|
+| MSM         |      16 |        15 | 0.444 |
+| HMM         |      16 |        15 | 0.456 |
+| HMM_Uni     |      16 |        15 | 0.452 |
+| LSTM        |      16 |        15 | 0.933 |
+| Transformer |      16 |        15 | 0.821 |
 
-PBO over the top-5 configs per model (per-fold Sharpe matrix, CSCV). Lower is better; PBO > 0.5 flags overfitting.
+PBO over the top-15 configs per model (per-fold Sharpe matrix, CSCV). Lower is better; PBO > 0.5 flags overfitting.
 
 
 #### G.4 Multi-Seed Robustness (DL)
@@ -342,9 +348,27 @@ Top DL configs re-evaluated over several global seeds; mean/std of every metric 
 
 # Multi-Seed Re-Evaluation (top-5, 5 seeds)
 
-_Generated at 2026-07-04 11:54:21_
+_Generated at 2026-07-09 13:09:06_
 
-_No DL studies available._
+### LSTM
+
+|   rank |   trial |   martin_hpo |   martin_mean |   martin_std |   sharpe_mean |   sharpe_std |   sortino_mean |   sortino_std |   calmar_mean |   calmar_std |   ulcer_mean |   ulcer_std |   max_drawdown_mean |   max_drawdown_std |   cagr_mean |   cagr_std |
+|-------:|--------:|-------------:|--------------:|-------------:|--------------:|-------------:|---------------:|--------------:|--------------:|-------------:|-------------:|------------:|--------------------:|-------------------:|------------:|-----------:|
+|      1 |     129 |       2.6426 |        1.7805 |       0.6827 |        0.8067 |       0.1466 |         0.7741 |        0.1398 |        0.4014 |       0.1623 |       3.0809 |      1.2704 |             -0.1323 |             0.0445 |      0.0471 |     0.0096 |
+|      2 |     148 |       2.4283 |        0.9103 |       0.3632 |        0.6192 |       0.0843 |         0.7727 |        0.1456 |        0.2343 |       0.0555 |       6.1313 |      1.1146 |             -0.2243 |             0.0219 |      0.0518 |     0.0091 |
+|      3 |     136 |       2.3832 |        1.0713 |       0.4096 |        0.6349 |       0.0819 |         0.7827 |        0.1286 |        0.2453 |       0.0669 |       5.5296 |      1.4117 |             -0.2314 |             0.0536 |      0.0538 |     0.0068 |
+|      4 |     160 |       2.3163 |        1.5211 |       0.8075 |        0.7027 |       0.13   |         0.7237 |        0.0774 |        0.3201 |       0.1432 |       3.5809 |      1.5409 |             -0.157  |             0.0578 |      0.0421 |     0.0048 |
+|      5 |      93 |       2.3038 |        0.9095 |       0.2615 |        0.6057 |       0.0651 |         0.7946 |        0.0931 |        0.2233 |       0.0469 |       6.0744 |      1.1286 |             -0.2415 |             0.0426 |      0.0525 |     0.0066 |
+
+### Transformer
+
+|   rank |   trial |   martin_hpo |   martin_mean |   martin_std |   sharpe_mean |   sharpe_std |   sortino_mean |   sortino_std |   calmar_mean |   calmar_std |   ulcer_mean |   ulcer_std |   max_drawdown_mean |   max_drawdown_std |   cagr_mean |   cagr_std |
+|-------:|--------:|-------------:|--------------:|-------------:|--------------:|-------------:|---------------:|--------------:|--------------:|-------------:|-------------:|------------:|--------------------:|-------------------:|------------:|-----------:|
+|      1 |      42 |       1.3728 |        0.3547 |       0.2716 |        0.3406 |       0.15   |         0.4084 |        0.1883 |        0.1049 |       0.0645 |       9.6546 |      3.5233 |             -0.2623 |             0.0455 |      0.0251 |     0.0126 |
+|      2 |      14 |       1.3506 |        0.5671 |       0.129  |        0.521  |       0.0455 |         0.6504 |        0.0559 |        0.1605 |       0.0241 |       7.6211 |      1.0643 |             -0.263  |             0.0148 |      0.0419 |     0.0047 |
+|      3 |      29 |       1.0487 |        0.4931 |       0.1196 |        0.4508 |       0.0509 |         0.5396 |        0.0698 |        0.1408 |       0.0225 |       8.207  |      1.38   |             -0.2776 |             0.0105 |      0.0389 |     0.0052 |
+|      4 |      60 |       1.04   |        0.3547 |       0.2716 |        0.3406 |       0.15   |         0.4084 |        0.1883 |        0.1049 |       0.0645 |       9.6546 |      3.5233 |             -0.2623 |             0.0455 |      0.0251 |     0.0126 |
+|      5 |     160 |       0.8924 |        0.7106 |       0.1239 |        0.5319 |       0.0575 |         0.6722 |        0.0873 |        0.191  |       0.0236 |       7.0401 |      0.6032 |             -0.2585 |             0.0039 |      0.0493 |     0.0056 |
 
 
 ### H. Label Concordance (Selection of the Training Labels)
@@ -717,24 +741,24 @@ To assess statistical significance, 10,000 artificial market paths were simulate
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin Probability   | Median Terminal Capital   |
 |:-------------------------------|:-------------------|:--------------------------|
-| ('Aggressive', 'HMM Uni')      | 0.66%              | 178,794.31 €              |
-| ('Standard', 'HMM Uni')        | 0.00%              | 407,937.81 €              |
-| ('Aggressive', 'Transformer')  | 2.00%              | 264,289.72 €              |
-| ('Standard', 'Transformer')    | 0.00%              | 514,287.91 €              |
-| ('Standard', 'MSM')            | 0.00%              | 409,611.17 €              |
-| ('Low_Capital', 'MSM')         | 0.00%              | 170,515.56 €              |
-| ('Low_Capital', 'HMM')         | 0.47%              | 139,065.14 €              |
-| ('Low_Capital', 'Buy Hold')    | 0.55%              | 204,973.28 €              |
-| ('Aggressive', 'HMM')          | 6.16%              | 133,616.59 €              |
-| ('Aggressive', 'LSTM')         | 2.72%              | 251,205.68 €              |
-| ('Aggressive', 'Buy Hold')     | 5.03%              | 227,946.92 €              |
-| ('Standard', 'HMM')            | 0.00%              | 353,735.34 €              |
-| ('Standard', 'Buy Hold')       | 0.01%              | 473,380.85 €              |
-| ('Standard', 'LSTM')           | 0.00%              | 498,266.14 €              |
-| ('Aggressive', 'MSM')          | 0.48%              | 180,561.29 €              |
-| ('Low_Capital', 'HMM Uni')     | 0.00%              | 168,178.37 €              |
-| ('Low_Capital', 'LSTM')        | 0.16%              | 216,265.97 €              |
-| ('Low_Capital', 'Transformer') | 0.23%              | 221,930.40 €              |
+| ('Aggressive', 'HMM Uni')      | 0.57%              | 178,844.60 €              |
+| ('Standard', 'Buy Hold')       | 0.01%              | 470,625.12 €              |
+| ('Low_Capital', 'Buy Hold')    | 0.63%              | 201,384.39 €              |
+| ('Aggressive', 'Transformer')  | 2.44%              | 262,221.37 €              |
+| ('Aggressive', 'Buy Hold')     | 5.27%              | 228,313.50 €              |
+| ('Standard', 'LSTM')           | 0.00%              | 497,391.40 €              |
+| ('Low_Capital', 'HMM')         | 0.50%              | 138,610.48 €              |
+| ('Aggressive', 'MSM')          | 0.57%              | 179,895.13 €              |
+| ('Standard', 'HMM Uni')        | 0.00%              | 408,366.15 €              |
+| ('Standard', 'MSM')            | 0.00%              | 409,322.01 €              |
+| ('Standard', 'Transformer')    | 0.00%              | 515,039.54 €              |
+| ('Low_Capital', 'MSM')         | 0.00%              | 168,961.18 €              |
+| ('Standard', 'HMM')            | 0.00%              | 350,335.42 €              |
+| ('Aggressive', 'LSTM')         | 2.67%              | 246,885.86 €              |
+| ('Aggressive', 'HMM')          | 6.32%              | 134,900.91 €              |
+| ('Low_Capital', 'HMM Uni')     | 0.00%              | 168,334.93 €              |
+| ('Low_Capital', 'LSTM')        | 0.18%              | 214,959.56 €              |
+| ('Low_Capital', 'Transformer') | 0.08%              | 225,005.29 €              |
 
 Distribution of the terminal capital values:
 
@@ -758,37 +782,37 @@ Wilson CI for the ruin probability (P[terminal capital ≤ 0]) per scenario × s
 | ('Standard', 'HMM_Uni')        | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
 | ('Standard', 'LSTM')           | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
 | ('Standard', 'Transformer')    | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Aggressive', 'Buy_Hold')     | 5.03%            | 4.62%          | 5.48%          | 503/10000          |
-| ('Aggressive', 'MSM')          | 0.48%            | 0.36%          | 0.64%          | 48/10000           |
-| ('Aggressive', 'HMM')          | 6.16%            | 5.71%          | 6.65%          | 616/10000          |
-| ('Aggressive', 'HMM_Uni')      | 0.66%            | 0.52%          | 0.84%          | 66/10000           |
-| ('Aggressive', 'LSTM')         | 2.72%            | 2.42%          | 3.06%          | 272/10000          |
-| ('Aggressive', 'Transformer')  | 2.00%            | 1.74%          | 2.29%          | 200/10000          |
-| ('Low_Capital', 'Buy_Hold')    | 0.55%            | 0.42%          | 0.72%          | 55/10000           |
+| ('Aggressive', 'Buy_Hold')     | 5.27%            | 4.85%          | 5.73%          | 527/10000          |
+| ('Aggressive', 'MSM')          | 0.57%            | 0.44%          | 0.74%          | 57/10000           |
+| ('Aggressive', 'HMM')          | 6.32%            | 5.86%          | 6.81%          | 632/10000          |
+| ('Aggressive', 'HMM_Uni')      | 0.57%            | 0.44%          | 0.74%          | 57/10000           |
+| ('Aggressive', 'LSTM')         | 2.67%            | 2.37%          | 3.00%          | 267/10000          |
+| ('Aggressive', 'Transformer')  | 2.44%            | 2.16%          | 2.76%          | 244/10000          |
+| ('Low_Capital', 'Buy_Hold')    | 0.63%            | 0.49%          | 0.81%          | 63/10000           |
 | ('Low_Capital', 'MSM')         | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Low_Capital', 'HMM')         | 0.47%            | 0.35%          | 0.62%          | 47/10000           |
+| ('Low_Capital', 'HMM')         | 0.50%            | 0.38%          | 0.66%          | 50/10000           |
 | ('Low_Capital', 'HMM_Uni')     | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Low_Capital', 'LSTM')        | 0.16%            | 0.10%          | 0.26%          | 16/10000           |
-| ('Low_Capital', 'Transformer') | 0.23%            | 0.15%          | 0.34%          | 23/10000           |
+| ('Low_Capital', 'LSTM')        | 0.18%            | 0.11%          | 0.28%          | 18/10000           |
+| ('Low_Capital', 'Transformer') | 0.08%            | 0.04%          | 0.16%          | 8/10000            |
 
 ### Hypothesis Tests (Paired Wilcoxon, α = 0.05)
 **H1: Regime switching reduces MaxDD vs. buy and hold:**
 
 | Model       | Median MaxDD (Model)   | Median MaxDD (B&H)   | Δ Median   |   Wilcoxon p | H1 (α=0.05)   |
 |:------------|:-----------------------|:---------------------|:-----------|-------------:|:--------------|
-| MSM         | -65.12%                | -59.34%              | -5.78 pp   |     1        | rejected      |
-| HMM         | -74.21%                | -59.34%              | -14.87 pp  |     1        | rejected      |
-| HMM_Uni     | -65.46%                | -59.34%              | -6.13 pp   |     1        | rejected      |
-| LSTM        | -55.04%                | -59.34%              | +4.29 pp   |     5.62e-28 | confirmed     |
-| Transformer | -52.93%                | -59.34%              | +6.41 pp   |     1.04e-62 | confirmed     |
+| MSM         | -65.24%                | -59.45%              | -5.79 pp   |    1         | rejected      |
+| HMM         | -74.04%                | -59.45%              | -14.59 pp  |    1         | rejected      |
+| HMM_Uni     | -65.49%                | -59.45%              | -6.04 pp   |    1         | rejected      |
+| LSTM        | -55.59%                | -59.45%              | +3.86 pp   |    2.76e-171 | confirmed     |
+| Transformer | -53.09%                | -59.45%              | +6.36 pp   |    0         | confirmed     |
 
 **H2: The Transformer dominates econometrics and LSTM in terminal wealth:**
 
 | Comparison           | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median LSTM   |
 |:---------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:--------------|
-| Transformer vs. MSM  | 264,290 €            | 180,561 €    | +83,728 €  |     0        | confirmed     | nan          | nan           |
-| Transformer vs. HMM  | 264,290 €            | nan          | +130,673 € |     0        | confirmed     | 133,617 €    | nan           |
-| Transformer vs. LSTM | 264,290 €            | nan          | +13,084 €  |     2.11e-08 | confirmed     | nan          | 251,206 €     |
+| Transformer vs. MSM  | 262,221 €            | 179,895 €    | +82,326 €  |     0        | confirmed     | nan          | nan           |
+| Transformer vs. HMM  | 262,221 €            | nan          | +127,320 € |     0        | confirmed     | 134,901 €    | nan           |
+| Transformer vs. LSTM | 262,221 €            | nan          | +15,336 €  |     6.56e-55 | confirmed     | nan          | 246,886 €     |
 
 ### Break-Even Transaction Costs
 At what cost rate (in basis points per reallocation) does active switching lose its return advantage over buy and hold?
@@ -844,8 +868,8 @@ Model persistence status for this pipeline run:
 
 ---
 
-**Last updated:** 2026-07-05 15:59<br>
-**End date:** `2026-07-05`<br>
+**Last updated:** 2026-07-09 13:33<br>
+**End date:** `2026-07-09`<br>
 **Fast mode status at runtime:** FALSE (Full Run)<br>
 **Walk-forward validation:** ENABLED (mode: rolling, train: 10y, test: 12m, step: 12m)<br>
 **Model persistence:** ENABLED<br>
