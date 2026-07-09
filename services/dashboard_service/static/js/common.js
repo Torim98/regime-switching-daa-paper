@@ -16,34 +16,36 @@ function _adaptiveColor(isDark) { return isDark ? _ADAPTIVE_DARK : _ADAPTIVE_LIG
  * ------------------------------------------------------------------ */
 function _darkLayoutOverrides() {
   return {
-    paper_bgcolor: 'rgba(30,41,59,0)',
-    plot_bgcolor:  'rgba(30,41,59,0)',
-    'font.color':  '#e2e8f0',
-    'xaxis.gridcolor': '#334155',
-    'xaxis.zerolinecolor': '#334155',
-    'yaxis.gridcolor': '#334155',
-    'yaxis.zerolinecolor': '#334155',
-    'legend.bgcolor': 'rgba(30,41,59,0.0)',
-    'legend.font.color': '#e2e8f0',
-    'hoverlabel.bgcolor':   '#0f172a',
-    'hoverlabel.bordercolor': '#475569',
-    'hoverlabel.font.color':  '#f1f5f9',
+    paper_bgcolor: 'rgba(27,27,44,0)',
+    plot_bgcolor:  'rgba(27,27,44,0)',
+    'font.color':  '#E2E2ED',
+    'font.family': 'Inter, ui-sans-serif, system-ui, sans-serif',
+    'xaxis.gridcolor': '#2A2A40',
+    'xaxis.zerolinecolor': '#2A2A40',
+    'yaxis.gridcolor': '#2A2A40',
+    'yaxis.zerolinecolor': '#2A2A40',
+    'legend.bgcolor': 'rgba(27,27,44,0.0)',
+    'legend.font.color': '#E2E2ED',
+    'hoverlabel.bgcolor':   '#12121F',
+    'hoverlabel.bordercolor': '#3B3B55',
+    'hoverlabel.font.color':  '#EEEEF5',
   };
 }
 function _lightLayoutOverrides() {
   return {
-    paper_bgcolor: 'white',
-    plot_bgcolor:  'white',
-    'font.color':  '#0f172a',
-    'xaxis.gridcolor': '#e2e8f0',
-    'xaxis.zerolinecolor': '#e2e8f0',
-    'yaxis.gridcolor': '#e2e8f0',
-    'yaxis.zerolinecolor': '#e2e8f0',
+    paper_bgcolor: 'rgba(255,255,255,0)',
+    plot_bgcolor:  'rgba(255,255,255,0)',
+    'font.color':  '#121220',
+    'font.family': 'Inter, ui-sans-serif, system-ui, sans-serif',
+    'xaxis.gridcolor': '#E9E9F2',
+    'xaxis.zerolinecolor': '#E9E9F2',
+    'yaxis.gridcolor': '#E9E9F2',
+    'yaxis.zerolinecolor': '#E9E9F2',
     'legend.bgcolor': 'rgba(255,255,255,0.0)',
-    'legend.font.color': '#0f172a',
+    'legend.font.color': '#121220',
     'hoverlabel.bgcolor':   '#ffffff',
-    'hoverlabel.bordercolor': '#cbd5e1',
-    'hoverlabel.font.color':  '#0f172a',
+    'hoverlabel.bordercolor': '#CBCBDC',
+    'hoverlabel.font.color':  '#121220',
   };
 }
 
@@ -78,30 +80,34 @@ async function renderChart(elId, url) {
     const isDark = document.documentElement.classList.contains('dark');
     fig.layout = fig.layout || {};
 
+    const fontFamily = 'Inter, ui-sans-serif, system-ui, sans-serif';
     if (isDark) {
       fig.layout.template = undefined;
-      fig.layout.paper_bgcolor = 'rgba(30,41,59,0)';
-      fig.layout.plot_bgcolor  = 'rgba(30,41,59,0)';
-      fig.layout.font = Object.assign({}, fig.layout.font, { color: '#e2e8f0' });
-      fig.layout.xaxis = Object.assign({}, fig.layout.xaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
-      fig.layout.yaxis = Object.assign({}, fig.layout.yaxis, { gridcolor: '#334155', zerolinecolor: '#334155' });
+      fig.layout.paper_bgcolor = 'rgba(27,27,44,0)';
+      fig.layout.plot_bgcolor  = 'rgba(27,27,44,0)';
+      fig.layout.font = Object.assign({}, fig.layout.font, { color: '#E2E2ED', family: fontFamily });
+      fig.layout.xaxis = Object.assign({}, fig.layout.xaxis, { gridcolor: '#2A2A40', zerolinecolor: '#2A2A40' });
+      fig.layout.yaxis = Object.assign({}, fig.layout.yaxis, { gridcolor: '#2A2A40', zerolinecolor: '#2A2A40' });
       if (fig.layout.yaxis2) {
-        fig.layout.yaxis2 = Object.assign({}, fig.layout.yaxis2, { gridcolor: '#334155', zerolinecolor: '#334155' });
+        fig.layout.yaxis2 = Object.assign({}, fig.layout.yaxis2, { gridcolor: '#2A2A40', zerolinecolor: '#2A2A40' });
       }
       fig.layout.legend = Object.assign({}, fig.layout.legend, {
-        bgcolor: 'rgba(30,41,59,0.0)',
-        font: Object.assign({}, (fig.layout.legend || {}).font, { color: '#e2e8f0' }),
+        bgcolor: 'rgba(27,27,44,0.0)',
+        font: Object.assign({}, (fig.layout.legend || {}).font, { color: '#E2E2ED' }),
       });
       fig.layout.hoverlabel = Object.assign({}, fig.layout.hoverlabel, {
-        bgcolor:   '#0f172a',
-        bordercolor: '#475569',
-        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#f1f5f9' }),
+        bgcolor:   '#12121F',
+        bordercolor: '#3B3B55',
+        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#EEEEF5' }),
       });
     } else {
+      fig.layout.paper_bgcolor = 'rgba(255,255,255,0)';
+      fig.layout.plot_bgcolor  = 'rgba(255,255,255,0)';
+      fig.layout.font = Object.assign({}, fig.layout.font, { family: fontFamily });
       fig.layout.hoverlabel = Object.assign({}, fig.layout.hoverlabel, {
         bgcolor:   '#ffffff',
-        bordercolor: '#cbd5e1',
-        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#0f172a' }),
+        bordercolor: '#CBCBDC',
+        font: Object.assign({}, (fig.layout.hoverlabel || {}).font, { color: '#121220' }),
       });
     }
 

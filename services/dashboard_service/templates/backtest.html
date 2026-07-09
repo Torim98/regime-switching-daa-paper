@@ -6,31 +6,31 @@
 <div class="space-y-6" x-data="btPage()" x-init="init()">
 
   <!-- Performance Summary -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Executive Summary</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdPerfSummary"></div>
   </section>
 
   <!-- Annualized metrics -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Annualized Metrics</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdAnnualized"></div>
   </section>
 
   <!-- Equity Curves -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Equity Curves</h2>
     <div id="chart-equity" class="w-full"></div>
   </section>
 
   <!-- Drawdown -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Drawdown History</h2>
     <div id="chart-drawdown" class="w-full"></div>
   </section>
 
   <!-- Rolling Sharpe -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-lg font-semibold">Rolling Sharpe</h2>
       <label class="text-sm">Window
@@ -42,19 +42,19 @@
   </section>
 
   <!-- Crisis performance -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Crisis Performance</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdCrisis"></div>
   </section>
 
   <!-- Transaction costs -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Cumulative Transaction Costs</h2>
     <div id="chart-transaction-costs" class="w-full"></div>
   </section>
 
   <!-- SORR scenarios (toggle) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-lg font-semibold">SORR Scenarios</h2>
       <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
@@ -62,7 +62,7 @@
           <button type="button"
                   class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
                   :class="sorrScenario === s.key
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-brand-600 text-white'
                             : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
                   @click="sorrScenario = s.key; drawSorr()"
                   x-text="s.label"></button>
@@ -73,7 +73,7 @@
   </section>
 
   <!-- SORR-Summary -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">SORR-Summary</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdSorr"></div>
   </section>

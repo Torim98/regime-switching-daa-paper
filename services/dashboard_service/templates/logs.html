@@ -5,7 +5,7 @@
 {% block content %}
 <div x-data="logsPage()" x-init="init()" class="space-y-4">
 
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+  <section class="card p-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2 text-sm">
         <label>File
@@ -31,8 +31,8 @@
                 :class="connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></span>
           <span x-text="connected ? 'connected' : 'disconnected'"></span>
         </span>
-        <button @click="clear()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded text-sm hover:bg-slate-300 dark:hover:bg-slate-600">🗑 Clear</button>
-        <button @click="reconnect()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded text-sm">↻ Reconnect</button>
+        <button @click="clear()" class="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition">Clear</button>
+        <button @click="reconnect()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm shadow-glow transition">↻ Reconnect</button>
       </div>
     </div>
 
@@ -43,7 +43,7 @@
   </section>
 
   <!-- Log-Viewer -->
-  <section class="bg-slate-900 text-slate-100 rounded-xl shadow-sm border border-slate-700 overflow-hidden">
+  <section class="card-terminal overflow-hidden">
     <div id="log-view"
          class="overflow-auto font-mono text-xs p-3"
          :class="wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'"

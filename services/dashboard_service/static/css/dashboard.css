@@ -1,9 +1,66 @@
-/* Custom overrides in addition to Tailwind */
+/* ==========================================================================
+   Design system on top of Tailwind (tokens live in tailwind.config, base.html)
+   Palette: "ink" neutrals (violet-tinted) + brand violet #7C5CFA
+   ========================================================================== */
 
 /* Alpine x-cloak */
 [x-cloak] { display: none !important; }
 
-/* Prose tables: more compact + scrollable + zebra */
+/* --------------------------------------------------------------------------
+   Page background: subtle brand glow in dark mode, clean tint in light mode
+   -------------------------------------------------------------------------- */
+body {
+  background-image: radial-gradient(900px 480px at 85% -10%, rgba(124, 92, 250, 0.06), transparent 60%);
+  background-attachment: fixed;
+}
+.dark body {
+  background-image:
+    radial-gradient(1100px 560px at 82% -12%, rgba(124, 92, 250, 0.14), transparent 60%),
+    radial-gradient(800px 480px at -10% 110%, rgba(70, 41, 172, 0.10), transparent 55%);
+}
+
+/* --------------------------------------------------------------------------
+   Card: the standard surface for all sections/tiles
+   -------------------------------------------------------------------------- */
+.card {
+  background: #ffffff;
+  border: 1px solid #D6D6E6;
+  border-radius: 1rem;
+  box-shadow: 0 0 0 1px rgba(124, 92, 250, 0.05),
+              0 1px 2px rgba(18, 18, 32, 0.05),
+              0 8px 24px -14px rgba(18, 18, 32, 0.12);
+}
+.dark .card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 42%), #1D1D30;
+  border-color: #34344E;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+              0 0 0 1px rgba(124, 92, 250, 0.10),
+              0 16px 40px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* Accented card (e.g. Full Pipeline Run) */
+.card-accent { border-color: rgba(124, 92, 250, 0.45); }
+.dark .card-accent {
+  border-color: #5B48B8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+              0 0 0 1px rgba(124, 92, 250, 0.18),
+              0 16px 44px -18px rgba(124, 92, 250, 0.28);
+}
+
+/* Terminal-style card (log viewer) — always dark */
+.card-terminal {
+  background: #0C0C16;
+  border: 1px solid #34344E;
+  border-radius: 1rem;
+  color: #E2E2ED;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04),
+              0 0 0 1px rgba(124, 92, 250, 0.10),
+              0 16px 40px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* --------------------------------------------------------------------------
+   Prose tables: compact + scrollable + zebra, in palette colors
+   -------------------------------------------------------------------------- */
 .prose table {
   display: block;
   max-width: 100%;
@@ -13,26 +70,28 @@
 }
 .prose table th,
 .prose table td {
-  padding: 0.35rem 0.6rem;
-  border: 1px solid rgb(226 232 240 / 1);   /* slate-200 */
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #E2E2ED;
 }
 .dark .prose table th,
 .dark .prose table td {
-  border-color: rgb(51 65 85 / 1);           /* slate-700 */
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .prose table th {
-  background: rgb(241 245 249 / 1);          /* slate-100 */
+  background: #F1F1F7;
   font-weight: 600;
   text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
 }
 .dark .prose table th {
-  background: rgb(30 41 59 / 1);             /* slate-800 */
+  background: rgba(255, 255, 255, 0.045);
 }
 .prose table tbody tr:nth-child(even) td {
-  background: rgb(248 250 252 / 0.5);        /* slate-50/50 */
+  background: rgba(247, 247, 251, 0.6);
 }
 .dark .prose table tbody tr:nth-child(even) td {
-  background: rgb(15 23 42 / 0.4);           /* slate-900/40 */
+  background: rgba(255, 255, 255, 0.025);
 }
 
 /* Plotly container: max-width prevents overflow */
@@ -41,26 +100,88 @@
   max-width: 100%;
 }
 
-/* Toast */
+/* --------------------------------------------------------------------------
+   Toasts: glassy surface with status accent
+   -------------------------------------------------------------------------- */
 .toast {
-  min-width: 250px;
-  max-width: 400px;
-  padding: 0.6rem 0.9rem;
-  border-radius: 0.5rem;
-  color: white;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 0.65rem 0.9rem 0.65rem 1.05rem;
+  border-radius: 0.75rem;
+  color: #F7F7FB;
   font-size: 0.875rem;
-  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1);
-  animation: toast-in 0.2s ease-out;
+  background: rgba(18, 18, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+  animation: toast-in 0.22s cubic-bezier(0.21, 1.02, 0.73, 1);
 }
-.toast.success { background: #059669; }
-.toast.error   { background: #dc2626; }
-.toast.info    { background: #2563eb; }
+.toast::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.toast.success::before { background: #34d399; }
+.toast.error::before   { background: #fb7185; }
+.toast.info::before    { background: #9A82FB; }
 @keyframes toast-in {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  from { transform: translateY(16px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1);       opacity: 1; }
 }
 
-/* More subtle scrollbar in log view */
-#log-view::-webkit-scrollbar { width: 10px; height: 10px; }
-#log-view::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
-#log-view::-webkit-scrollbar-track { background: #0f172a; }
+/* --------------------------------------------------------------------------
+   Scrollbars: floating pill thumb, transparent track, palette-matched.
+   IMPORTANT: setting the standard `scrollbar-width` property makes Chromium
+   ignore ::-webkit-scrollbar entirely, so it is scoped to Firefox only.
+   -------------------------------------------------------------------------- */
+@supports (scrollbar-width: thin) and (not selector(::-webkit-scrollbar)) {
+  /* Firefox */
+  * { scrollbar-width: thin; scrollbar-color: rgba(110, 110, 133, 0.45) transparent; }
+  .dark * { scrollbar-color: rgba(151, 151, 173, 0.35) transparent; }
+}
+/* Chromium / Safari */
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(110, 110, 133, 0.40);
+  border-radius: 8px;
+  border: 3px solid transparent;   /* inset gap → slim floating pill */
+  background-clip: padding-box;
+  min-height: 40px;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(110, 110, 133, 0.65); background-clip: padding-box; }
+.dark *::-webkit-scrollbar-thumb { background-color: rgba(151, 151, 173, 0.30); background-clip: padding-box; }
+.dark *::-webkit-scrollbar-thumb:hover { background-color: rgba(154, 130, 251, 0.55); background-clip: padding-box; }
+
+/* --------------------------------------------------------------------------
+   Details/summary: consistent chevron marker
+   -------------------------------------------------------------------------- */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: '';
+  display: inline-block;
+  width: 0.55em; height: 0.55em;
+  margin-right: 0.55em;
+  border-right: 2px solid #9797AD;
+  border-bottom: 2px solid #9797AD;
+  transform: rotate(-45deg) translateY(-0.1em);
+  transition: transform 0.15s ease;
+}
+details[open] > summary::before { transform: rotate(45deg) translateY(-0.15em); }
+
+/* --------------------------------------------------------------------------
+   Focus rings + form controls
+   -------------------------------------------------------------------------- */
+select:focus-visible,
+input:focus-visible,
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(124, 92, 250, 0.55);
+  outline-offset: 1px;
+}
+input[type="checkbox"] { accent-color: #6B46F0; }

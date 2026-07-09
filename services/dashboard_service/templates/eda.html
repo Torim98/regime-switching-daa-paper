@@ -6,7 +6,7 @@
 <div class="space-y-6" x-data="edaPage()" x-init="init()">
 
   <!-- Data quality report (from assets/data_quality_report.md) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <details>
       <summary class="text-lg font-semibold cursor-pointer select-none">Data-Quality-Report</summary>
       <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mt-4" x-html="mdQuality"></div>
@@ -14,19 +14,19 @@
   </section>
 
   <!-- Descriptive statistics (from assets/eda_descriptive_stats.md) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Descriptive Statistics</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdDescriptive"></div>
   </section>
 
   <!-- ADF-Tests -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Stationarity Test (ADF)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdAdf"></div>
   </section>
 
   <!-- Interactive time series -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-lg font-semibold">Interactive Time Series</h2>
       <div class="flex items-center gap-2 text-sm">
@@ -52,7 +52,7 @@
   </section>
 
   <!-- Volatility clusters &amp; ACF (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">Volatility Clusters &amp; Autocorrelation</h2>
     <p class="text-xs text-slate-500 mb-4">
       S&amp;P 500 daily returns and ACF of squared returns up to lag 40 — evidence of GARCH effects.
@@ -61,19 +61,19 @@
   </section>
 
   <!-- Feature correlation matrix (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Feature Correlation Matrix</h2>
     <div id="chart-feature-corr" class="w-full"></div>
   </section>
 
   <!-- 60/40 capital curve (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">60/40 Benchmark Capital Curve</h2>
     <div id="chart-capital-curve" class="w-full"></div>
   </section>
 
   <!-- Historical drawdowns (interactive, top 5 highlighted) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">Historical Drawdowns (60/40 Benchmark)</h2>
     <p class="text-xs text-slate-500 mb-4">
       SORR context: the five deepest drawdown episodes are highlighted in red (rectangle = peak→recovery, X = trough).

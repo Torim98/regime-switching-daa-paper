@@ -7,7 +7,7 @@
 
   <!-- Status tiles -->
   <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="card p-5">
       <div class="text-xs text-slate-500 uppercase tracking-wider">End-Date</div>
       <div class="mt-2 font-mono text-xl">{{ end_date }}</div>
       <div class="mt-1 text-xs">
@@ -19,13 +19,13 @@
       </div>
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="card p-5">
       <div class="text-xs text-slate-500 uppercase tracking-wider">Walk-Forward</div>
       <div class="mt-2 font-mono text-xl">{{ 'ENABLED' if walk_forward_enabled else 'DISABLED' }}</div>
       <div class="mt-1 text-xs text-slate-500">rolling / 10y / 12m / 12m</div>
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <div class="card p-5">
       <div class="text-xs text-slate-500 uppercase tracking-wider">Fast-Mode</div>
       <div class="mt-2 font-mono text-xl">{{ 'ENABLED' if fast_mode_enabled else 'DISABLED' }}</div>
       <div class="mt-1 text-xs text-slate-500">n_paths / epochs reduced</div>
@@ -33,7 +33,7 @@
   </section>
 
   <!-- Pipeline artifacts -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8">
+  <section class="card p-6 mb-8">
     <h2 class="text-lg font-semibold mb-4">Pipeline Artifacts</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       <template x-for="(meta, key) in status.data" :key="key">
@@ -57,12 +57,12 @@
 
   <!-- Quick-Actions -->
   <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-    <a href="/hub" class="bg-gradient-to-br from-brand-600 to-brand-700 text-white rounded-xl p-6 shadow hover:shadow-md transition">
+    <a href="/hub" class="bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 text-white rounded-2xl p-6 shadow-glow hover:brightness-110 transition">
       <div class="text-sm opacity-80">Control the pipeline</div>
-      <div class="mt-1 text-2xl font-semibold">Control Hub →</div>
+      <div class="mt-1 text-2xl font-semibold tracking-tight">Control Hub →</div>
       <div class="mt-2 text-sm opacity-80">Trigger all 10+ FastAPI endpoints by click.</div>
     </a>
-    <a href="/evaluation" class="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition">
+    <a href="/evaluation" class="card p-6 hover:border-brand-400/60 dark:hover:border-brand-500/50 transition">
       <div class="text-sm text-slate-500">Results</div>
       <div class="mt-1 text-2xl font-semibold">Evaluation + MCS →</div>
       <div class="mt-2 text-sm text-slate-500">Complete statistics.md, interactive.</div>
@@ -70,7 +70,7 @@
   </section>
 
   <!-- Coverage-Map -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">statistics.md Coverage</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
       <div class="flex items-center gap-2"><span class="text-emerald-500">✓</span><a href="/eda" class="hover:underline">Executive Summary · Dataset · EDA</a></div>

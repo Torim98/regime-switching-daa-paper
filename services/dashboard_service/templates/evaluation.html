@@ -6,13 +6,13 @@
 <div class="space-y-6" x-data="evalPage()" x-init="init()">
 
   <!-- Metrics matrix -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Comprehensive Metrics Matrix</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto" x-html="mdEval"></div>
   </section>
 
   <!-- Classification -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Classification Metrics (vs. NBER)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-6" x-html="mdClass"></div>
 
@@ -31,7 +31,7 @@
             <button type="button"
                     class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
                     :class="rocPrKind === k.key
-                              ? 'bg-indigo-600 text-white'
+                              ? 'bg-brand-600 text-white'
                               : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
                     @click="rocPrKind = k.key; drawRocPr()"
                     x-text="k.label"></button>
@@ -43,7 +43,7 @@
   </section>
 
   <!-- Churning + Whipsaw + Switch-Timing -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Signal-Churning &amp; Switch-Timing</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
@@ -58,13 +58,13 @@
   </section>
 
   <!-- Regime-Probability-Heatmap -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Regime Probability Heatmap</h2>
     <div id="chart-regime-heatmap" class="w-full"></div>
   </section>
 
   <!-- Threshold-Sensitivity -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Threshold-Sensitivity</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <template x-for="m in ['MSM','HMM','HMM_Uni','LSTM','Transformer']" :key="m">
@@ -77,7 +77,7 @@
   </section>
 
   <!-- Time-to-Recovery -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Time-to-Recovery</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <template x-for="m in ['Buy_Hold','MSM','HMM','HMM_Uni','LSTM','Transformer']" :key="m">
@@ -90,7 +90,7 @@
   </section>
 
   <!-- MCS -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Monte-Carlo-Simulation (Stationary Bootstrap)</h2>
     <div class="prose prose-sm dark:prose-invert max-w-none overflow-auto mb-4" x-html="mdMcs"></div>
     <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
@@ -116,7 +116,7 @@
             <button type="button"
                     class="px-3 py-1.5 border-r last:border-r-0 border-slate-200 dark:border-slate-700 focus:outline-none"
                     :class="mcsDistKind === k.key
-                              ? 'bg-indigo-600 text-white'
+                              ? 'bg-brand-600 text-white'
                               : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'"
                     @click="mcsDistKind = k.key; drawMcsDist()"
                     x-text="k.label"></button>
@@ -128,7 +128,7 @@
   </section>
 
   <!-- Bootstrap robustness (block vs. stationary) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-1">Bootstrap Robustness — Block vs. Stationary</h2>
     <p class="text-sm text-slate-500 mb-4">
       Depletion rate (Wilson CI) and median terminal capital under both resampling
@@ -138,7 +138,7 @@
   </section>
 
   <!-- Depletion rate + hypothesis tests -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Depletion Rate &amp; Hypothesis Tests</h2>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div>
@@ -157,7 +157,7 @@
   </section>
 
   <!-- Break-Even + Withdrawal -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-4">Break-Even Costs &amp; Withdrawal Rates</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>

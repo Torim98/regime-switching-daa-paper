@@ -6,7 +6,7 @@
 <div class="space-y-6" x-data="modelsPage()" x-init="init()">
 
   <!-- Interactive regime overlay -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-lg font-semibold">Regime Overlay</h2>
       <div class="flex items-center gap-2 text-sm">
@@ -29,7 +29,7 @@
   </section>
 
   <!-- Label concordance / Cohen's κ (interactive, toggle) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">Label Concordance &amp; Cohen's κ</h2>
     <p class="text-xs text-slate-500 mb-4">
       Pairwise agreement of the labeling methods. The toggle at the top left of the chart switches between
@@ -39,7 +39,7 @@
   </section>
 
   <!-- Label timeline (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">Label Timeline Comparison (OOS)</h2>
     <p class="text-xs text-slate-500 mb-4">
       S&amp;P 500 with bear phases per method (red). Zoom/pan synchronizes all panels.
@@ -48,7 +48,7 @@
   </section>
 
   <!-- Walk-forward schema (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">Walk-Forward Schema</h2>
     <p class="text-xs text-slate-500 mb-4">
       Rolling train/test windows over time (blue = train, orange = OOS test).
@@ -59,7 +59,7 @@
   </section>
 
   <!-- OOS bear-market coverage of the folds (Issue #8) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <h2 class="text-lg font-semibold mb-2">OOS Bear-Market Coverage</h2>
     <p class="text-xs text-slate-500 mb-4">
       Per-fold Pagan-Sossounov bear exposure of the walk-forward windows: bear-day share, number of overlapping
@@ -70,7 +70,7 @@
   </section>
 
   <!-- Optuna — best hyperparameters (moved from backtest tab) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
       <h2 class="text-lg font-semibold">Optuna — Best Hyperparameters</h2>
       <span class="text-xs text-slate-500" x-show="optunaMetric">
@@ -124,7 +124,7 @@
   </section>
 
   <!-- Optuna — diagnostic plots (interactive) -->
-  <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <section class="card p-6">
     <div class="flex flex-wrap items-baseline justify-between gap-3 mb-2">
       <h2 class="text-lg font-semibold">Optuna — Diagnostic Plots</h2>
       <div class="flex items-center gap-3 text-sm">
@@ -222,12 +222,13 @@
 
 <style>
   .hpo-md table { border-collapse: collapse; font-size: 0.78rem; margin: .4rem 0; }
-  .hpo-md th, .hpo-md td { border: 1px solid rgb(148 163 184 / .4); padding: 2px 8px; text-align: right; white-space: nowrap; }
+  .hpo-md th, .hpo-md td { border: 1px solid rgba(151, 151, 173, .35); padding: 2px 8px; text-align: right; white-space: nowrap; }
   .hpo-md th:first-child, .hpo-md td:first-child { text-align: left; }
   .hpo-md h1 { font-size: 1rem; font-weight: 600; margin: .4rem 0; }
   .hpo-md h2, .hpo-md h3 { font-size: .88rem; font-weight: 600; margin: .5rem 0 .2rem; }
-  .hpo-md p, .hpo-md li { font-size: .8rem; color: rgb(100 116 139); }
-  .hpo-md em { color: rgb(148 163 184); }
+  .hpo-md p, .hpo-md li { font-size: .8rem; color: #6E6E85; }
+  .dark .hpo-md p, .dark .hpo-md li { color: #9797AD; }
+  .hpo-md em { color: #9797AD; }
 </style>
 
 <script>
