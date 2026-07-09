@@ -80,7 +80,11 @@ def run_backtest():
     annualized = calculate_annualized_metrics(backtesting_results)
     annualized.to_markdown(cfg.asset_path("annualized_metrics"))
 
-    crisis = calculate_crisis_performance(backtesting_results)
+    crisis_windows = {
+        name: tuple(w)
+        for name, w in vars(cfg.evaluation.extended.crisis_windows).items()
+    }
+    crisis = calculate_crisis_performance(backtesting_results, crisis_windows)
     if not crisis.empty:
         crisis.to_markdown(cfg.asset_path("crisis_performance"))
 
@@ -282,8 +286,14 @@ def evaluate():
     )
     h1.to_markdown(cfg.asset_path("h1_drawdown"))
 
+    h2_challenger = "Transformer"
+    h2_competitors = tuple(
+        m for m in regime_models if m != h2_challenger
+    )
     h2 = test_h2_transformer(
-        finals, scenario=ext.hypothesis_scenario, alpha=ext.alpha,
+        finals, scenario=ext.hypothesis_scenario,
+        challenger=h2_challenger, competitors=h2_competitors,
+        alpha=ext.alpha,
     )
     h2.to_markdown(cfg.asset_path("h2_transformer"))
 

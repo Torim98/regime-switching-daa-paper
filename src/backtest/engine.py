@@ -196,20 +196,31 @@ def calculate_annualized_metrics(
 
     return pd.DataFrame(summary).set_index("Strategy")
 
+# Fallback crisis windows if none are supplied by the caller. The canonical
+# definition lives in config.yaml (evaluation.extended.crisis_windows) and is
+# passed in by the backtest service; this dict only guards direct/legacy calls.
+_DEFAULT_CRISIS_WINDOWS = {
+    "Dot-Com (2000-03 to 2002-10)":        ("2000-03-01", "2002-10-31"),
+    "GFC (2007-10 to 2009-03)":            ("2007-10-01", "2009-03-31"),
+    "EU Debt Crisis (2011-07 to 2011-11)": ("2011-07-01", "2011-11-30"),
+    "COVID Crash (2020-02 to 2020-03)":    ("2020-02-01", "2020-03-31"),
+    "Rate Hikes (2022-01 to 2022-10)":     ("2022-01-01", "2022-10-31"),
+}
+
+
 def calculate_crisis_performance(
     backtesting_results: pd.DataFrame,
+    crisis_windows: dict | None = None,
 ) -> pd.DataFrame:
     """
     Performance during historical crisis periods.
     Shows return and max drawdown per strategy in each crisis.
+
+    `crisis_windows` maps a crisis label to a (start, end) date pair. When None,
+    the module-level default is used. The backtest service passes the canonical
+    windows from config.yaml (evaluation.extended.crisis_windows).
     """
-    crises = {
-        "Dot-Com (2000-03 to 2002-10)":        ("2000-03-01", "2002-10-31"),
-        "GFC (2007-10 to 2009-03)":            ("2007-10-01", "2009-03-31"),
-        "EU Debt Crisis (2011-07 to 2011-11)": ("2011-07-01", "2011-11-30"),
-        "COVID Crash (2020-02 to 2020-03)":    ("2020-02-01", "2020-03-31"),
-        "Rate Hikes (2022-01 to 2022-10)":     ("2022-01-01", "2022-10-31"),
-    }
+    crises = crisis_windows if crisis_windows is not None else _DEFAULT_CRISIS_WINDOWS
 
     rows = []
     for crisis_name, (start, end) in crises.items():

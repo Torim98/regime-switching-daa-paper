@@ -658,23 +658,33 @@ Return and max drawdown during historical crisis periods: the central evidence f
 ### Switch Timing Relative to the Drawdown Peak
 Time lag between the model's first bear signal and the drawdown trough of the buy-and-hold portfolio per crisis. Positive = model reacted early, negative = too late.
 
-| Crisis   | Model       | DD Trough   | First Bear Signal   |   Lead (Days) |
-|:---------|:------------|:------------|:--------------------|--------------:|
-| GFC      | MSM         | 2009-03-09  | 2007-10-01          |           525 |
-| COVID    | MSM         | 2020-03-18  | 2020-02-24          |            23 |
-| 2022     | MSM         | 2022-10-14  | 2022-01-05          |           282 |
-| GFC      | HMM         | 2009-03-09  | 2007-10-16          |           510 |
-| COVID    | HMM         | 2020-03-18  | 2020-03-13          |             5 |
-| 2022     | HMM         | 2022-10-14  | 2022-07-12          |            94 |
-| GFC      | HMM_Uni     | 2009-03-09  | 2007-10-01          |           525 |
-| COVID    | HMM_Uni     | 2020-03-18  | 2020-02-24          |            23 |
-| 2022     | HMM_Uni     | 2022-10-14  | 2022-01-05          |           282 |
-| GFC      | LSTM        | 2009-03-09  | 2007-10-01          |           525 |
-| COVID    | LSTM        | 2020-03-18  |                     |           nan |
-| 2022     | LSTM        | 2022-10-14  |                     |           nan |
-| GFC      | Transformer | 2009-03-09  | 2007-10-01          |           525 |
-| COVID    | Transformer | 2020-03-18  |                     |           nan |
-| 2022     | Transformer | 2022-10-14  |                     |           nan |
+| Crisis                              | Model       | DD Trough   | First Bear Signal   |   Lead (Days) |
+|:------------------------------------|:------------|:------------|:--------------------|--------------:|
+| Dot-Com (2000-03 to 2002-10)        | MSM         | 2002-07-23  | 2000-10-16          |           645 |
+| GFC (2007-10 to 2009-03)            | MSM         | 2009-03-09  | 2007-10-01          |           525 |
+| EU Debt Crisis (2011-07 to 2011-11) | MSM         | 2011-08-08  | 2011-08-04          |             4 |
+| COVID Crash (2020-02 to 2020-03)    | MSM         | 2020-03-18  | 2020-02-24          |            23 |
+| Rate Hikes (2022-01 to 2022-10)     | MSM         | 2022-10-14  | 2022-01-05          |           282 |
+| Dot-Com (2000-03 to 2002-10)        | HMM         | 2002-07-23  | 2000-10-16          |           645 |
+| GFC (2007-10 to 2009-03)            | HMM         | 2009-03-09  | 2007-10-16          |           510 |
+| EU Debt Crisis (2011-07 to 2011-11) | HMM         | 2011-08-08  | 2011-07-01          |            38 |
+| COVID Crash (2020-02 to 2020-03)    | HMM         | 2020-03-18  | 2020-03-13          |             5 |
+| Rate Hikes (2022-01 to 2022-10)     | HMM         | 2022-10-14  | 2022-07-12          |            94 |
+| Dot-Com (2000-03 to 2002-10)        | HMM_Uni     | 2002-07-23  | 2000-10-16          |           645 |
+| GFC (2007-10 to 2009-03)            | HMM_Uni     | 2009-03-09  | 2007-10-01          |           525 |
+| EU Debt Crisis (2011-07 to 2011-11) | HMM_Uni     | 2011-08-08  | 2011-08-04          |             4 |
+| COVID Crash (2020-02 to 2020-03)    | HMM_Uni     | 2020-03-18  | 2020-02-24          |            23 |
+| Rate Hikes (2022-01 to 2022-10)     | HMM_Uni     | 2022-10-14  | 2022-01-05          |           282 |
+| Dot-Com (2000-03 to 2002-10)        | LSTM        | 2002-07-23  |                     |           nan |
+| GFC (2007-10 to 2009-03)            | LSTM        | 2009-03-09  | 2007-10-01          |           525 |
+| EU Debt Crisis (2011-07 to 2011-11) | LSTM        | 2011-08-08  |                     |           nan |
+| COVID Crash (2020-02 to 2020-03)    | LSTM        | 2020-03-18  |                     |           nan |
+| Rate Hikes (2022-01 to 2022-10)     | LSTM        | 2022-10-14  |                     |           nan |
+| Dot-Com (2000-03 to 2002-10)        | Transformer | 2002-07-23  | 2001-10-16          |           280 |
+| GFC (2007-10 to 2009-03)            | Transformer | 2009-03-09  | 2007-10-01          |           525 |
+| EU Debt Crisis (2011-07 to 2011-11) | Transformer | 2011-08-08  |                     |           nan |
+| COVID Crash (2020-02 to 2020-03)    | Transformer | 2020-03-18  |                     |           nan |
+| Rate Hikes (2022-01 to 2022-10)     | Transformer | 2022-10-14  |                     |           nan |
 
 ### Drawdown Profile
 ![Drawdown](../assets/drawdown.png)
@@ -741,21 +751,21 @@ To assess statistical significance, 10,000 artificial market paths were simulate
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin Probability   | Median Terminal Capital   |
 |:-------------------------------|:-------------------|:--------------------------|
-| ('Aggressive', 'HMM Uni')      | 0.57%              | 178,844.60 €              |
-| ('Standard', 'Buy Hold')       | 0.01%              | 470,625.12 €              |
-| ('Low_Capital', 'Buy Hold')    | 0.63%              | 201,384.39 €              |
-| ('Aggressive', 'Transformer')  | 2.44%              | 262,221.37 €              |
-| ('Aggressive', 'Buy Hold')     | 5.27%              | 228,313.50 €              |
-| ('Standard', 'LSTM')           | 0.00%              | 497,391.40 €              |
-| ('Low_Capital', 'HMM')         | 0.50%              | 138,610.48 €              |
-| ('Aggressive', 'MSM')          | 0.57%              | 179,895.13 €              |
-| ('Standard', 'HMM Uni')        | 0.00%              | 408,366.15 €              |
 | ('Standard', 'MSM')            | 0.00%              | 409,322.01 €              |
-| ('Standard', 'Transformer')    | 0.00%              | 515,039.54 €              |
-| ('Low_Capital', 'MSM')         | 0.00%              | 168,961.18 €              |
+| ('Standard', 'Buy Hold')       | 0.01%              | 470,625.12 €              |
 | ('Standard', 'HMM')            | 0.00%              | 350,335.42 €              |
+| ('Standard', 'LSTM')           | 0.00%              | 497,391.40 €              |
+| ('Low_Capital', 'Buy Hold')    | 0.63%              | 201,384.39 €              |
+| ('Low_Capital', 'MSM')         | 0.00%              | 168,961.18 €              |
+| ('Aggressive', 'Transformer')  | 2.44%              | 262,221.37 €              |
+| ('Standard', 'Transformer')    | 0.00%              | 515,039.54 €              |
 | ('Aggressive', 'LSTM')         | 2.67%              | 246,885.86 €              |
+| ('Aggressive', 'Buy Hold')     | 5.27%              | 228,313.50 €              |
+| ('Aggressive', 'MSM')          | 0.57%              | 179,895.13 €              |
 | ('Aggressive', 'HMM')          | 6.32%              | 134,900.91 €              |
+| ('Standard', 'HMM Uni')        | 0.00%              | 408,366.15 €              |
+| ('Aggressive', 'HMM Uni')      | 0.57%              | 178,844.60 €              |
+| ('Low_Capital', 'HMM')         | 0.50%              | 138,610.48 €              |
 | ('Low_Capital', 'HMM Uni')     | 0.00%              | 168,334.93 €              |
 | ('Low_Capital', 'LSTM')        | 0.18%              | 214,959.56 €              |
 | ('Low_Capital', 'Transformer') | 0.08%              | 225,005.29 €              |
@@ -808,11 +818,12 @@ Wilson CI for the ruin probability (P[terminal capital ≤ 0]) per scenario × s
 
 **H2: The Transformer dominates econometrics and LSTM in terminal wealth:**
 
-| Comparison           | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median LSTM   |
-|:---------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:--------------|
-| Transformer vs. MSM  | 262,221 €            | 179,895 €    | +82,326 €  |     0        | confirmed     | nan          | nan           |
-| Transformer vs. HMM  | 262,221 €            | nan          | +127,320 € |     0        | confirmed     | 134,901 €    | nan           |
-| Transformer vs. LSTM | 262,221 €            | nan          | +15,336 €  |     6.56e-55 | confirmed     | nan          | 246,886 €     |
+| Comparison              | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median HMM_Uni   | Median LSTM   |
+|:------------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:-----------------|:--------------|
+| Transformer vs. MSM     | 262,221 €            | 179,895 €    | +82,326 €  |     0        | confirmed     | nan          | nan              | nan           |
+| Transformer vs. HMM     | 262,221 €            | nan          | +127,320 € |     0        | confirmed     | 134,901 €    | nan              | nan           |
+| Transformer vs. HMM_Uni | 262,221 €            | nan          | +83,377 €  |     0        | confirmed     | nan          | 178,845 €        | nan           |
+| Transformer vs. LSTM    | 262,221 €            | nan          | +15,336 €  |     6.56e-55 | confirmed     | nan          | nan              | 246,886 €     |
 
 ### Break-Even Transaction Costs
 At what cost rate (in basis points per reallocation) does active switching lose its return advantage over buy and hold?
@@ -868,7 +879,7 @@ Model persistence status for this pipeline run:
 
 ---
 
-**Last updated:** 2026-07-09 13:33<br>
+**Last updated:** 2026-07-09 14:02<br>
 **End date:** `2026-07-09`<br>
 **Fast mode status at runtime:** FALSE (Full Run)<br>
 **Walk-forward validation:** ENABLED (mode: rolling, train: 10y, test: 12m, step: 12m)<br>

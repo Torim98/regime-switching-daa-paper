@@ -965,7 +965,7 @@ def test_h2_transformer(
     finals: dict,
     scenario: str,
     challenger: str = "Transformer",
-    competitors: tuple = ("MSM", "HMM", "LSTM"),
+    competitors: tuple = ("MSM", "HMM", "HMM_Uni", "LSTM"),
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """

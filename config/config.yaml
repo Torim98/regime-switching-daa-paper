@@ -256,7 +256,7 @@ evaluation:
     random_seed: 42
     sim_years: 10
     trading_days_per_year: 252
-  # --- Issue #13: Extended Evaluation (Sec. 4.1-4.4) ---
+  # --- Issue #13: Extended Evaluation ---
   extended:
     nber_source: "fred_csv"         # "fred_csv" | "local"
     f1_models: ["MSM", "HMM", "HMM_Uni", "LSTM", "Transformer"]
@@ -270,12 +270,20 @@ evaluation:
     fee_grid_bps: [0, 5, 10, 20, 30, 50, 75, 100, 150, 200]
     withdrawal_rates: [0.035, 0.04, 0.05]
     ttr_min_dd: -0.05               # only drawdowns < −5 %
-    alpha: 0.05                     # significance level (Sec. 1.5)
+    alpha: 0.05                     # significance level
     hypothesis_scenario: "Aggressive"   # MCS scenario for H1/H2 tests
+    # Single source of truth for the historical crisis windows.
+    # Consumed by BOTH the crisis-performance table (calculate_crisis_performance)
+    # and the switch-timing analysis (switch_timing_vs_peak). Keys are the row
+    # labels used in the generated assets. Dot-Com and GFC lie in the HPO
+    # development period; COVID and the 2022 rate shock lie in the selection-free
+    # holdout (tune_until 2016-12-31).
     crisis_windows:
-      GFC:   ["2007-10-01", "2009-03-31"]
-      COVID: ["2020-02-01", "2020-04-30"]
-      "2022": ["2022-01-01", "2022-10-31"]
+      "Dot-Com (2000-03 to 2002-10)":        ["2000-03-01", "2002-10-31"]
+      "GFC (2007-10 to 2009-03)":            ["2007-10-01", "2009-03-31"]
+      "EU Debt Crisis (2011-07 to 2011-11)": ["2011-07-01", "2011-11-30"]
+      "COVID Crash (2020-02 to 2020-03)":    ["2020-02-01", "2020-03-31"]
+      "Rate Hikes (2022-01 to 2022-10)":     ["2022-01-01", "2022-10-31"]
 
 ## --- Plotting ---
 plotting:
