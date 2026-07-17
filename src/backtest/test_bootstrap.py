@@ -163,10 +163,7 @@ def test_common_random_numbers_pairs_strategies(method):
     """
     import pandas as pd
 
-    from src.backtest.evaluation import (
-        run_monte_carlo_simulation,
-        mcs_final_capitals,
-    )
+    from src.backtest.evaluation import run_monte_carlo_simulation
 
     n_source = 300
     idx = pd.date_range("2000-01-03", periods=n_source, freq="B")
@@ -178,7 +175,7 @@ def test_common_random_numbers_pairs_strategies(method):
     test_df = pd.DataFrame({"A_Signal": sigs, "B_Signal": sigs}, index=idx)
     scenarios = {"Standard": {"start": 100_000.0, "withdrawal": 500.0, "fee": 0.001}}
 
-    _, paths = run_monte_carlo_simulation(
+    _, mcs = run_monte_carlo_simulation(
         daily_rets=daily_rets,
         test_df=test_df,
         scenarios=scenarios,
@@ -190,7 +187,76 @@ def test_common_random_numbers_pairs_strategies(method):
         bootstrap_method=method,
     )
 
-    finals = mcs_final_capitals(paths, ["Standard"], ["A", "B"])
     np.testing.assert_array_equal(
-        finals[("Standard", "A")], finals[("Standard", "B")]
+        mcs.finals[("Standard", "A")], mcs.finals[("Standard", "B")]
     )
+    np.testing.assert_array_equal(
+        mcs.max_drawdowns[("Standard", "A")], mcs.max_drawdowns[("Standard", "B")]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Streaming statistics vs. full-history reference (memory refactoring guard)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("method", ["block", "stationary"])
+def test_streaming_stats_match_full_history_reference(method):
+    """The in-stream statistics of _simulate_strategy (terminal capital,
+    path-wise MaxDD, plot subsample) must reproduce exactly what the former
+    implementation derived post hoc from the fully materialized
+    (n_simulations, total_days) capital matrix.
+    """
+    from src.backtest.evaluation import _run_strategy_job
+
+    n_source = 300
+    n_sim = 50
+    total_days = 300
+    n_keep = 7
+    # 15 withdrawals of 2,500 on 40,000 start: most paths ruin, some survive,
+    # so the ruin branch (-1.0 MaxDD, absorbing zero) is exercised.
+    start_capital = 40_000.0
+    withdrawal = 2_500.0
+    fee = 0.001
+
+    gen = np.random.default_rng(11)
+    rets_arr = gen.normal(0.0002, 0.015, size=n_source)
+    sig_arr = gen.integers(0, 2, size=n_source).astype(float)
+
+    finals, maxdds, samples = _run_strategy_job(
+        rets_arr, sig_arr, n_sim, total_days, BLOCK_SIZE,
+        start_capital, withdrawal, fee,
+        np.random.SeedSequence(SEED), method, n_keep,
+    )
+
+    # --- Reference: former implementation with a full capital matrix ---
+    rng = np.random.default_rng(np.random.SeedSequence(SEED))
+    idx = build_bootstrap_indices(
+        method, n_source, n_sim, total_days, BLOCK_SIZE, rng,
+    )
+    sim_rets = rets_arr[idx]
+    sim_sigs = sig_arr[idx]
+    capitals = np.full(n_sim, start_capital, dtype=np.float64)
+    histories = np.empty((n_sim, total_days), dtype=np.float64)
+    ruined = np.zeros(n_sim, dtype=bool)
+    for i in range(total_days):
+        capitals *= (1 + sim_rets[:, i])
+        if i % 21 == 0:
+            amt = np.full(n_sim, withdrawal)
+            amt[sim_sigs[:, i] == 0] += withdrawal * fee
+            capitals -= amt
+        newly = (capitals <= 0) & ~ruined
+        capitals[newly] = 0.0
+        ruined |= newly
+        capitals[ruined] = 0.0
+        histories[:, i] = capitals
+
+    ref_finals = histories[:, -1]
+    cummax = np.maximum.accumulate(histories, axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dd = np.where(cummax > 0, histories / cummax - 1, -1.0)
+    ref_maxdds = dd.min(axis=1)
+
+    assert np.any(ref_finals <= 0), "test setup should produce ruined paths"
+    np.testing.assert_array_equal(finals, ref_finals)
+    np.testing.assert_array_equal(maxdds, ref_maxdds)
+    assert samples.shape == (n_keep, total_days)
+    np.testing.assert_array_equal(samples, histories[:n_keep])

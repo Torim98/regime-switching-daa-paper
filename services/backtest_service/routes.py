@@ -8,7 +8,7 @@ from src.backtest.evaluation import (
     compute_classification_metrics, plot_confusion_matrices, plot_roc_pr_curves,
     churning_stats, threshold_sensitivity,
     time_to_recovery, switch_timing_vs_peak,
-    mcs_final_capitals, depletion_rate_with_ci,
+    depletion_rate_with_ci,
     compare_bootstrap_methods, bootstrap_robustness_summary,
     test_h1_drawdown, test_h2_transformer, plot_mcs_violins,
     break_even_transaction_cost, plot_break_even, withdrawal_sensitivity,
@@ -163,7 +163,7 @@ def evaluate():
     daily_rets = backtesting_results.pct_change().dropna()
 
     mcs_cfg = cfg.evaluation.mcs
-    all_mc_summaries, mcs_paths = run_monte_carlo_simulation(
+    all_mc_summaries, mcs = run_monte_carlo_simulation(
         daily_rets=daily_rets,
         test_df=test_df,
         scenarios=scenarios,
@@ -173,10 +173,12 @@ def evaluate():
         sim_years=mcs_cfg.sim_years,
         trading_days_per_year=mcs_cfg.trading_days_per_year,
         bootstrap_method=getattr(mcs_cfg, "bootstrap_method", "block"),
+        n_plot_paths=getattr(mcs_cfg, "n_plot_paths", 1000),
     )
 
-    # Persist the MCS data
-    mcs_results = pd.DataFrame(mcs_paths)
+    # Persist the MCS plot subsample (legacy parquet schema; inference below
+    # uses mcs.finals / mcs.max_drawdowns, which cover ALL paths)
+    mcs_results = mcs.sample_paths_frame()
     mcs_results.to_parquet(cfg.data_path("mcs_data"))
 
     if all_mc_summaries:
@@ -189,7 +191,7 @@ def evaluate():
     total_days = mcs_cfg.sim_years * mcs_cfg.trading_days_per_year
 
     boxplot_template = os.path.join(str(cfg._base_dir / "assets"), "mcs_boxplot_{}.png")
-    plot_mcs_boxplots(mcs_paths, daily_rets.columns, scenarios, mcs_cfg.sim_years,
+    plot_mcs_boxplots(mcs.finals, daily_rets.columns, scenarios, mcs_cfg.sim_years,
                       boxplot_template)
 
     # Simulations start on the day after the data cutoff
@@ -274,14 +276,15 @@ def evaluate():
         )
 
     # 6) MCS: depletion CIs + H1/H2 + violin plots
-    finals = mcs_final_capitals(mcs_paths, scenarios_list, strategies)
+    # (all on the full path set via MCSResult.finals / .max_drawdowns)
+    finals = mcs.finals
 
     dep = depletion_rate_with_ci(finals, alpha=ext.alpha)
     dep.to_markdown(cfg.asset_path("depletion_ci"))
 
     regime_models = [m for m in strategies if m != "Buy_Hold"]
     h1 = test_h1_drawdown(
-        mcs_paths, scenario=ext.hypothesis_scenario,
+        mcs.max_drawdowns, scenario=ext.hypothesis_scenario,
         regime_models=regime_models, alpha=ext.alpha,
     )
     h1.to_markdown(cfg.asset_path("h1_drawdown"))
@@ -377,8 +380,6 @@ def bootstrap_robustness(n_paths: int | None = None):
     test_df = pd.read_parquet(cfg.data_path("test_data"))
 
     scenarios = build_sorr_scenarios(cfg.backtesting.sorr.scenarios)
-    scenarios_list = list(vars(cfg.backtesting.sorr.scenarios).keys())
-    strategies = list(backtesting_results.columns)
     daily_rets = backtesting_results.pct_change().dropna()
 
     mcs_cfg = cfg.evaluation.mcs
@@ -386,7 +387,9 @@ def bootstrap_robustness(n_paths: int | None = None):
 
     def _run(method: str) -> dict:
         # Same seed for both methods -> paired, reproducible comparison.
-        _, mcs_paths = run_monte_carlo_simulation(
+        # n_plot_paths=0: the comparison only needs terminal capitals,
+        # so no full path histories are kept at all.
+        _, mcs = run_monte_carlo_simulation(
             daily_rets=daily_rets,
             test_df=test_df,
             scenarios=scenarios,
@@ -396,8 +399,9 @@ def bootstrap_robustness(n_paths: int | None = None):
             sim_years=mcs_cfg.sim_years,
             trading_days_per_year=mcs_cfg.trading_days_per_year,
             bootstrap_method=method,
+            n_plot_paths=0,
         )
-        return mcs_final_capitals(mcs_paths, scenarios_list, strategies)
+        return mcs.finals
 
     finals_block = _run("block")
     finals_stationary = _run("stationary")

@@ -11,6 +11,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass, field
 
 
 def evaluate_strategies(
@@ -127,16 +128,21 @@ def _block_bootstrap_indices(
     Draws non-overlapping start positions per block and expands each block to
     `block_size` consecutive indices, then trims to `total_days`.
 
-    Returns an (n_simulations, total_days) integer index matrix.
+    Returns an (n_simulations, total_days) int32 index matrix (int32 halves
+    the footprint of the index matrix, the dominant per-worker allocation).
     """
     n_blocks = int(np.ceil(total_days / block_size))
 
-    # Draw all start indices at once: (n_simulations, n_blocks)
-    start_indices = rng.integers(0, n_source - block_size, size=(n_simulations, n_blocks))
+    # Draw all start indices at once: (n_simulations, n_blocks).
+    # Cast the small start matrix before the block expansion so the large
+    # expanded matrix is materialized as int32 directly.
+    start_indices = rng.integers(
+        0, n_source - block_size, size=(n_simulations, n_blocks),
+    ).astype(np.int32)
 
     # Expand block indices to full time-series indices
     # offsets: (1, 1, block_size) broadcast with start_indices: (n_sim, n_blocks, 1)
-    offsets = np.arange(block_size)
+    offsets = np.arange(block_size, dtype=np.int32)
     # (n_simulations, n_blocks, block_size)
     full_indices = start_indices[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :]
     # Flatten to (n_simulations, n_blocks * block_size) and trim to total_days
@@ -163,10 +169,11 @@ def _stationary_bootstrap_indices(
     vectorized across all simulations; the loop runs over `total_days` (same
     order of magnitude as the capital-evolution loop below).
 
-    Returns an (n_simulations, total_days) integer index matrix.
+    Returns an (n_simulations, total_days) int32 index matrix (int32 halves
+    the footprint of the index matrix, the dominant per-worker allocation).
     """
     p = 1.0 / block_size
-    indices = np.empty((n_simulations, total_days), dtype=np.int64)
+    indices = np.empty((n_simulations, total_days), dtype=np.int32)
     indices[:, 0] = rng.integers(0, n_source, size=n_simulations)
 
     for t in range(1, total_days):
@@ -216,7 +223,8 @@ def _simulate_strategy(
     fee: float,
     rng: np.random.Generator,
     bootstrap_method: str = "block",
-) -> tuple[np.ndarray, np.ndarray]:
+    n_plot_paths: int = 1000,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Vectorized MCS for a single strategy + scenario combination.
 
@@ -227,34 +235,48 @@ def _simulate_strategy(
     2. Capital evolution: day by day across all paths in parallel (NumPy vectors),
        with monthly withdrawal (every 21 trading days) and ruin detection.
 
+    Memory design (30-year horizon): the full (n_simulations, total_days)
+    capital matrix is never materialized. Everything the downstream evaluation
+    needs is computed in-stream during the day loop:
+    - terminal capitals (depletion CI, H2, violin/box plots),
+    - path-wise maximum drawdown (H1), identical to the former post-hoc
+      `arr/cummax - 1` definition (ruined segments count as -1.0),
+    - full histories only for the first `n_plot_paths` paths (plots/dashboard;
+      the shared index stream makes this subsample CRN-paired across cells).
+    Resampled return/signal matrices are also not materialized; source arrays
+    are gathered per day via the index matrix.
+
     Returns:
         final_capitals: (n_simulations,) terminal capital per path
-        all_capital_histories: (n_simulations, total_days) full paths
+        max_drawdowns: (n_simulations,) path-wise maximum drawdown per path
+        sample_paths: (min(n_plot_paths, n_simulations), total_days) capital paths
     """
     n_source = len(rets_arr)
+    n_keep = min(n_plot_paths, n_simulations)
 
-    # --- Vectorized paired bootstrap ---
+    # --- Vectorized paired bootstrap (int32 index matrix, see builders) ---
     full_indices = build_bootstrap_indices(
         bootstrap_method, n_source, n_simulations, total_days, block_size, rng,
     )
 
-    sim_rets = rets_arr[full_indices]   # (n_simulations, total_days)
-    sim_sigs = sig_arr[full_indices]    # (n_simulations, total_days)
-
-    # --- Vectorized capital evolution ---
+    # --- Vectorized capital evolution (streaming statistics) ---
     capitals = np.full(n_simulations, start_capital, dtype=np.float64)
-    all_capital_histories = np.empty((n_simulations, total_days), dtype=np.float64)
     ruined = np.zeros(n_simulations, dtype=bool)
+    sample_paths = np.empty((n_keep, total_days), dtype=np.float64)
+    # Running peak/MaxDD over the *stored* daily capitals — matches the former
+    # post-hoc cummax over the persisted path (start capital excluded).
+    running_peak = np.zeros(n_simulations, dtype=np.float64)
+    max_drawdowns = np.full(n_simulations, np.inf, dtype=np.float64)
 
     for i in range(total_days):
         # Apply return (all paths simultaneously)
-        capitals *= (1 + sim_rets[:, i])
+        capitals *= (1 + rets_arr[full_indices[:, i]])
 
         # Monthly withdrawal (every 21 trading days)
         if i % 21 == 0:
             withdrawal_amt = np.full(n_simulations, withdrawal)
             # Liquidity fee if signal == 0 (invested in bull phase)
-            fee_mask = sim_sigs[:, i] == 0
+            fee_mask = sig_arr[full_indices[:, i]] == 0
             withdrawal_amt[fee_mask] += withdrawal * fee
             capitals -= withdrawal_amt
 
@@ -266,9 +288,39 @@ def _simulate_strategy(
         # Already ruined paths stay at 0
         capitals[ruined] = 0.0
 
-        all_capital_histories[:, i] = capitals
+        # Streaming MaxDD: dd = capital / running peak - 1; ruined-from-day-0
+        # paths (peak == 0) count as -1.0, as in the former definition.
+        np.maximum(running_peak, capitals, out=running_peak)
+        dd = np.where(running_peak > 0, capitals / running_peak - 1.0, -1.0)
+        np.minimum(max_drawdowns, dd, out=max_drawdowns)
 
-    return capitals.copy(), all_capital_histories
+        sample_paths[:, i] = capitals[:n_keep]
+
+    return capitals.copy(), max_drawdowns, sample_paths
+
+
+@dataclass
+class MCSResult:
+    """Memory-bounded MCS output, keyed by (scenario, strategy).
+
+    Inference (depletion CI, H1/H2 Wilcoxon tests) runs on `finals` and
+    `max_drawdowns`, which cover ALL simulated paths. `sample_paths` holds
+    full capital histories only for the first `n_plot_paths` paths per cell
+    (plots/dashboard); because every cell shares one bootstrap index stream,
+    this subsample is CRN-paired across strategies like the full set.
+    """
+    finals: dict = field(default_factory=dict)         # -> (n_paths,) terminal capitals
+    max_drawdowns: dict = field(default_factory=dict)  # -> (n_paths,) path-wise MaxDD
+    sample_paths: dict = field(default_factory=dict)   # -> (n_plot_paths, total_days)
+
+    def sample_paths_frame(self) -> pd.DataFrame:
+        """Plot subsample as a DataFrame in the legacy parquet schema
+        (columns "{scenario}_{strategy}_path_{s:03d}", rows = trading days)."""
+        cols = {}
+        for (sc, strat), paths in self.sample_paths.items():
+            for s in range(paths.shape[0]):
+                cols[f"{sc}_{strat}_path_{s:03d}"] = paths[s]
+        return pd.DataFrame(cols)
 
 
 def run_monte_carlo_simulation(
@@ -281,7 +333,8 @@ def run_monte_carlo_simulation(
     sim_years: int,
     trading_days_per_year: int,
     bootstrap_method: str = "block",
-) -> tuple[list[dict], dict]:
+    n_plot_paths: int = 1000,
+) -> tuple[list[dict], MCSResult]:
     """
     Bootstrap Monte Carlo simulation (MCS) as robustness check.
 
@@ -302,14 +355,17 @@ def run_monte_carlo_simulation(
 
     Reproducibility ensured via random_seed.
 
-    Optimized for high path counts (10,000+):
-    - Vectorized bootstrap resampling (NumPy fancy indexing)
+    Optimized for high path counts and long horizons (10,000+ paths, 30 years):
+    - Vectorized bootstrap resampling (NumPy fancy indexing, int32 indices)
     - Vectorized capital evolution (all paths in parallel)
+    - Streaming statistics instead of full path persistence: terminal capital
+      and path-wise MaxDD for all paths, full histories only for the first
+      `n_plot_paths` paths per cell (see _simulate_strategy / MCSResult)
     - Parallelization across strategies via concurrent.futures
 
-    Returns (all_mc_summaries, mcs_paths_collector):
+    Returns (all_mc_summaries, mcs_result):
     - all_mc_summaries: list of dicts with ruin probability and median terminal capital
-    - mcs_paths_collector: dict with all simulated capital paths
+    - mcs_result: MCSResult with finals, max_drawdowns, and the plot subsample
     """
     from concurrent.futures import ProcessPoolExecutor, as_completed
     import os
@@ -333,7 +389,7 @@ def run_monte_carlo_simulation(
     shared_seed = np.random.SeedSequence(random_seed)
 
     all_mc_summaries = []
-    mcs_paths_collector = {}
+    mcs_result = MCSResult()
 
     # --- Prepare jobs: (scenario, strategy) pairs ---
     jobs = []
@@ -359,6 +415,7 @@ def run_monte_carlo_simulation(
                 params["fee"],
                 shared_seed,
                 bootstrap_method,
+                n_plot_paths,
             ))
             job_keys.append((sc_name, strategy))
 
@@ -386,15 +443,15 @@ def run_monte_carlo_simulation(
             results[key] = _run_strategy_job(*job_args)
 
     # --- Aggregate results ---
-    for (sc_name, strategy), (final_capitals, all_histories) in results.items():
+    for (sc_name, strategy), (final_capitals, max_drawdowns, sample_paths) in results.items():
         print(f"  [done] {sc_name} / {strategy}")
 
-        # Write paths into the collector
-        for s in range(n_simulations):
-            path_id = f"{sc_name}_{strategy}_path_{s:03d}"
-            mcs_paths_collector[path_id] = all_histories[s].tolist()
+        key = (sc_name, strategy)
+        mcs_result.finals[key] = final_capitals
+        mcs_result.max_drawdowns[key] = max_drawdowns
+        mcs_result.sample_paths[key] = sample_paths
 
-        # Summary statistics
+        # Summary statistics (over ALL paths)
         ruin_prob = np.mean(final_capitals <= 0)
         median_wealth = np.median(final_capitals)
 
@@ -405,12 +462,13 @@ def run_monte_carlo_simulation(
             "Median Terminal Capital": f"{median_wealth:,.2f} €",
         })
 
-    return all_mc_summaries, mcs_paths_collector
+    return all_mc_summaries, mcs_result
 
 
 def _run_strategy_job(
     rets_arr, sig_arr, n_simulations, total_days, block_size,
     start_capital, withdrawal, fee, seed, bootstrap_method="block",
+    n_plot_paths=1000,
 ):
     """Wrapper for ProcessPoolExecutor: builds a generator from `seed`.
 
@@ -423,7 +481,7 @@ def _run_strategy_job(
     rng = np.random.default_rng(seed)
     return _simulate_strategy(
         rets_arr, sig_arr, n_simulations, total_days, block_size,
-        start_capital, withdrawal, fee, rng, bootstrap_method,
+        start_capital, withdrawal, fee, rng, bootstrap_method, n_plot_paths,
     )
 
 
@@ -734,24 +792,10 @@ def switch_timing_vs_peak(
 # ------------------------------------------------------------
 # Ch. 4.3: MCS: terminal wealth, depletion CI, H1/H2 tests
 # ------------------------------------------------------------
-def mcs_final_capitals(
-    mcs_paths_collector: dict,
-    scenarios: list[str],
-    strategies: list[str],
-) -> dict:
-    """
-    Reconstruct the terminal capitals per (scenario, strategy) from the
-    path collector as a 1D NumPy array.
-    """
-    finals = {}
-    for sc in scenarios:
-        for s in strategies:
-            prefix = f"{sc}_{s}_path_"
-            vals = [p[-1] for k, p in mcs_paths_collector.items() if k.startswith(prefix)]
-            if vals:
-                finals[(sc, s)] = np.asarray(vals)
-    return finals
-
+# Terminal capitals and path-wise MaxDD now come directly from
+# MCSResult.finals / MCSResult.max_drawdowns (computed in-stream over ALL
+# paths during the simulation); the former post-hoc reconstruction from the
+# full path collector (mcs_final_capitals / mcs_path_maxdd) is gone with it.
 
 def depletion_rate_with_ci(
     finals: dict,
@@ -910,23 +954,8 @@ def bootstrap_robustness_summary(
     return "\n\n".join(lines)
 
 
-def mcs_path_maxdd(mcs_paths_collector: dict, prefix: str) -> np.ndarray:
-    """MaxDD per path (for hypothesis tests)."""
-    dds = []
-    for k, path in mcs_paths_collector.items():
-        if not k.startswith(prefix):
-            continue
-        arr = np.asarray(path, dtype=float)
-        cummax = np.maximum.accumulate(arr)
-        # Protection against division by 0 in ruin paths
-        with np.errstate(divide="ignore", invalid="ignore"):
-            dd = np.where(cummax > 0, arr / cummax - 1, -1.0)
-        dds.append(dd.min())
-    return np.asarray(dds)
-
-
 def test_h1_drawdown(
-    mcs_paths_collector: dict,
+    max_drawdowns: dict,
     scenario: str,
     regime_models: list[str],
     benchmark: str = "Buy_Hold",
@@ -935,13 +964,16 @@ def test_h1_drawdown(
     """
     H1: Regime switching reduces MaxDD vs. buy and hold.
     Paired Wilcoxon test (same bootstrap indices → paired paths).
+
+    `max_drawdowns`: MCSResult.max_drawdowns, keyed (scenario, strategy),
+    with the path-wise MaxDD of ALL simulated paths per cell.
     """
     from scipy.stats import wilcoxon
 
-    dd_bh = mcs_path_maxdd(mcs_paths_collector, f"{scenario}_{benchmark}_path_")
+    dd_bh = max_drawdowns.get((scenario, benchmark), np.array([]))
     rows = []
     for m in regime_models:
-        dd_m = mcs_path_maxdd(mcs_paths_collector, f"{scenario}_{m}_path_")
+        dd_m = max_drawdowns.get((scenario, m), np.array([]))
         if len(dd_m) != len(dd_bh) or len(dd_m) == 0:
             continue
         # H1: dd_m > dd_bh (less negative) → one-sided "greater"

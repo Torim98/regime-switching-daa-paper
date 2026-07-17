@@ -233,18 +233,23 @@ backtesting:
                               # (0,1) for all tuned thresholds (HMM 0.875+0.1, LSTM 0.15-0.1); chosen
                               # ex ante, NOT selected on OOS results (holdout stays selection-free)
   sorr:
+    # Rates recalibrated for the 30-year decumulation horizon (previously
+    # 0.06 / 0.096 / 0.08 on a 10-year horizon, where ruin required an
+    # overstretched withdrawal rate). 4% anchors to the SWR literature
+    # (Bengen 1994, Trinity study, 30-year standard horizon); 6% is the
+    # stress rate; Low_Capital combines a reduced base with the mid rate.
     scenarios:
       Standard:
         initial_capital: 500000.00
-        annual_withdrawal_rate: 0.06     # 2500€/month ÷ 500000€ × 12 = 0.06
+        annual_withdrawal_rate: 0.04     # ~1666.67€/month × 12 ÷ 500000€ = 0.04
         liquidity_fee: 0.001
       Aggressive:
         initial_capital: 500000.00
-        annual_withdrawal_rate: 0.096    # 4000€/month ÷ 500000€ × 12 = 0.096
+        annual_withdrawal_rate: 0.06     # 2500€/month × 12 ÷ 500000€ = 0.06
         liquidity_fee: 0.001
       Low_Capital:
         initial_capital: 300000.00
-        annual_withdrawal_rate: 0.08     # 2000€/month ÷ 300000€ × 12 = 0.08
+        annual_withdrawal_rate: 0.05     # 1250€/month × 12 ÷ 300000€ = 0.05
         liquidity_fee: 0.001
 
 # --- Evaluation / MCS (Backtest Service) ---
@@ -254,8 +259,14 @@ evaluation:
     block_length: 20
     bootstrap_method: "stationary"     # "block" (fixed-length) | "stationary" (Politis & Romano 1994)
     random_seed: 42
-    sim_years: 10
+    sim_years: 30                      # decumulation horizon; 30y = SWR-literature standard (previously 10)
     trading_days_per_year: 252
+    # Full capital paths are persisted only for this many paths per
+    # (scenario, strategy) cell (plots/dashboard). Inference (depletion CI,
+    # H1/H2) always uses all n_paths via terminal capitals + path-wise MaxDD,
+    # which are computed in-stream. Keeps 06_mcs_data.parquet and RAM bounded
+    # (full persistence at 30y × 10k paths would be ~13 GB on disk alone).
+    n_plot_paths: 1000
   # --- Issue #13: Extended Evaluation ---
   extended:
     nber_source: "fred_csv"         # "fred_csv" | "local"

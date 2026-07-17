@@ -155,20 +155,19 @@ def plot_sorr_scenario(sim_results, scenario_name: str, params: dict,
     plt.close(fig)
 
 
-def plot_mcs_boxplots(mcs_paths_collector, daily_rets_columns, scenarios,
+def plot_mcs_boxplots(finals, daily_rets_columns, scenarios,
                       sim_years: int, save_path_template: str):
-    """MCS violin + boxplots per scenario (optimized for 10,000+ paths)."""
+    """MCS violin + boxplots per scenario (optimized for 10,000+ paths).
+
+    `finals`: MCSResult.finals, keyed (scenario, strategy), with the terminal
+    capitals of ALL simulated paths per cell.
+    """
     for sc_name, params in scenarios.items():
         mc_results_scenario = {}
         for strategy in daily_rets_columns:
-            prefix = f"{sc_name}_{strategy}_path_"
-            # Collect only the terminal capital values directly (last value per path)
-            finals = [
-                path[-1] for k, path in mcs_paths_collector.items()
-                if k.startswith(prefix)
-            ]
-            if finals:
-                mc_results_scenario[strategy] = finals
+            arr = finals.get((sc_name, strategy))
+            if arr is not None and len(arr):
+                mc_results_scenario[strategy] = arr
 
         if mc_results_scenario:
             labels = [s.replace('_', ' ') for s in mc_results_scenario.keys()]
@@ -262,13 +261,16 @@ def plot_mcs_paths(mcs_results_df, scenarios_list: list, strategies,
             ax.plot(x, q50, color=color, linewidth=2,
                     label=strat.replace('_', ' '))
 
-        # Year ticks: calendar years from start_year (default: current year)
+        # Year ticks: calendar years from start_year (default: current year).
+        # For long horizons (> 15 years) label only every 5th year to keep
+        # the axis legible (31 labels at the 30-year horizon otherwise).
         if start_year is None:
             from datetime import datetime
             start_year = datetime.now().year
         n_years = values.shape[0] // trading_days_per_year
-        year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
-        year_labels = [str(start_year + y) for y in range(n_years + 1)]
+        tick_step = 1 if n_years <= 15 else 5
+        year_ticks = [y * trading_days_per_year for y in range(0, n_years + 1, tick_step)]
+        year_labels = [str(start_year + y) for y in range(0, n_years + 1, tick_step)]
         ax.set_xticks(year_ticks)
         ax.set_xticklabels(year_labels)
 
@@ -319,13 +321,16 @@ def plot_mcs_quantiles(mcs_results_df, scenarios_list: list, strategies,
 
             n_paths_display = values.shape[1]
 
-        # Year ticks: calendar years from start_year (default: current year)
+        # Year ticks: calendar years from start_year (default: current year).
+        # For long horizons (> 15 years) label only every 5th year to keep
+        # the axis legible (31 labels at the 30-year horizon otherwise).
         if start_year is None:
             from datetime import datetime
             start_year = datetime.now().year
         n_years = total_days // trading_days_per_year
-        year_ticks = [y * trading_days_per_year for y in range(n_years + 1)]
-        year_labels = [str(start_year + y) for y in range(n_years + 1)]
+        tick_step = 1 if n_years <= 15 else 5
+        year_ticks = [y * trading_days_per_year for y in range(0, n_years + 1, tick_step)]
+        year_labels = [str(start_year + y) for y in range(0, n_years + 1, tick_step)]
         ax.set_xticks(year_ticks)
         ax.set_xticklabels(year_labels)
 
