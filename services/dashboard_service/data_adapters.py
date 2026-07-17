@@ -37,7 +37,8 @@ def _read_parquet_or_404(
 ) -> pd.DataFrame:
     """Load Parquet or 404. With `columns`, read only the desired columns.
     Saves many seconds per request for large, column-rich artifacts
-    (especially mcs_data, 3.7 GB)."""
+    (especially mcs_data, ~1.3 GB: the n_plot_paths plot subsample over the
+    30-year horizon)."""
     try:
         return pd.read_parquet(path, columns=columns)
     except FileNotFoundError:
@@ -1200,8 +1201,11 @@ def chart_mcs_distribution(
 ):
     """Distribution of the MCS terminal capital as box or violin plot.
 
-    1:1 counterpart to the pipeline PNGs (mcs_boxplot_{sc}.png / mcs_violin_{sc}.png):
-    per strategy, the terminal capital of all paths (last value of the simulation).
+    Counterpart to the pipeline PNGs (mcs_boxplot_{sc}.png / mcs_violin_{sc}.png):
+    per strategy, the terminal capital (last value of the simulation). Note the
+    pipeline PNGs are built from all n_paths terminal capitals (MCSResult.finals),
+    whereas this chart reads the persisted parquet and therefore reflects the
+    n_plot_paths plot subsample; the distribution shape is equivalent.
     """
     cfg = _cfg()
     mcs_path = cfg.data_path("mcs_data")
@@ -1209,9 +1213,9 @@ def chart_mcs_distribution(
     colors = cfg.color_map
 
     # Read the Parquet footer (cheap), then load only the path columns
-    # relevant for this scenario. With ~150k total columns in the 3.7 GB
-    # Parquet, this saves double-digit seconds per request; the rest of the
-    # file stays on disk.
+    # relevant for this scenario. With ~18k total columns (n_plot_paths x 18
+    # scenario-strategy cells) in the ~1.3 GB Parquet, this saves seconds per
+    # request; the rest of the file stays on disk.
     all_cols = _list_parquet_columns_or_404(mcs_path, hint)
     sc_prefix = f"{scenario}_"
     wanted = [c for c in all_cols if c.startswith(sc_prefix) and "_path_" in c]

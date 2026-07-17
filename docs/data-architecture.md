@@ -80,7 +80,7 @@ into the evaluation and the thesis.
 | `05_backtesting_results_data.parquet` | Backtest Service | Equity curves and returns of all strategies |
 | `05_backtesting_transaction_costs_data.parquet` | Backtest Service | Transaction cost analysis |
 | `05_backtesting_sorr_simulation.parquet` | Backtest Service | Sequence-of-returns-risk simulation |
-| `06_mcs_data.parquet` | Backtest Service | Monte Carlo simulation paths |
+| `06_mcs_data.parquet` | Backtest Service | Monte Carlo simulation paths (plot subsample of `n_plot_paths` capital histories per cell; the full-path inference statistics are computed in-stream and not persisted) |
 
 ## Path Management
 
