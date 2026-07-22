@@ -23,12 +23,22 @@
 
 ## 1. Overview
 
-The HPO tunes the hyperparameters of all five regime models (MSM, HMM, HMM_Uni, LSTM, Transformer) using the walk-forward splitter as an inner cross-validation. Each trial trains a model per fold, concatenates the out-of-sample (OOS) net returns of all folds into one pooled series, and scores that series with a configurable risk metric that Optuna maximizes.
+The HPO tunes the hyperparameters of all five regime models (MSM, HMM, HMM_Uni,
+LSTM, Transformer) using the walk-forward splitter as an inner cross-validation.
+Each trial trains a model per fold and constructs one chronological out-of-sample
+(OOS) net-return path. The lagged signal, current allocation, and transaction
+cost accounting continue across fold boundaries before the path is scored with
+a configurable risk metric that Optuna maximizes.
 
 Key design choices, each of which is motivated below:
 
 - **Objective** is a path-dependent risk metric (default: **Martin ratio**) on the **pooled** OOS series, not the fold-wise median Sharpe.
 - **Econometric models** (MSM, HMM, HMM_Uni) are searched **exhaustively via a grid**; **deep-learning models** (LSTM, Transformer) via a **multivariate TPE sampler**.
+- **Supervised fold labels are causal:** external turning-point labels are
+  recomputed as of each training cutoff and never use test-period prices.
+- **HPO and deployment use the same fit/execution procedure:** HMM and HMM_Uni
+  use ten EM starts, the LSTM learning rate is explicit, and portfolio state is
+  carried across consecutive OOS folds.
 - **Selection and evaluation are time-separated:** the HPO only sees the development folds (`tune_until`), while the final walk-forward run uses all folds, so the holdout stays selection-free.
 - **Full reproducibility:** fixed seed, versioned study names, persistent SQLite storage.
 
@@ -52,8 +62,18 @@ final evaluation are consistent by construction. The HPO never trains the
 persisted production models; it only searches for the hyperparameters that are
 then written into `config.yaml` and used by the final run.
 
-There is **no look-ahead bias within a fold**: each fold fits its labels and
-scaler on the train window only, and Optuna observes OOS metrics exclusively.
+There is **no look-ahead bias within a fold**. Scalers and model parameters are
+fitted on the training window only. For external supervised targets such as
+Pagan-Sossounov, the labeler is evaluated on the complete price history
+available **through the final training date**, and the resulting labels are then
+aligned to the rolling training window. Retaining the earlier history avoids an
+artificial left-edge effect, while the as-of cutoff prevents test-period prices
+from revising training labels. Test labels are not required for DL inference,
+and Optuna observes OOS metrics exclusively.
+
+The same numerical choices are used in HPO and deployment: HMM and HMM_Uni use
+the configured `n_init=10`, and the LSTM receives the sampled or frozen learning
+rate explicitly rather than falling back to the Keras Adam default.
 
 ---
 
@@ -67,9 +87,16 @@ path-dependent tail metric on the **pooled** OOS return series instead lets
 exactly those crisis segments drive the objective, which aligns the search with
 the paper's sequence-of-returns-risk (SORR) / tail-risk goal.
 
-Concretely, every objective function accumulates each fold's daily net returns
-into a list and, at the end, calls `compute_oos_metrics(np.concatenate(pooled))`
-([optimize.py](../src/backtest/optimize.py)).
+Concretely, every objective function computes each fold's daily net returns with
+a shared `BacktestState`. This state retains the raw signal history required by
+the T+1 shift and the previous trading position. Consequently, the first day of
+a new fold uses the correct lagged signal and charges a transaction cost when
+the allocation changes at the boundary. The fold arrays are then concatenated
+and passed to `compute_oos_metrics`; with the headline configuration
+(`every_nth_fold_per_model: 1`), this is exactly equivalent to running the
+backtest once on the concatenated OOS signal
+([engine.py](../src/backtest/engine.py),
+[optimize.py](../src/backtest/optimize.py)).
 
 ### Available metrics
 
@@ -123,8 +150,16 @@ pruning them away.**
 | HMM_Uni | `threshold` | 0.10 to 0.975, step 0.025 |
 
 `k_regimes` / `n_components` stays fixed at 2 (bull/bear premise, comparison axis
-of Issue #3). `covariance_type` is **not** tuned for HMM_Uni: with univariate
-input the 1x1 covariance makes full/diag/tied identical.
+of Issue #3). `covariance_type` is **not** tuned for HMM_Uni and remains `full`.
+For one-dimensional Gaussian emissions, `full`, `diag`, and `spherical` are
+equivalent state-specific variance parametrizations. `tied` is not equivalent:
+it imposes one variance shared across states and is therefore deliberately not
+treated as interchangeable with the other variants.
+
+The number of EM initializations is a fixed estimation setting rather than a
+search dimension. HMM and HMM_Uni both use `n_init=10` in HPO and in the final
+walk-forward run. Each fit tries ten deterministic seed offsets and retains the
+converged model with the highest training log-likelihood.
 
 ### Deep-learning models (TPE)
 
@@ -186,6 +221,9 @@ The sampler is chosen per model from `optimization.grid_models`:
 | LSTM | TPE, 50 startup | 300 |
 | Transformer | TPE, 60 startup | 400 |
 
+The budgets apply independently to the current v3 studies. Only trials stored
+under the current versioned study names count toward them.
+
 The DL budgets are **minimum** budgets. The pre-registered stopping rule (Issue
 #5) is: run in blocks of 100 trials and stop when the best value improves by
 < 1 % over a block **and** the contour plots show no unexplored high-performance
@@ -217,6 +255,14 @@ trainers' early stopping on validation loss governs the effective epoch count.
 Both the LSTM ([lstm.py](../src/models/lstm.py)) and the Transformer
 ([transformer.py](../src/models/transformer.py)) restore the best weights.
 This removes one redundant search dimension.
+
+### Optimizer parity
+
+The LSTM's sampled `learning_rate` is assigned explicitly to its Keras optimizer.
+After `apply_best_params`, the final walk-forward builder applies that same
+frozen rate explicitly; passing the optimizer name cannot silently restore
+Adam's `1e-3` default. The Transformer already receives its sampled/frozen rate
+directly when constructing the PyTorch optimizer.
 
 ### Pruning
 
@@ -257,10 +303,13 @@ Sharpe Ratio and PBO ([Section 9](#9-post-hpo-analysis)).
 
 - **Fixed seed** (`sampler.seed: 42`) for the TPE and grid samplers (Issue #5
   acceptance criterion).
-- **Versioned study names** via `study_suffix` (e.g. `opt_LSTM_v2_martin`). A
-  changed search space or objective must never resume into a study built under
-  different distributions, which would contaminate the TPE posterior. The old
-  study database is kept as an archive for the before/after comparison.
+- **Versioned study names** via `study_suffix`. The current suffix is
+  `v3_martin_causal_stateful` (for example,
+  `opt_LSTM_v3_martin_causal_stateful`). Only studies with this suffix belong
+  to the documented methodology and may be resumed. A changed search space or
+  objective must use a new suffix rather than resume a study built under
+  different distributions, which would contaminate the TPE posterior. Studies
+  with other suffixes remain archival records.
 - **Persistent storage** in `models/optuna_studies.db` (SQLite). Because SQLite
   on Docker bind mounts is fragile under write pressure, the storage is opened
   with WAL journaling, `busy_timeout`, `synchronous=NORMAL` and pre-ping. Runs
@@ -272,8 +321,9 @@ Sharpe Ratio and PBO ([Section 9](#9-post-hpo-analysis)).
 ## 9. Post-HPO Analysis
 
 [src/backtest/hpo_analysis.py](../src/backtest/hpo_analysis.py) operates on the
-persisted studies and reuses the fold machinery from `optimize.py`, so its
-numbers are identical to the search itself. It has two scopes:
+persisted studies and reuses the causal label construction, HMM multi-start,
+and fold-continuous portfolio machinery from `optimize.py`, so its numbers are
+consistent with the search itself. It has two scopes:
 
 - **`cheap`** (seconds, reads logged trial attrs only): convergence review +
   objective sensitivity.
@@ -369,7 +419,7 @@ All keys under `optimization:` in [config/config.yaml](../config/config.yaml):
 | `pruning.n_startup_trials` / `n_warmup_steps` | Pruner warmup |
 | `tune_until` | Selection cutoff date (development period) |
 | `dl_max_epochs` | Epoch ceiling for DL training (with early stopping) |
-| `study_suffix` | Versioned study-name suffix |
+| `study_suffix` | Versioned study-name suffix; currently `v3_martin_causal_stateful` |
 | `search_spaces` | Declarative per-model search spaces |
 | `storage` | Optuna SQLite storage URL |
 
