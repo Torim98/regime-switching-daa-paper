@@ -362,7 +362,7 @@ def evaluate_params(model_name: str, df: pd.DataFrame, cfg, params: dict,
 
 
 def _eval_econometric(model_name, df, cfg, params, splits, fee, signal_shift):
-    pooled = []
+    pooled, portfolio_state = [], None
     for train_idx, test_idx in splits:
         df_train, df_test = df.loc[train_idx], df.loc[test_idx]
         try:
@@ -383,56 +383,64 @@ def _eval_econometric(model_name, df, cfg, params, splits, fee, signal_shift):
                     n_components=mc.n_components, covariance_type=cov,
                     n_iter=mc.n_iter, random_state=mc.random_state,
                     threshold=params["threshold"],
+                    n_init=getattr(mc, "n_init", 1),
                 )
-            pooled.append(O._fold_portfolio_returns(df_test, signal, signal_shift, fee))
+            fold_rets, portfolio_state = O._fold_portfolio_returns(
+                df_test, signal, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"{model_name} eval fold failed: {e}")
+            portfolio_state = None
     return pooled
 
 
 def _eval_lstm(df, cfg, params, splits, fee, signal_shift):
     from src.models.lstm import train_lstm_fold
-    from tensorflow.keras.optimizers import Adam
-    from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
+    from src.data.labels.resolver import compute_supervised_labels_asof, resolve_label_col
 
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
     lc = cfg.models.lstm
     dl_warm, epochs_warm, max_epochs = O._dl_warm_cfg(cfg)
 
-    if cfg.labels.supervised_label_source != "hmm":
-        df = df.copy()
-        if "Supervised_Label" not in df.columns:
-            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
-
-    pooled, state = [], None
+    pooled, state, portfolio_state = [], None, None
     for train_idx, test_idx in splits:
-        df_train, df_test = df.loc[train_idx], df.loc[test_idx]
+        df_train, df_test = df.loc[train_idx].copy(), df.loc[test_idx]
         try:
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = O._generate_hmm_labels(df_train, df_test, cfg)
+            else:
+                df_train["Supervised_Label"] = compute_supervised_labels_asof(
+                    df, train_idx, cfg,
+                )
             probs, pred_idx, state = train_lstm_fold(
                 df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
                 window_size=params["window_size"], units_l1=params["units_l1"],
                 units_l2=params["units_l2"], return_sequences=lc.return_sequences,
                 dropout=params["dropout"], dense=lc.dense, activation=lc.activation,
-                optimizer=Adam(learning_rate=params["learning_rate"]), metrics=lc.metrics,
+                optimizer=lc.optimizer, learning_rate=params["learning_rate"],
+                metrics=lc.metrics,
                 epochs=max_epochs, batch_size=params["batch_size"],
                 validation_split=lc.validation_split, verbose=0,
                 init_weights=state if dl_warm else None,
                 epochs_warm=epochs_warm if (dl_warm and state is not None) else None,
             )
             sig = pd.Series((probs >= params["threshold"]).astype(int), index=pred_idx)
-            pooled.append(O._fold_portfolio_returns(df_test.loc[pred_idx], sig, signal_shift, fee))
+            fold_rets, portfolio_state = O._fold_portfolio_returns(
+                df_test.loc[pred_idx], sig, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"LSTM eval fold failed: {e}")
             state = None
+            portfolio_state = None
     return pooled
 
 
 def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
     from src.models.transformer import train_transformer_fold
-    from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
+    from src.data.labels.resolver import compute_supervised_labels_asof, resolve_label_col
 
     features = cfg.features.model_features
     labels_col = resolve_label_col(cfg)
@@ -440,17 +448,16 @@ def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
     dl_warm, epochs_warm, max_epochs = O._dl_warm_cfg(cfg)
     d_model, n_heads = (int(x) for x in params["dmodel_nheads"].split("-"))
 
-    if cfg.labels.supervised_label_source != "hmm":
-        df = df.copy()
-        if "Supervised_Label" not in df.columns:
-            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
-
-    pooled, state = [], None
+    pooled, state, portfolio_state = [], None, None
     for train_idx, test_idx in splits:
-        df_train, df_test = df.loc[train_idx], df.loc[test_idx]
+        df_train, df_test = df.loc[train_idx].copy(), df.loc[test_idx]
         try:
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = O._generate_hmm_labels(df_train, df_test, cfg)
+            else:
+                df_train["Supervised_Label"] = compute_supervised_labels_asof(
+                    df, train_idx, cfg,
+                )
             probs, pred_idx, state = train_transformer_fold(
                 df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
                 window_size=params["window_size"], d_model=d_model, n_heads=n_heads,
@@ -462,10 +469,14 @@ def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
                 epochs_warm=epochs_warm if (dl_warm and state is not None) else None,
             )
             sig = pd.Series((probs >= params["threshold"]).astype(int), index=pred_idx)
-            pooled.append(O._fold_portfolio_returns(df_test.loc[pred_idx], sig, signal_shift, fee))
+            fold_rets, portfolio_state = O._fold_portfolio_returns(
+                df_test.loc[pred_idx], sig, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"Transformer eval fold failed: {e}")
             state = None
+            portfolio_state = None
     return pooled
 
 

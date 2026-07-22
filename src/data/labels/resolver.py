@@ -30,6 +30,44 @@ def compute_supervised_labels(df: pd.DataFrame, cfg) -> pd.Series:
         raise ValueError(f"Unknown supervised_label_source: {source}")
 
 
+def compute_supervised_labels_asof(
+    df: pd.DataFrame,
+    train_index: pd.DatetimeIndex,
+    cfg,
+) -> pd.Series:
+    """Compute external labels using only information available at a fold cutoff.
+
+    Turning-point labelers such as Pagan-Sossounov are ex-post algorithms: a
+    centered extrema window can revise recent labels when later observations
+    arrive.  Computing the label once on the complete data set and then slicing
+    it into walk-forward folds would therefore leak test-period prices into the
+    training targets.
+
+    This helper evaluates the labeler on the complete history *through the last
+    training observation only* and returns the labels aligned to ``train_index``.
+    Keeping the pre-window history avoids artificial left-edge effects in a
+    rolling training window while the cutoff prevents any test observation from
+    influencing the targets.
+    """
+    if len(train_index) == 0:
+        raise ValueError("train_index must not be empty.")
+
+    train_index = pd.DatetimeIndex(train_index)
+    cutoff = train_index.max()
+    history = df.loc[df.index <= cutoff]
+    if history.empty:
+        raise ValueError(f"No observations available through cutoff {cutoff}.")
+
+    labels = compute_supervised_labels(history, cfg).reindex(train_index)
+    if labels.isna().any():
+        missing = int(labels.isna().sum())
+        raise ValueError(
+            f"As-of supervised labels are missing for {missing} training rows "
+            f"at cutoff {cutoff}."
+        )
+    return labels
+
+
 def resolve_label_col(cfg) -> str:
     """
     Returns the column name that LSTM/Transformer use as `labels_col`.

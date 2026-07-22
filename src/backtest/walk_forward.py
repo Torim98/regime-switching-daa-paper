@@ -5,8 +5,16 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import hashlib
+import importlib.metadata
 import json
-from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
+import platform
+from pathlib import Path
+from types import SimpleNamespace
+from src.data.labels.resolver import (
+    compute_supervised_labels,
+    compute_supervised_labels_asof,
+    resolve_label_col,
+)
 
 
 def walk_forward_splits(
@@ -254,8 +262,16 @@ def run_walk_forward(
     transformer_states = [None] * n_ens
 
     for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
-        df_train = df.loc[train_idx]
+        df_train = df.loc[train_idx].copy()
         df_test  = df.loc[test_idx]
+
+        # External turning-point labels must be recomputed as of each training
+        # cutoff. The global label stored in result_df is descriptive only and
+        # may use later observations; it must never enter fold training.
+        if supervised_label_source != "hmm":
+            df_train["Supervised_Label"] = compute_supervised_labels_asof(
+                df, train_idx, cfg,
+            )
 
         if "LSTM" in models_to_run:
             try:
@@ -270,6 +286,7 @@ def run_walk_forward(
                         window_size=c.window_size, units_l1=c.units_l1, units_l2=c.units_l2,
                         return_sequences=c.return_sequences, dropout=c.dropout,
                         dense=c.dense, activation=c.activation, optimizer=c.optimizer,
+                        learning_rate=c.learning_rate,
                         metrics=c.metrics, epochs=c.epochs, batch_size=c.batch_size,
                         validation_split=c.validation_split, verbose=0,
                         init_weights=st if dl_warm_start else None,
@@ -341,49 +358,117 @@ def run_walk_forward(
 
     return result_df
 
-def _walk_forward_fingerprint(cfg, df_shape: tuple, df_index_hash: str) -> str:
-    """
-    Produces a deterministic hash over all parameters that influence the
-    walk-forward result. If any parameter changes, the cache is invalidated.
-    """
-    params = {
-        "mode": cfg.walk_forward.mode,
-        "train_window_years": cfg.walk_forward.train_window_years,
-        "test_window_months": cfg.walk_forward.test_window_months,
-        "step_months": cfg.walk_forward.step_months,
-        "min_train_years": cfg.walk_forward.min_train_years,
-        "df_shape": list(df_shape),
-        "df_index_hash": df_index_hash,
-        # Model hyperparameters that change the result
-        "msm_k": cfg.models.msm.k_regimes,
-        "msm_threshold": cfg.models.msm.threshold,
-        "hmm_n_components": cfg.models.hmm.n_components,
-        "hmm_n_covariance_type": cfg.models.hmm.covariance_type,
-        "hmm_n_iter": cfg.models.hmm.n_iter,
-        "hmm_threshold": cfg.models.hmm.threshold,
-        "hmm_covariance_type": cfg.models.hmm.covariance_type,
-        "hmm_n_init": getattr(cfg.models.hmm, "n_init", 1),
-        "hmm_uni_n_components": cfg.models.hmm_uni.n_components,
-        "hmm_uni_n_covariance_type": cfg.models.hmm_uni.covariance_type,
-        "hmm_uni_n_iter": cfg.models.hmm_uni.n_iter,
-        "hmm_uni_threshold": cfg.models.hmm_uni.threshold,
-        "hmm_uni_n_init": getattr(cfg.models.hmm_uni, "n_init", 1),
-        "lstm_window": cfg.models.lstm.window_size,
-        "lstm_epochs": cfg.models.lstm.epochs,
-        "lstm_units_l1": cfg.models.lstm.units_l1,
-        "lstm_batch_size": cfg.models.lstm.batch_size,
-        "transformer_window": cfg.models.transformer.window_size,
-        "transformer_epochs": cfg.models.transformer.epochs,
-        "transformer_d_model": cfg.models.transformer.d_model,
-        "transformer_batch_size": cfg.models.transformer.batch_size,
-        "dl_warm_start": getattr(cfg.walk_forward, "dl_warm_start", False),
-        "dl_ensemble_size": getattr(cfg.walk_forward, "dl_ensemble_size", 1),
-        "dl_ensemble_seed_base": getattr(cfg.walk_forward, "dl_ensemble_seed_base", 0),
-        "supervised_label_source": cfg.labels.supervised_label_source,
-        "pag_soss_params": vars(cfg.labels.pagan_sossounov),
-        "p2t_params": vars(cfg.labels.peak_to_trough),
+_WF_CACHE_SCHEMA_VERSION = 2
+_WF_IMPLEMENTATION_FILES = (
+    "src/backtest/walk_forward.py",
+    "src/backtest/parallel.py",
+    "src/backtest/hpo_analysis.py",  # global seed setup used by production DL
+    "src/models/common.py",
+    "src/models/msm.py",
+    "src/models/hmm.py",
+    "src/models/lstm.py",
+    "src/models/transformer.py",
+    "src/data/labels/resolver.py",
+    "src/data/labels/pagan_sossounov.py",
+    "src/data/labels/peak_to_trough.py",
+)
+_WF_RUNTIME_PACKAGES = (
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "statsmodels",
+    "hmmlearn",
+    "tensorflow",
+    "keras",
+    "torch",
+)
+
+
+def _canonicalize_fingerprint_value(value):
+    """Convert config namespaces and scalar types to stable JSON values."""
+    if isinstance(value, SimpleNamespace):
+        return {
+            key: _canonicalize_fingerprint_value(val)
+            for key, val in sorted(vars(value).items())
+        }
+    if isinstance(value, dict):
+        return {
+            str(key): _canonicalize_fingerprint_value(val)
+            for key, val in sorted(value.items(), key=lambda item: str(item[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_canonicalize_fingerprint_value(val) for val in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (pd.Timestamp, Path)):
+        return str(value)
+    return value
+
+
+def _dataframe_fingerprint(df: pd.DataFrame) -> dict:
+    """Hash index, schema, and every input value used by walk-forward."""
+    row_hashes = pd.util.hash_pandas_object(df, index=True, categorize=True)
+    values_hash = hashlib.sha256(row_hashes.to_numpy().tobytes()).hexdigest()
+    schema = {
+        "columns": [str(col) for col in df.columns],
+        "dtypes": [str(dtype) for dtype in df.dtypes],
+        "index_name": str(df.index.name),
+        "index_dtype": str(df.index.dtype),
+        "shape": list(df.shape),
     }
-    raw = json.dumps(params, sort_keys=True)
+    return {"schema": schema, "values_sha256": values_hash}
+
+
+def _implementation_fingerprint() -> dict[str, str]:
+    """Hash the source files that can alter cached model probabilities."""
+    project_root = Path(__file__).resolve().parents[2]
+    hashes = {}
+    for relative in _WF_IMPLEMENTATION_FILES:
+        path = project_root / relative
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Walk-forward fingerprint source file missing: {path}"
+            )
+        hashes[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashes
+
+
+def _runtime_fingerprint() -> dict:
+    """Capture numerical-library versions that can change fitted outputs."""
+    packages = {}
+    for package in _WF_RUNTIME_PACKAGES:
+        try:
+            packages[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            packages[package] = "missing"
+    return {
+        "python": platform.python_version(),
+        "implementation": platform.python_implementation(),
+        "packages": packages,
+    }
+
+
+def _walk_forward_fingerprint(cfg, df: pd.DataFrame) -> str:
+    """
+    Deterministic provenance hash over effective configuration, complete input
+    data (schema, index and values), and the implementation source files that
+    can influence probabilities. Any such change invalidates the cache.
+    """
+    provenance = {
+        "cache_schema_version": _WF_CACHE_SCHEMA_VERSION,
+        "effective_config": {
+            "data": _canonicalize_fingerprint_value(cfg.data),
+            "features": _canonicalize_fingerprint_value(cfg.features),
+            "portfolio": _canonicalize_fingerprint_value(cfg.portfolio),
+            "models": _canonicalize_fingerprint_value(cfg.models),
+            "walk_forward": _canonicalize_fingerprint_value(cfg.walk_forward),
+            "labels": _canonicalize_fingerprint_value(cfg.labels),
+        },
+        "input_dataframe": _dataframe_fingerprint(df),
+        "implementation": _implementation_fingerprint(),
+        "runtime": _runtime_fingerprint(),
+    }
+    raw = json.dumps(provenance, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 

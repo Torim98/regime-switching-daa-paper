@@ -60,7 +60,7 @@ models:
     features:
       - "Returns"               # same input space as MSM (comparison axis)
     n_components: 2
-    covariance_type: "full"     # univariate: full/diag/tied/spherical are equivalent
+    covariance_type: "full"     # univariate state-specific covariance; full/diag/spherical are equivalent, tied is not
     n_iter: 1000
     random_state: 42
     n_init: 10                  # multi-start EM (see hmm.n_init); univariate is already near-stable, kept consistent
@@ -182,7 +182,9 @@ optimization:
   dl_max_epochs: 150
   # Versioned study name so a resume never mixes trials from the old (Sharpe,
   # 30-trial) search into the new distributions. Old DB kept as archive.
-  study_suffix: "v2_martin"
+  # v3 prevents resuming v2 trials, whose DL labels were computed with future
+  # fold data and whose econometric objectives used n_init=1 plus fold resets.
+  study_suffix: "v3_martin_causal_stateful"
   # Revised search spaces (Issue #5): edge-of-range optima from the thesis run
   # (LSTM window=120/dropout=0.4/threshold=0.3, MSM threshold=0.7, d_model=32)
   # are all un-bounded; the (d_model, n_heads) constraint is encoded as valid

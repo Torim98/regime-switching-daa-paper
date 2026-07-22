@@ -336,13 +336,11 @@ def train_transformer_fold(
     buffer_scaled = train_scaled[-window_size:]
     test_scaled_with_buffer = np.concatenate([buffer_scaled, test_scaled], axis=0)
 
-    buffer_labels = df_train[labels_col].values[-window_size:]
-    test_labels_with_buffer = np.concatenate(
-        [buffer_labels, df_test[labels_col].values], axis=0,
-    )
-
+    # Targets are irrelevant for inference sequences. Use a dummy vector so
+    # test-period ex-post labels are never required or accidentally consumed.
+    test_targets = np.zeros(len(test_scaled_with_buffer), dtype=np.int8)
     X_test, _ = create_sequences(
-        test_scaled_with_buffer, test_labels_with_buffer, window_size,
+        test_scaled_with_buffer, test_targets, window_size,
     )
 
     # prediction_index: now the ENTIRE df_test.index (no longer [window_size:]),

@@ -2,6 +2,89 @@
 
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class BacktestState:
+    """Minimal state required to continue a shifted signal across a fold."""
+
+    signal_history: tuple[float, ...]
+    previous_trading_signal: float
+
+
+def compute_strategy_log_returns(
+    df: pd.DataFrame,
+    signal: pd.Series,
+    signal_shift: int,
+    fee: float,
+    state: BacktestState | None = None,
+) -> tuple[np.ndarray, BacktestState]:
+    """Compute strategy log returns and carry execution state across folds.
+
+    When ``state`` is supplied, the first observation of the current frame is
+    treated as the chronological successor of the previous frame.  This makes
+    fold-wise HPO evaluation exactly equivalent to applying the backtest once to
+    the concatenated OOS signal, including allocation and transaction costs at
+    fold boundaries.
+    """
+    if signal_shift < 0:
+        raise ValueError("signal_shift must be >= 0.")
+    if len(df) != len(signal):
+        raise ValueError("df and signal must have the same number of rows.")
+    if isinstance(signal, pd.Series) and not signal.index.equals(df.index):
+        raise ValueError("df and signal must have identical indices.")
+    if len(df) == 0:
+        history = (
+            state.signal_history
+            if state is not None
+            else tuple(0.0 for _ in range(signal_shift))
+        )
+        previous = state.previous_trading_signal if state is not None else 0.0
+        return np.array([], dtype=float), BacktestState(history, previous)
+
+    raw = np.asarray(signal, dtype=float)
+    if np.isnan(raw).any():
+        raise ValueError("signal contains NaN values.")
+
+    if state is None:
+        history = tuple(0.0 for _ in range(signal_shift))
+        previous_trading = 0.0
+    else:
+        if len(state.signal_history) != signal_shift:
+            raise ValueError(
+                "BacktestState signal history does not match signal_shift "
+                f"({len(state.signal_history)} != {signal_shift})."
+            )
+        history = state.signal_history
+        previous_trading = state.previous_trading_signal
+
+    if signal_shift == 0:
+        trading_signal = raw.copy()
+        new_history: tuple[float, ...] = ()
+    else:
+        augmented = np.concatenate([np.asarray(history, dtype=float), raw])
+        trading_signal = augmented[: len(raw)]
+        new_history = tuple(float(x) for x in augmented[-signal_shift:])
+
+    trades = np.empty(len(raw), dtype=float)
+    # A standalone backtest follows pandas diff().fillna(0): no artificial
+    # entry fee on the first observation. A continued fold compares against
+    # the actual previous trading position.
+    trades[0] = (
+        abs(trading_signal[0] - previous_trading) if state is not None else 0.0
+    )
+    if len(raw) > 1:
+        trades[1:] = np.abs(np.diff(trading_signal))
+
+    strategy_returns = np.where(
+        trading_signal == 0,
+        df["Returns"].to_numpy(),
+        df["Cash_Returns"].to_numpy(),
+    )
+    net_returns = strategy_returns - trades * fee
+    new_state = BacktestState(new_history, float(trading_signal[-1]))
+    return net_returns, new_state
 
 
 def backtest(
@@ -21,21 +104,12 @@ def backtest(
     - Subtract transaction costs
     - Compute the cumulative return
     """
-    # Shift the signal by a configurable number of days to prevent look-ahead bias
-    trading_signal = df[signal_col].shift(signal_shift).fillna(0)
-
-    # Identify trades: where does today's signal differ from yesterday's?
-    trades = trading_signal.diff().fillna(0).abs()
-
-    # Logic: if signal 0 -> portfolio return, otherwise cash return
-    strategy_returns = np.where(
-        trading_signal == 0,
-        df["Returns"],
-        df["Cash_Returns"],
+    net_strategy_returns, _ = compute_strategy_log_returns(
+        df=df,
+        signal=df[signal_col],
+        signal_shift=signal_shift,
+        fee=fee,
     )
-
-    # Subtract transaction costs
-    net_strategy_returns = strategy_returns - (trades * fee)
 
     # Compute the cumulative return
     return pd.Series(np.exp(net_strategy_returns.cumsum()), index=df.index)

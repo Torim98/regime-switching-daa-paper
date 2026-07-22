@@ -203,6 +203,7 @@ def train_model(model_name: str):
             dense=lstm_cfg.dense,
             activation=lstm_cfg.activation,
             optimizer=lstm_cfg.optimizer,
+            learning_rate=lstm_cfg.learning_rate,
             metrics=lstm_cfg.metrics,
             epochs=lstm_cfg.epochs,
             batch_size=lstm_cfg.batch_size,
@@ -297,7 +298,6 @@ def train_all():
         # ============================================================
         # Walk-forward mode: run_walk_forward controls everything
         # ============================================================
-        import hashlib
         from src.backtest.walk_forward import (
             walk_forward_splits,
             summarize_splits,
@@ -343,10 +343,7 @@ def train_all():
 
         # 2. Check the cache
         cache_path = cfg.data_path("walk_forward_cache")
-        idx_hash = hashlib.sha256(
-            df.index.astype(str).str.cat().encode()
-        ).hexdigest()[:16]
-        fingerprint = _walk_forward_fingerprint(cfg, df.shape, idx_hash)
+        fingerprint = _walk_forward_fingerprint(cfg, df)
         logger.info(f"Walk-forward fingerprint: {fingerprint}")
 
         use_cache = getattr(cfg.walk_forward, "cache_enabled", False)

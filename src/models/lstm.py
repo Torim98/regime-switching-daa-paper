@@ -42,7 +42,8 @@ def build_lstm(
     dropout: float,
     dense: int,
     activation: str,
-    optimizer: str,
+    optimizer,
+    learning_rate: float | None,
     loss,
     metrics: str,
 ) -> Sequential:
@@ -62,7 +63,13 @@ def build_lstm(
         # Keras is globally set to mixed_float16; numerically stable for BCE.
         Dense(dense, activation=activation, dtype="float32"),
     ])
-    model.compile(optimizer=optimizer, loss=loss, metrics=[metrics])
+    optimizer_obj = tf.keras.optimizers.get(optimizer)
+    if learning_rate is not None:
+        # ``optimizer`` is commonly the config string "adam" in production.
+        # Explicitly assign the configured/HPO-selected rate so Keras does not
+        # silently fall back to Adam's 1e-3 default.
+        optimizer_obj.learning_rate.assign(float(learning_rate))
+    model.compile(optimizer=optimizer_obj, loss=loss, metrics=[metrics])
     return model
 
 
@@ -79,6 +86,7 @@ def train_lstm(
     dense: int,
     activation: str,
     optimizer: str,
+    learning_rate: float,
     metrics: str,
     epochs: int,
     batch_size: int,
@@ -135,6 +143,7 @@ def train_lstm(
         dense=dense,
         activation=activation,
         optimizer=optimizer,
+        learning_rate=learning_rate,
         loss=weighted_bce(pos_weight),
         metrics=metrics,
     )
@@ -174,6 +183,7 @@ def train_lstm_fold(
     dense: int,
     activation: str,
     optimizer: str,
+    learning_rate: float,
     metrics: str,
     epochs: int,
     batch_size: int,
@@ -268,13 +278,11 @@ def train_lstm_fold(
     buffer_scaled = train_scaled[-window_size:]
     test_scaled_with_buffer = np.concatenate([buffer_scaled, test_scaled], axis=0)
 
-    buffer_labels = df_train[labels_col].values[-window_size:]
-    test_labels_with_buffer = np.concatenate(
-        [buffer_labels, df_test[labels_col].values], axis=0,
-    )
-
+    # Targets are irrelevant for inference sequences. Use a dummy vector so
+    # test-period ex-post labels are never required or accidentally consumed.
+    test_targets = np.zeros(len(test_scaled_with_buffer), dtype=np.int8)
     X_test, _ = create_sequences(
-        test_scaled_with_buffer, test_labels_with_buffer, window_size,
+        test_scaled_with_buffer, test_targets, window_size,
     )
 
     # prediction_index: now the ENTIRE df_test.index (no longer [window_size:]),
@@ -322,6 +330,7 @@ def train_lstm_fold(
         dense=dense,
         activation=activation,
         optimizer=optimizer,
+        learning_rate=learning_rate,
         loss=weighted_bce(pos_weight),
         metrics=metrics,
     )

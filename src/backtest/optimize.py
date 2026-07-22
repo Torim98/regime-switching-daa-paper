@@ -50,8 +50,9 @@ import pandas as pd
 import optuna
 import os
 
-from src.data.labels.resolver import compute_supervised_labels, resolve_label_col
+from src.data.labels.resolver import compute_supervised_labels_asof, resolve_label_col
 from src.backtest.walk_forward import walk_forward_splits
+from src.backtest.engine import BacktestState, compute_strategy_log_returns
 
 # ============================================================================
 # Objective metrics (all normalized to "higher = better")
@@ -207,24 +208,24 @@ def _fold_portfolio_returns(
     signal: pd.Series,
     signal_shift: int = 1,
     fee: float = 0.001,
-) -> np.ndarray:
+    state: BacktestState | None = None,
+) -> tuple[np.ndarray, BacktestState]:
     """
-    Computes daily net portfolio returns for an OOS fold.
+    Computes daily net portfolio returns for an OOS fold and returns the
+    execution state needed by the chronologically following fold.
 
     Replicates the logic from engine.backtest():
     - Shift the signal by signal_shift days (look-ahead prevention)
     - Signal=0 -> portfolio return, signal=1 -> cash return
     - Subtract transaction costs on signal switches
     """
-    trading_signal = signal.shift(signal_shift).fillna(0)
-    trades = trading_signal.diff().fillna(0).abs()
-
-    strategy_returns = np.where(
-        trading_signal == 0,
-        df_test["Returns"].values,
-        df_test["Cash_Returns"].values,
+    return compute_strategy_log_returns(
+        df=df_test,
+        signal=signal,
+        signal_shift=signal_shift,
+        fee=fee,
+        state=state,
     )
-    return strategy_returns - (trades.values * fee)
 
 
 def _subsample_splits(
@@ -264,6 +265,7 @@ def _generate_hmm_labels(df_train, df_test, cfg):
         n_iter=hmm_cfg.n_iter,
         random_state=hmm_cfg.random_state,
         threshold=hmm_cfg.threshold,
+        n_init=getattr(hmm_cfg, "n_init", 1),
     )
 
     df_train = df_train.copy()
@@ -328,7 +330,7 @@ def objective_msm(
     threshold = params["threshold"]
     k_regimes = 2
 
-    pooled, n_failed = [], 0
+    pooled, n_failed, portfolio_state = [], 0, None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -341,10 +343,14 @@ def objective_msm(
                 switching_variance=True,
                 threshold=threshold,
             )
-            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
+            fold_rets, portfolio_state = _fold_portfolio_returns(
+                df_test, signal, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"MSM trial {trial.number}, fold {fold_id}: {e}")
             n_failed += 1
+            portfolio_state = None
 
         _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
@@ -370,7 +376,7 @@ def objective_hmm(
     n_components = 2
     hmm_features = cfg.models.hmm.features
 
-    pooled, n_failed = [], 0
+    pooled, n_failed, portfolio_state = [], 0, None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -385,11 +391,16 @@ def objective_hmm(
                 n_iter=cfg.models.hmm.n_iter,
                 random_state=cfg.models.hmm.random_state,
                 threshold=threshold,
+                n_init=getattr(cfg.models.hmm, "n_init", 1),
             )
-            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
+            fold_rets, portfolio_state = _fold_portfolio_returns(
+                df_test, signal, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"HMM trial {trial.number}, fold {fold_id}: {e}")
             n_failed += 1
+            portfolio_state = None
 
         _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
@@ -410,7 +421,8 @@ def objective_hmm_uni(
     HMM_Uni: optimize the threshold only.
 
     covariance_type is NOT tuned: with univariate input (returns only),
-    full/diag/tied are identical (1x1 covariance). The search space is
+    full/diag/spherical are identical state-specific 1x1 covariances. ``tied``
+    is deliberately excluded because it forces one shared variance. The space is
     therefore congruent with the MSM objective; a fair basis for the
     architecture comparison (Issue #3).
     """
@@ -420,7 +432,7 @@ def objective_hmm_uni(
     threshold = params["threshold"]
     uni_cfg = cfg.models.hmm_uni
 
-    pooled, n_failed = [], 0
+    pooled, n_failed, portfolio_state = [], 0, None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
             df_train = df.loc[train_idx]
@@ -435,11 +447,16 @@ def objective_hmm_uni(
                 n_iter=uni_cfg.n_iter,
                 random_state=uni_cfg.random_state,
                 threshold=threshold,
+                n_init=getattr(uni_cfg, "n_init", 1),
             )
-            pooled.append(_fold_portfolio_returns(df_test, signal, signal_shift, fee))
+            fold_rets, portfolio_state = _fold_portfolio_returns(
+                df_test, signal, signal_shift, fee, portfolio_state,
+            )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"HMM_Uni trial {trial.number}, fold {fold_id}: {e}")
             n_failed += 1
+            portfolio_state = None
 
         _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
@@ -463,7 +480,6 @@ def objective_lstm(
     previous fold, mirroring the final walk-forward run exactly.
     """
     from src.models.lstm import train_lstm_fold
-    from tensorflow.keras.optimizers import Adam
 
     p = _suggest_space(trial, cfg.optimization.search_spaces.LSTM)
     window_size = p["window_size"]
@@ -479,22 +495,19 @@ def objective_lstm(
     labels_col = resolve_label_col(cfg)
     dl_warm, epochs_warm, max_epochs = _dl_warm_cfg(cfg)
 
-    # Precompute the supervised labels once globally, otherwise the label column
-    # is missing in the fold and every trial raises a KeyError.
-    if cfg.labels.supervised_label_source != "hmm":
-        df = df.copy()
-        if "Supervised_Label" not in df.columns:
-            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
-
-    pooled, n_failed = [], 0
+    pooled, n_failed, portfolio_state = [], 0, None
     lstm_state = None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
-            df_train = df.loc[train_idx]
+            df_train = df.loc[train_idx].copy()
             df_test = df.loc[test_idx]
 
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
+            else:
+                df_train["Supervised_Label"] = compute_supervised_labels_asof(
+                    df, train_idx, cfg,
+                )
 
             probs_raw, pred_idx, lstm_state = train_lstm_fold(
                 df_train=df_train,
@@ -508,7 +521,8 @@ def objective_lstm(
                 dropout=dropout,
                 dense=lstm_cfg.dense,
                 activation=lstm_cfg.activation,
-                optimizer=Adam(learning_rate=learning_rate),
+                optimizer=lstm_cfg.optimizer,
+                learning_rate=learning_rate,
                 metrics=lstm_cfg.metrics,
                 epochs=max_epochs,
                 batch_size=batch_size,
@@ -521,13 +535,15 @@ def objective_lstm(
             signal = (probs_raw >= threshold).astype(int)
             signal_series = pd.Series(signal, index=pred_idx)
             df_test_aligned = df_test.loc[pred_idx]
-            pooled.append(
-                _fold_portfolio_returns(df_test_aligned, signal_series, signal_shift, fee)
+            fold_rets, portfolio_state = _fold_portfolio_returns(
+                df_test_aligned, signal_series, signal_shift, fee, portfolio_state,
             )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"LSTM trial {trial.number}, fold {fold_id}: {e}")
             n_failed += 1
             lstm_state = None  # cold restart for the next fold
+            portfolio_state = None
 
         _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
@@ -571,20 +587,19 @@ def objective_transformer(
     labels_col = resolve_label_col(cfg)
     dl_warm, epochs_warm, max_epochs = _dl_warm_cfg(cfg)
 
-    if cfg.labels.supervised_label_source != "hmm":
-        df = df.copy()
-        if "Supervised_Label" not in df.columns:
-            df["Supervised_Label"] = compute_supervised_labels(df, cfg)
-
-    pooled, n_failed = [], 0
+    pooled, n_failed, portfolio_state = [], 0, None
     transformer_state = None
     for fold_id, (train_idx, test_idx) in enumerate(splits):
         try:
-            df_train = df.loc[train_idx]
+            df_train = df.loc[train_idx].copy()
             df_test = df.loc[test_idx]
 
             if cfg.labels.supervised_label_source == "hmm":
                 df_train, df_test = _generate_hmm_labels(df_train, df_test, cfg)
+            else:
+                df_train["Supervised_Label"] = compute_supervised_labels_asof(
+                    df, train_idx, cfg,
+                )
 
             probs_raw, pred_idx, transformer_state = train_transformer_fold(
                 df_train=df_train,
@@ -609,13 +624,15 @@ def objective_transformer(
             signal = (probs_raw >= threshold).astype(int)
             signal_series = pd.Series(signal, index=pred_idx)
             df_test_aligned = df_test.loc[pred_idx]
-            pooled.append(
-                _fold_portfolio_returns(df_test_aligned, signal_series, signal_shift, fee)
+            fold_rets, portfolio_state = _fold_portfolio_returns(
+                df_test_aligned, signal_series, signal_shift, fee, portfolio_state,
             )
+            pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"Transformer trial {trial.number}, fold {fold_id}: {e}")
             n_failed += 1
             transformer_state = None  # cold restart for the next fold
+            portfolio_state = None
 
         _maybe_prune(trial, pooled, metric, fold_id, prune_enabled)
 
