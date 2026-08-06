@@ -84,18 +84,31 @@ def _ulcer_from_equity(equity: np.ndarray) -> float:
 
 
 def compute_oos_metrics(
-    daily_returns: np.ndarray,
+    daily_log_returns: np.ndarray,
     trading_days_per_year: int = 252,
 ) -> dict[str, float]:
     """
     Full risk-metric vector for a pooled OOS net-return series.
 
+    Input convention: `daily_log_returns` are LOG returns, i.e. exactly what
+    engine.compute_strategy_log_returns produces (and what every caller in this
+    package passes). They are converted to simple returns here, so the whole
+    metric vector matches engine.calculate_annualized_metrics, which works on
+    pct_change of the capital curve (canonical Sharpe (1966) convention).
+
+    Compounding log returns as if they were simple ones understates growth by
+    the volatility drag (~sigma^2/2) and deepens every drawdown-based metric,
+    with a penalty that grows with volatility -- for the Martin objective that
+    is a second, unintended volatility penalty on top of the Ulcer denominator.
+
     Returns sharpe, sortino, calmar, martin, ulcer, max_drawdown and cagr.
     Metrics are defined so that (except ulcer) higher = better; ulcer and
     max_drawdown are reported as their natural raw values.
     """
-    rets = np.asarray(daily_returns, dtype=float)
+    rets = np.asarray(daily_log_returns, dtype=float)
     rets = rets[np.isfinite(rets)]
+    # Log -> simple; equity below is then the exact capital curve.
+    rets = np.expm1(rets)
     n = len(rets)
     empty = {k: 0.0 for k in ("sharpe", "sortino", "calmar",
                               "martin", "ulcer", "max_drawdown", "cagr")}
@@ -110,7 +123,7 @@ def compute_oos_metrics(
     dsd = downside.std() * np.sqrt(tdpy) if downside.size > 0 else 0.0
     sortino = float(mean * tdpy / dsd) if dsd > 0 else 0.0
 
-    equity = np.cumprod(1.0 + rets)
+    equity = np.cumprod(1.0 + rets)     # rets are simple here (see docstring)
     total = float(equity[-1])
     cagr = float(total ** (tdpy / n) - 1.0) if total > 0 else -1.0
 
@@ -931,7 +944,37 @@ def run_optimization(
     except ImportError:
         warnings.warn("Plotly/Kaleido not installed, skipping Optuna plots.")
 
+    _maybe_apply_best_params(cfg, model_name, storage_arg)
+
     return study
+
+
+def _maybe_apply_best_params(cfg, model_name: str, storage) -> None:
+    """Write this model's best params into config.yaml, if enabled.
+
+    Runs after the model's last trial so the subsequent pipeline steps (train,
+    backtest, evaluation) pick the tuned values up without a manual copy. Kept
+    best-effort on purpose: HPO is by far the most expensive step in the
+    pipeline, and losing a finished sweep to a config-writing problem would be
+    the worst possible trade. A failure is reported and the study is returned
+    regardless -- the values remain recoverable from the Optuna DB and from
+    assets/optuna_best_params.md.
+    """
+    if not getattr(cfg.optimization, "apply_best_params", False):
+        return
+    try:
+        # Imported lazily: hpo_analysis imports this module at import time.
+        from src.backtest.hpo_analysis import apply_best_params
+        changes = apply_best_params(
+            cfg, models=[model_name], storage=storage,
+        )
+        print(f"  -> {model_name}: applied {len(changes)} params to config.yaml.")
+    except Exception as e:
+        warnings.warn(
+            f"[{model_name}] could not write best params to config.yaml: "
+            f"{type(e).__name__}: {e}. The study is intact; apply manually via "
+            f"`python -m src.backtest.hpo_analysis apply`."
+        )
 
 
 def optimize_all(

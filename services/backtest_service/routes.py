@@ -11,6 +11,8 @@ from src.backtest.evaluation import (
     depletion_rate_with_ci,
     compare_bootstrap_methods, bootstrap_robustness_summary,
     test_h1_drawdown, test_h2_transformer, plot_mcs_violins,
+    plot_depletion_forest, plot_h1_forest, plot_h2_forest,
+    plot_risk_return_positioning,
     break_even_transaction_cost, plot_break_even, withdrawal_sensitivity,
     plot_regime_probability_heatmap,
 )
@@ -283,26 +285,76 @@ def evaluate():
     dep.to_markdown(cfg.asset_path("depletion_ci"))
 
     regime_models = [m for m in strategies if m != "Buy_Hold"]
-    h1 = test_h1_drawdown(
-        mcs.max_drawdowns, scenario=ext.hypothesis_scenario,
-        regime_models=regime_models, alpha=ext.alpha,
+
+    # H1/H2 are reported for EVERY scenario, not just the headline one. The
+    # MCS MaxDD is measured on the capital path after withdrawals, so at an
+    # overstretched rate a merely underperforming strategy is driven to -100%
+    # mechanically and H1 degenerates into a survival test. Which models pass
+    # therefore depends strongly on the withdrawal rate, and reporting a single
+    # scenario would present that dependence as a clean rejection.
+    # `ext.hypothesis_scenario` still designates the headline scenario; the
+    # extra rows are what makes its result interpretable.
+    def _by_scenario(fn, index_col: str) -> pd.DataFrame:
+        frames = []
+        for sc in scenarios_list:
+            tbl = fn(sc)
+            if tbl is None or tbl.empty:
+                continue
+            tbl = tbl.reset_index()
+            tbl.insert(0, "Scenario", sc)
+            tbl.insert(1, "Headline", "yes" if sc == ext.hypothesis_scenario else "")
+            frames.append(tbl)
+        if not frames:
+            return pd.DataFrame()
+        return pd.concat(frames, ignore_index=True).set_index(["Scenario", index_col])
+
+    h1 = _by_scenario(
+        lambda sc: test_h1_drawdown(
+            mcs.max_drawdowns, scenario=sc,
+            regime_models=regime_models, alpha=ext.alpha,
+        ),
+        "Model",
     )
-    h1.to_markdown(cfg.asset_path("h1_drawdown"))
+    if not h1.empty:
+        h1.to_markdown(cfg.asset_path("h1_drawdown"))
 
     h2_challenger = "Transformer"
     h2_competitors = tuple(
         m for m in regime_models if m != h2_challenger
     )
-    h2 = test_h2_transformer(
-        finals, scenario=ext.hypothesis_scenario,
-        challenger=h2_challenger, competitors=h2_competitors,
-        alpha=ext.alpha,
+    h2 = _by_scenario(
+        lambda sc: test_h2_transformer(
+            finals, scenario=sc,
+            challenger=h2_challenger, competitors=h2_competitors,
+            alpha=ext.alpha,
+        ),
+        "Comparison",
     )
-    h2.to_markdown(cfg.asset_path("h2_transformer"))
+    if not h2.empty:
+        h2.to_markdown(cfg.asset_path("h2_transformer"))
 
     violin_template = os.path.join(str(cfg._base_dir / "assets"), "mcs_violin_{}.png")
     plot_mcs_violins(
         finals, scenarios_list, strategies, cfg.color_map, violin_template,
+    )
+
+    # Hypothesis figures, built from the same arrays as the tables above.
+    plot_depletion_forest(
+        finals, scenarios_list, strategies,
+        cfg.asset_path("mcs_depletion_forest"), alpha=ext.alpha,
+    )
+    plot_h1_forest(
+        mcs.max_drawdowns, scenarios_list, regime_models,
+        cfg.asset_path("mcs_h1_forest"), alpha=ext.alpha,
+    )
+    plot_h2_forest(
+        finals, scenarios_list, h2_challenger, h2_competitors,
+        cfg.asset_path("mcs_h2_forest"), alpha=ext.alpha,
+    )
+    plot_risk_return_positioning(
+        finals, [sc for sc in scenarios_list if sc != "Standard"], strategies,
+        cfg.asset_path("risk_return_positioning"),
+        sim_years=mcs_cfg.sim_years, alpha=ext.alpha,
     )
 
     # 7) Break-even transaction costs

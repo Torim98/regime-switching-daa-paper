@@ -967,6 +967,15 @@ def test_h1_drawdown(
 
     `max_drawdowns`: MCSResult.max_drawdowns, keyed (scenario, strategy),
     with the path-wise MaxDD of ALL simulated paths per cell.
+
+    Interpretation caveat: the MaxDD is measured on the DECUMULATION capital
+    path, i.e. after withdrawals, so it is not a pure market-risk measure. A
+    depleted path is -100% by construction, and the higher the withdrawal rate,
+    the more the mechanical drain dominates the market drawdown. At the
+    overstretched rate this test therefore behaves like a survival test and its
+    verdict can invert relative to the historical backtest, where the same
+    models reduce drawdown substantially. Always read it across scenarios
+    (the caller in backtest_service reports all of them).
     """
     from scipy.stats import wilcoxon
 
@@ -990,6 +999,8 @@ def test_h1_drawdown(
             f"H1 (α={alpha})":      ("confirmed" if (not np.isnan(p) and p < alpha)
                                      else "rejected"),
         })
+    if not rows:
+        return pd.DataFrame()
     return pd.DataFrame(rows).set_index("Model")
 
 
@@ -1027,6 +1038,8 @@ def test_h2_transformer(
             f"H2 (α={alpha})":  ("confirmed" if (not np.isnan(p) and p < alpha)
                                  else "rejected"),
         })
+    if not rows:
+        return pd.DataFrame()
     return pd.DataFrame(rows).set_index("Comparison")
 
 
@@ -1061,6 +1074,326 @@ def plot_mcs_violins(
         fig.savefig(save_path_template.format(sc.lower()),
                     dpi=300, bbox_inches="tight")
         plt.close(fig)
+
+
+# ------------------------------------------------------------
+# Hypothesis figures (forest plots + risk-return positioning)
+#
+# These used to live as hard-coded literals in jupyter/Hypothesis_testing.ipynb
+# and jupyter/Model_risk-return-positioning.ipynb, which meant they silently
+# kept showing a previous run's numbers while carrying a fresh timestamp. They
+# are now built from the same arrays the H1/H2 tests consume, so they cannot
+# drift from the tables again.
+# ------------------------------------------------------------
+
+_FOREST_RC = {
+    "font.size": 10,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.titlesize": 10,
+    "axes.titleweight": "bold",
+}
+
+
+def _fmt_p(p: float) -> str:
+    """p-value with a floor for values that underflow to zero."""
+    if not np.isfinite(p):
+        return "p = n/a"
+    if p < 1e-10:
+        return "p < 10$^{-10}$"
+    if p < 0.001:
+        return "p < 0.001"
+    return f"p = {p:.4f}".rstrip("0").rstrip(".")
+
+
+def _forest_legend(fig, axes):
+    """One figure-level legend below the panels.
+
+    Per-axis legends collide with the markers: which side of the zero line the
+    points sit on changes from panel to panel, so no fixed corner is safe.
+    """
+    handles, labels = axes[0].get_legend_handles_labels()
+    if not handles:
+        return
+    fig.legend(handles, labels, loc="upper center", ncol=len(handles),
+               bbox_to_anchor=(0.5, -0.005), frameon=False, fontsize=8)
+
+
+def _forest_axis(ax, deltas, labels, pvals, alpha, xlabel, formatter,
+                 pad_left=0.22, pad_right=0.22):
+    """One forest panel: filled marker = significant, hollow = not."""
+    deltas = np.asarray(deltas, dtype=float)
+    pvals = np.asarray(pvals, dtype=float)
+    sig = np.isfinite(pvals) & (pvals < alpha)
+    y = np.arange(len(labels))[::-1]
+
+    ax.axvline(0, ls="--", lw=0.8, color="tab:grey", label="no difference")
+    ax.scatter(deltas[~sig], y[~sig], s=55, facecolor="white", edgecolor="black",
+               linewidth=1.2, zorder=3, label=f"not significant (p >= {alpha})")
+    ax.scatter(deltas[sig], y[sig], s=55, color="black", zorder=3,
+               label=f"significant (p < {alpha})")
+
+    for d, yi, p in zip(deltas, y, pvals):
+        off = 10 if d >= 0 else -10
+        ax.annotate(_fmt_p(p), xy=(d, yi), xytext=(off, 0),
+                    textcoords="offset points", va="center",
+                    ha="left" if d >= 0 else "right", fontsize=8)
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel(xlabel)
+    ax.xaxis.set_major_formatter(formatter)
+    ax.grid(axis="x", lw=0.3, alpha=0.5)
+
+    # Keep the zero reference line inside the view even when every delta falls
+    # on the same side of it.
+    lo = min(0.0, float(deltas.min())) if len(deltas) else 0.0
+    hi = max(0.0, float(deltas.max())) if len(deltas) else 1.0
+    span = (hi - lo) or 1.0
+    ax.set_xlim(lo - pad_left * span, hi + pad_right * span)
+
+
+def plot_depletion_forest(
+    finals: dict,
+    scenarios: list[str],
+    strategies: list[str],
+    save_path: str,
+    alpha: float = 0.05,
+    benchmark: str = "Buy_Hold",
+) -> None:
+    """Depletion rate with Wilson CI per scenario x strategy."""
+    from matplotlib.ticker import FuncFormatter
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+    pct = FuncFormatter(lambda x, _: f"{x:.2f} %")
+
+    panels = [sc for sc in scenarios if any((sc, s) in finals for s in strategies)]
+    if not panels:
+        return
+    order = ([benchmark] if benchmark in strategies else []) + \
+            [s for s in strategies if s != benchmark]
+
+    with plt.rc_context(_FOREST_RC):
+        fig, axes = plt.subplots(len(panels), 1, figsize=(7, 2.9 * len(panels)),
+                                 constrained_layout=True, squeeze=False)
+        axes = axes.ravel()
+        for ax, sc in zip(axes, panels):
+            names, pt, lo, hi = [], [], [], []
+            for s in order:
+                arr = finals.get((sc, s))
+                if arr is None:
+                    continue
+                p, l, h = _wilson_interval(int(np.sum(arr <= 0)), len(arr), z)
+                names.append(s.replace("_", "-"))
+                pt.append(p * 100); lo.append(l * 100); hi.append(h * 100)
+            if not names:
+                continue
+            pt, lo, hi = np.array(pt), np.array(lo), np.array(hi)
+            y = np.arange(len(names))[::-1]
+            ax.axvline(pt[0], ls="--", lw=0.8, color="tab:grey", zorder=1,
+                       label=f"{benchmark.replace('_', ' ')} reference"
+                             if ax is axes[0] else None)
+            ax.errorbar(pt, y, xerr=[pt - lo, hi - pt], fmt="o", color="black",
+                        ecolor="black", markersize=4.5, elinewidth=1, capsize=3,
+                        zorder=2)
+            ax.set_yticks(y); ax.set_yticklabels(names)
+            ax.set_title(f"Scenario: {sc}", loc="left")
+            ax.set_xlabel(f"Depletion Rate ({int((1 - alpha) * 100)}% Wilson CI)")
+            ax.xaxis.set_major_formatter(pct)
+            ax.grid(axis="x", lw=0.3, alpha=0.5)
+            pad = 0.08 * max(hi.max(), 0.05)
+            ax.set_xlim(-pad, hi.max() + pad)
+        axes[0].legend(loc="lower right", fontsize=8, frameon=False)
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+
+def plot_h1_forest(
+    max_drawdowns: dict,
+    scenarios: list[str],
+    regime_models: list[str],
+    save_path: str,
+    benchmark: str = "Buy_Hold",
+    alpha: float = 0.05,
+) -> None:
+    """H1 forest: delta median MaxDD vs. benchmark, one panel per scenario.
+
+    Plotted for every scenario because the verdict depends strongly on the
+    withdrawal rate (the MCS MaxDD is measured after withdrawals).
+    """
+    from matplotlib.ticker import FuncFormatter
+    from scipy.stats import wilcoxon
+    pp = FuncFormatter(lambda x, _: f"{x:+.1f} pp")
+
+    panels = [sc for sc in scenarios if (sc, benchmark) in max_drawdowns]
+    if not panels:
+        return
+
+    with plt.rc_context(_FOREST_RC):
+        fig, axes = plt.subplots(len(panels), 1, figsize=(7, 3.2 * len(panels)),
+                                 constrained_layout=True, squeeze=False)
+        axes = axes.ravel()
+        for ax, sc in zip(axes, panels):
+            bh = max_drawdowns[(sc, benchmark)]
+            labels, deltas, pvals = [], [], []
+            for m in regime_models:
+                dd = max_drawdowns.get((sc, m))
+                if dd is None or len(dd) != len(bh) or len(dd) == 0:
+                    continue
+                try:
+                    _, p = wilcoxon(dd, bh, alternative="greater")
+                except ValueError:
+                    p = np.nan
+                labels.append(m.replace("_", "-"))
+                deltas.append((np.median(dd) - np.median(bh)) * 100)
+                pvals.append(p)
+            if not labels:
+                continue
+            _forest_axis(ax, deltas, labels, pvals, alpha,
+                         f"$\\Delta$ median MaxDD vs. {benchmark.replace('_', ' ')}", pp)
+            ax.set_title(f"Scenario: {sc}", loc="left")
+        _forest_legend(fig, axes)
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+
+def plot_h2_forest(
+    finals: dict,
+    scenarios: list[str],
+    challenger: str,
+    competitors: tuple,
+    save_path: str,
+    alpha: float = 0.05,
+) -> None:
+    """H2 forest: delta median terminal capital, one panel per scenario."""
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
+    from scipy.stats import wilcoxon
+    eur = FuncFormatter(lambda x, _: f"{x:+,.0f} EUR")
+
+    panels = [sc for sc in scenarios if (sc, challenger) in finals]
+    if not panels:
+        return
+
+    with plt.rc_context(_FOREST_RC):
+        fig, axes = plt.subplots(len(panels), 1, figsize=(7, 2.9 * len(panels)),
+                                 constrained_layout=True, squeeze=False)
+        axes = axes.ravel()
+        for ax, sc in zip(axes, panels):
+            ch = finals[(sc, challenger)]
+            labels, deltas, pvals = [], [], []
+            for c in competitors:
+                w = finals.get((sc, c))
+                if w is None or len(w) != len(ch) or len(w) == 0:
+                    continue
+                try:
+                    _, p = wilcoxon(ch, w, alternative="greater")
+                except ValueError:
+                    p = np.nan
+                labels.append(f"vs. {c.replace('_', '-')}")
+                deltas.append(float(np.median(ch) - np.median(w)))
+                pvals.append(p)
+            if not labels:
+                continue
+            _forest_axis(ax, deltas, labels, pvals, alpha,
+                         f"$\\Delta$ median final capital ({challenger})", eur,
+                         pad_left=0.10, pad_right=0.28)
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+            ax.set_title(f"Scenario: {sc}", loc="left")
+        _forest_legend(fig, axes)
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+
+def plot_risk_return_positioning(
+    finals: dict,
+    scenarios: list[str],
+    strategies: list[str],
+    save_path: str,
+    sim_years: int,
+    alpha: float = 0.05,
+    benchmark: str = "Buy_Hold",
+) -> None:
+    """Median terminal capital vs. depletion rate, with benchmark quadrants."""
+    from matplotlib.ticker import FuncFormatter
+    from matplotlib.patches import Patch
+    from scipy.stats import norm
+    z = norm.ppf(1 - alpha / 2)
+
+    # Model families drive colour; markers separate members within a family.
+    fam = {"MSM": "markov", "HMM": "markov", "HMM_Uni": "markov",
+           "LSTM": "dl", "Transformer": "dl"}
+    colors = {"markov": "#1f77b4", "dl": "#d62728", "bench": "#7f7f7f"}
+    markers = {benchmark: "s", "MSM": "o", "HMM": "D", "HMM_Uni": "P",
+               "LSTM": "^", "Transformer": "v"}
+
+    panels = [sc for sc in scenarios if (sc, benchmark) in finals]
+    if not panels:
+        return
+
+    fig, axes = plt.subplots(1, len(panels), figsize=(6.5 * len(panels), 5.5),
+                             squeeze=False)
+    axes = axes.ravel()
+    for ax, sc in zip(axes, panels):
+        pts = {}
+        for s in strategies:
+            arr = finals.get((sc, s))
+            if arr is None:
+                continue
+            p, lo, hi = _wilson_interval(int(np.sum(arr <= 0)), len(arr), z)
+            pts[s] = (float(np.median(arr)), p * 100, lo * 100, hi * 100)
+        if benchmark not in pts:
+            continue
+        bx, by = pts[benchmark][0], pts[benchmark][1]
+        ax.axhline(by, color="gray", lw=0.8, ls="--", alpha=0.55, zorder=1)
+        ax.axvline(bx, color="gray", lw=0.8, ls="--", alpha=0.55, zorder=1)
+
+        # Label offsets are derived, not hard-coded: points that nearly coincide
+        # (MSM/HMM_Uni typically do) get pushed apart vertically.
+        ordered = sorted(pts.items(), key=lambda kv: (kv[1][0], kv[1][1]))
+        span_x = max(v[0] for v in pts.values()) or 1.0
+        prev_x, flip = None, False
+        offsets = {}
+        for name, v in ordered:
+            close = prev_x is not None and abs(v[0] - prev_x) < 0.05 * span_x
+            flip = (not flip) if close else False
+            offsets[name] = (10, 8 if flip else -12)
+            prev_x = v[0]
+
+        for name, (med, dr, lo, hi) in pts.items():
+            key = "bench" if name == benchmark else fam.get(name, "dl")
+            ax.errorbar(med, dr, yerr=[[dr - lo], [hi - dr]],
+                        fmt=markers.get(name, "o"), color=colors[key],
+                        markersize=11, markeredgecolor="black", markeredgewidth=0.6,
+                        elinewidth=1.2, capsize=3, alpha=0.92, zorder=3)
+            ax.annotate(name.replace("_", "-"), (med, dr), xytext=offsets[name],
+                        textcoords="offset points", fontsize=9.5,
+                        fontweight="bold", zorder=4)
+
+        ax.set_xlabel(f"Median final capital after {sim_years} years", fontsize=10.5)
+        ax.set_ylabel(f"Depletion rate (%), {int((1 - alpha) * 100)}% Wilson CI",
+                      fontsize=10.5)
+        ax.set_title(sc.replace("_", "-") + " scenario", fontsize=11.5,
+                     fontweight="bold")
+        ax.grid(True, alpha=0.25, linestyle=":")
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x/1000:.0f}k"))
+        xlo, xhi = ax.get_xlim(); ylo, yhi = ax.get_ylim()
+        ax.set_xlim(xlo, xhi + (xhi - xlo) * 0.10)
+        ax.set_ylim(max(0, ylo - (yhi - ylo) * 0.05), yhi + (yhi - ylo) * 0.10)
+
+    fig.legend(handles=[
+        Patch(facecolor=colors["markov"], edgecolor="black",
+              label="Markov models (MSM, HMM, HMM-Uni)"),
+        Patch(facecolor=colors["dl"], edgecolor="black",
+              label="DL models (LSTM, Transformer)"),
+        Patch(facecolor=colors["bench"], edgecolor="black",
+              label="Benchmark (60/40 Buy & Hold)"),
+    ], loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.02), frameon=False,
+        fontsize=10)
+    fig.suptitle("Risk-return positioning of the models in the stress scenarios",
+                 fontsize=12.5, fontweight="bold", y=1.00)
+    fig.tight_layout(rect=[0, 0.04, 1, 0.97])
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 # ------------------------------------------------------------

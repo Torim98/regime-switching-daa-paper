@@ -19,12 +19,20 @@ What is varied per model family (this is the crux):
                seed, so global reseeding alone would falsely report zero
                variance. We therefore override cfg.models.<hmm>.random_state per
                run to probe the local-optimum sensitivity of the EM fit.
-* LSTM/Transf: the global RNG (weight init, batch shuffle, dropout). Set through
-               the same _set_global_seeds hook the HPO multiseed reeval uses.
+* LSTM/Transf: the seed base of the production ensemble. The pipeline does not
+               run a single network; walk_forward trains dl_ensemble_size
+               members per fold and averages their probabilities. Each run here
+               therefore trains a COMPLETE ensemble from a disjoint seed block
+               (run k -> seeds k*N .. k*N+N-1), so the reported spread is the
+               spread of the estimator that produces the headline results. With
+               dl_ensemble_size=1 this degenerates to varying a single global
+               seed, which is the pre-ensemble behaviour.
+               Cost note: N times the DL training per run.
 
 The metric vector (sharpe, sortino, calmar, martin, ulcer, max_drawdown, cagr)
 is computed on the pooled OOS net-return series, identical in definition to the
-HPO objective, so the numbers line up with the rest of the paper.
+HPO objective and to engine.calculate_annualized_metrics, so the numbers line
+up with the rest of the paper.
 
 CLI
 ---
@@ -120,13 +128,23 @@ def _full_splits(cfg, df) -> list:
 # One evaluation, with the correct random source varied per model family
 # ============================================================================
 
+def _dl_ensemble_size(cfg) -> int:
+    """Production ensemble size for LSTM/Transformer (walk_forward config)."""
+    return max(1, int(getattr(cfg.walk_forward, "dl_ensemble_size", 1)))
+
+
 def _eval_one(model_name: str, df, cfg, params: dict, splits: list, seed: int) -> dict:
     """
     Evaluate one model once, varying the random source that actually matters:
 
     * HMM/HMM_Uni: override cfg.models.<hmm>.random_state = seed (the EM init).
       The global seed is set too, but the EM init is what moves the fit.
-    * LSTM/Transformer: vary the global RNG via evaluate_params(seed=...).
+    * LSTM/Transformer: vary the seed base of the PRODUCTION ensemble. Run `k`
+      uses the disjoint seed block `k*N .. k*N+N-1`, so no two runs share a
+      member. This is what makes the reported spread the spread of the
+      estimator that actually produces the headline results; varying a single
+      model's global seed would measure a configuration the pipeline never uses
+      (and overstate the variance by roughly sqrt(N)).
     * MSM: deterministic; seed ignored.
     """
     if model_name in _INIT_SENSITIVE:
@@ -143,8 +161,12 @@ def _eval_one(model_name: str, df, cfg, params: dict, splits: list, seed: int) -
         metrics, _ = evaluate_params(model_name, df, cfg, params, splits, seed=None)
         return metrics
 
-    # LSTM / Transformer
-    metrics, _ = evaluate_params(model_name, df, cfg, params, splits, seed=int(seed))
+    # LSTM / Transformer: seed-averaged production ensemble.
+    n_ens = _dl_ensemble_size(cfg)
+    metrics, _ = evaluate_params(
+        model_name, df, cfg, params, splits, seed=int(seed),
+        ensemble_size=n_ens, ensemble_seed_base=int(seed) * n_ens,
+    )
     return metrics
 
 
@@ -172,9 +194,12 @@ def seed_sensitivity(
     seed_list = list(range(seeds)) if isinstance(seeds, int) else list(seeds)
     splits = _full_splits(cfg, df)
 
+    n_ens = _dl_ensemble_size(cfg)
     logger.info(
         f"Seed-sensitivity start: models={models}, seeds={seed_list}, "
-        f"folds={len(splits)}. DL models retrain per seed (GPU-bound, slow)."
+        f"folds={len(splits)}, dl_ensemble_size={n_ens}. Each DL run retrains "
+        f"the full {n_ens}-member ensemble (GPU-bound: "
+        f"{len(seed_list) * n_ens * len(splits)} trainings per DL model)."
     )
 
     rows = []
@@ -244,15 +269,30 @@ def _sensitivity_verdict(cv: float) -> str:
     return "unstable"
 
 
-def to_markdown(result: pd.DataFrame, seed_list: list[int]) -> str:
+def to_markdown(result: pd.DataFrame, seed_list: list[int],
+                ensemble_size: int = 1) -> str:
     """Render the seed-sensitivity result as a Markdown report."""
     lines = []
-    lines.append(f"# Seed Sensitivity of the Production Config ({len(seed_list)} seeds)\n")
+    lines.append(f"# Seed Sensitivity of the Production Config ({len(seed_list)} runs)\n")
+    if ensemble_size > 1:
+        dl_src = (
+            f"the seed base of the {ensemble_size}-member production ensemble "
+            f"for LSTM and Transformer (run k trains a complete ensemble from "
+            f"the disjoint seed block k*{ensemble_size}..k*{ensemble_size}+"
+            f"{ensemble_size - 1}, so the spread is that of the estimator "
+            f"behind the headline results, not of a single network the "
+            f"pipeline never uses)"
+        )
+    else:
+        dl_src = (
+            "the global RNG (weight init, batch shuffle, dropout) for LSTM and "
+            "Transformer -- note dl_ensemble_size is 1, so this IS the "
+            "production estimator"
+        )
     lines.append(
         "Each model is re-run on the production hyperparameters and the full "
         "walk-forward fold set, varying only its random source: the EM "
-        "initialization (random_state) for HMM and HMM_Uni, the global RNG "
-        "(weight init, batch shuffle, dropout) for LSTM and Transformer. MSM is "
+        f"initialization (random_state) for HMM and HMM_Uni, {dl_src}. MSM is "
         "deterministic and shown as the zero-variance control. Metrics are the "
         "pooled OOS values (CV = std / |mean|).\n"
     )
@@ -291,8 +331,14 @@ def to_markdown(result: pd.DataFrame, seed_list: list[int]) -> str:
     lines.append(
         "Reading the verdict: 'stable' (headline CV < 0.02) means a single seed "
         "is representative; 'moderate' (< 0.10) warrants reporting a seed band; "
-        "'unstable' (>= 0.10) calls for a seed-averaged ensemble (DL) or "
-        "best-of-k by log-likelihood (HMM) as the headline result.\n"
+        "'unstable' (>= 0.10) means a single run must NOT be reported as a "
+        "point estimate. Because the DL rows already measure the seed-averaged "
+        "production ensemble, an 'unstable' verdict there cannot be fixed by "
+        "averaging more of the same: report the band, raise "
+        "walk_forward.dl_ensemble_size (variance shrinks ~1/sqrt(N)), or treat "
+        "the model as not reliably estimable on this sample. For HMM, "
+        "best-of-k by train log-likelihood (n_init) is the corresponding "
+        "remedy.\n"
     )
     return "\n".join(lines)
 
@@ -308,7 +354,7 @@ def run_and_write(
     seed_list = list(range(seeds)) if isinstance(seeds, int) else list(seeds)
     result = seed_sensitivity(df, cfg, models=models, seeds=seed_list)
     if save:
-        md = to_markdown(result, seed_list)
+        md = to_markdown(result, seed_list, _dl_ensemble_size(cfg))
         out = cfg.asset_path("seed_sensitivity")
         with open(out, "w", encoding="utf-8") as f:
             f.write(md)

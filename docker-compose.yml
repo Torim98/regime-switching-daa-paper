@@ -47,7 +47,10 @@ services:
               capabilities: [gpu]
     depends_on:
       - data-service
-    command: uvicorn services.model_service.main:app --host 0.0.0.0 --port 8002 --timeout-keep-alive 28800
+    # Keep-alive well above the longest single step (full HPO sweep); must not
+    # be shorter than the hub's read timeout, or the connection is dropped from
+    # the server side while the step is still running.
+    command: uvicorn services.model_service.main:app --host 0.0.0.0 --port 8002 --timeout-keep-alive 259200
 
   backtest-service:
     build:
@@ -66,6 +69,8 @@ services:
       - TZ=Europe/Berlin
     depends_on:
       - model-service
+    # Same reasoning as model-service: the MCS + evaluation step runs long.
+    command: uvicorn services.backtest_service.main:app --host 0.0.0.0 --port 8003 --timeout-keep-alive 259200
 
   dashboard-service:
     build:

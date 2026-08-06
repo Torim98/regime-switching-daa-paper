@@ -42,7 +42,7 @@ models:
   msm:
     k_regimes: 2
     switching_variance: true
-    threshold: 0.175  # basis for the other models; bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.5  # basis for the other models; bear signal when prob >= threshold; thesis initial value 0.5
     train_test_split: &msm_train_test_split 0.8  # 0.8, only used when walk_forward.enabled: false
   hmm:
     features:
@@ -50,11 +50,11 @@ models:
       - "VIX"
       - "Yield_Spread"
     n_components: 2
-    covariance_type: "diag"     # thesis initial value "full"
+    covariance_type: "full"     # thesis initial value "full"
     n_iter: 1000
     random_state: 42
     n_init: 10                  # multi-start EM: fit n_init times, keep highest train log-likelihood (tames EM init sensitivity; 1 = single fit)
-    threshold: 0.975            # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.5              # bear signal when prob >= threshold; thesis initial value 0.5
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
   hmm_uni:
     features:
@@ -64,38 +64,38 @@ models:
     n_iter: 1000
     random_state: 42
     n_init: 10                  # multi-start EM (see hmm.n_init); univariate is already near-stable, kept consistent
-    threshold: 0.175            # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.5              # bear signal when prob >= threshold; thesis initial value 0.5
   lstm:
-    window_size: 140            # thesis initial value 60
+    window_size: 60             # thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
-    units_l1: 16                # thesis initial value 32
-    units_l2: 32                # thesis initial value 64
+    units_l1: 32                # thesis initial value 32
+    units_l2: 64                # thesis initial value 64
     return_sequences: true
     epochs: 30                  # thesis initial value 30
     batch_size: 128
-    learning_rate: 0.00002008   # thesis initial value 0.001
-    dropout: 0.5                # thesis initial value 0.2
+    learning_rate: 0.001        # thesis initial value 0.001
+    dropout: 0.2                # thesis initial value 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.35              # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.5               # bear signal when prob >= threshold; thesis initial value 0.5
   transformer:
     # --- Data ---
-    window_size: 230             # same sequence length as LSTM; thesis initial value 60
+    window_size: 60              # same sequence length as LSTM; thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
     # --- Architecture ---
-    d_model: 16                  # embedding dimension (Transformer internal dimension); thesis initial value 64
-    n_heads: 2                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
+    d_model: 64                  # embedding dimension (Transformer internal dimension); thesis initial value 64
+    n_heads: 4                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
     n_layers: 2                  # number of Transformer encoder layers; thesis initial value 2
-    dim_feedforward: 256         # dimension of the feed-forward network in the encoder; thesis initial value 128
-    dropout: 0.25                # dropout rate (regularization); thesis initial value 0.1
+    dim_feedforward: 128         # dimension of the feed-forward network in the encoder; thesis initial value 128
+    dropout: 0.1                 # dropout rate (regularization); thesis initial value 0.1
     # --- Training ---
     epochs: 50                   # thesis initial value 50
     batch_size: 64
-    learning_rate: 0.003203      # thesis initial value 0.0001
+    learning_rate: 0.0001        # thesis initial value 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
@@ -184,7 +184,20 @@ optimization:
   # 30-trial) search into the new distributions. Old DB kept as archive.
   # v3 prevents resuming v2 trials, whose DL labels were computed with future
   # fold data and whose econometric objectives used n_init=1 plus fold resets.
-  study_suffix: "v3_martin_causal_stateful"
+  # v4 prevents resuming v3 trials, whose objective compounded the pooled LOG
+  # returns as if they were simple ones (compute_oos_metrics). That understated
+  # CAGR by the volatility drag and deepened every drawdown metric, so the
+  # Martin objective carried a second volatility penalty and could rank
+  # candidates differently than the documented metric.
+  study_suffix: "v4_martin_simple_returns"
+  # Write each model's best params straight into the `models:` blocks of THIS
+  # file as soon as its study finishes, so the following pipeline steps train on
+  # the tuned values without a manual copy step. Comment- and anchor-preserving,
+  # and validated with yaml.safe_load before the file is replaced. The edit
+  # lands after the last trial of each model, so a run that is stopped early
+  # still applies whatever models completed. Set to false to keep the previous
+  # behaviour (inspect assets/optuna_best_params.md and edit by hand).
+  apply_best_params: true
   # Revised search spaces (Issue #5): edge-of-range optima from the thesis run
   # (LSTM window=120/dropout=0.4/threshold=0.3, MSM threshold=0.7, d_model=32)
   # are all un-bounded; the (d_model, n_heads) constraint is encoded as valid
@@ -395,6 +408,14 @@ paths:
     depletion_ci:                "depletion_rate_ci.md"
     h1_drawdown:                 "h1_drawdown_test.md"
     h2_transformer:              "h2_transformer_test.md"
+    # Hypothesis figures. Previously produced by jupyter/Hypothesis_testing.ipynb
+    # and jupyter/Model_risk-return-positioning.ipynb from hard-coded literals,
+    # which let them show stale numbers under a fresh timestamp. Now generated
+    # from the same arrays as the H1/H2 tables.
+    mcs_depletion_forest:        "mcs_depletion_rate_forest.png"
+    mcs_h1_forest:               "mcs_h1_mdd_forest.png"
+    mcs_h2_forest:               "mcs_h2_final_capital_forest.png"
+    risk_return_positioning:     "risk_return_positioning.png"
     break_even_table:            "break_even_costs.md"
     break_even_plot:             "break_even_costs.png"
     withdrawal_sensitivity:      "withdrawal_sensitivity.md"

@@ -47,7 +47,15 @@ def study_name_for(cfg, model_name: str) -> str:
     return f"opt_{model_name}" + (f"_{suffix}" if suffix else "")
 
 
-def load_study(cfg, model_name: str, storage: str | None = None) -> optuna.Study:
+def load_study(cfg, model_name: str,
+               storage: "str | optuna.storages.BaseStorage | None" = None,
+               ) -> optuna.Study:
+    """Load a study by its versioned name.
+
+    `storage` accepts a URL or an already-configured storage object;
+    run_optimization passes its RDBStorage so the auto-apply step reuses the
+    same WAL/busy_timeout engine instead of opening a second SQLite connection.
+    """
     if storage is None:
         storage = f"sqlite:///{cfg.model_path('optuna_db')}"
     optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -233,11 +241,16 @@ def _set_scalar(lines: list[str], model_block: str, key: str, value) -> bool:
         indent = lines[i][:len(lines[i]) - len(stripped)]
         # Preserve any inline comment (do not treat '#' inside quotes; values
         # here are numbers or simple quoted strings, so first '#' is the comment).
-        comment = ""
+        # Keep it at its original column so repeated HPO runs do not erode the
+        # alignment of these blocks; fall back to two spaces when the new value
+        # is too wide for the old column.
+        head = f"{indent}{key}: {_fmt_yaml_scalar(value)}"
         hash_pos = lines[i].find("#")
-        if hash_pos != -1:
-            comment = "  " + lines[i][hash_pos:].rstrip("\n")
-        lines[i] = f"{indent}{key}: {_fmt_yaml_scalar(value)}{comment}\n"
+        if hash_pos == -1:
+            lines[i] = head + "\n"
+        else:
+            pad = max(2, hash_pos - len(head))
+            lines[i] = head + " " * pad + lines[i][hash_pos:].rstrip("\n") + "\n"
         return True
     return False
 
@@ -330,12 +343,20 @@ def _hpo_splits(cfg, df) -> list:
 
 
 def evaluate_params(model_name: str, df: pd.DataFrame, cfg, params: dict,
-                    splits: list | None = None, seed: int | None = None
+                    splits: list | None = None, seed: int | None = None,
+                    ensemble_size: int = 1, ensemble_seed_base: int = 0,
                     ) -> tuple[dict, list[np.ndarray]]:
     """
     Run the pooled-OOS fold loop for a FIXED hyperparameter set (no Optuna
     trial). Mirrors the objective in optimize.py but with fixed params and an
     optional global seed. Returns (metric_vector, per_fold_return_arrays).
+
+    `ensemble_size` > 1 evaluates LSTM/Transformer as the seed-averaged
+    ensemble that walk_forward.run_walk_forward uses in production, seeded from
+    `ensemble_seed_base`; `seed` is then irrelevant for those two models, since
+    each member reseeds globally. The default of 1 is the single-model
+    evaluation the HPO objective is defined on. Ignored for the econometric
+    models, which have no global-RNG dependence.
     """
     if seed is not None:
         _set_global_seeds(seed)
@@ -349,9 +370,11 @@ def evaluate_params(model_name: str, df: pd.DataFrame, cfg, params: dict,
     if model_name in ("MSM", "HMM", "HMM_Uni"):
         pooled = _eval_econometric(model_name, df, cfg, params, splits, fee, signal_shift)
     elif model_name == "LSTM":
-        pooled = _eval_lstm(df, cfg, params, splits, fee, signal_shift)
+        pooled = _eval_lstm(df, cfg, params, splits, fee, signal_shift,
+                            ensemble_size, ensemble_seed_base)
     elif model_name == "Transformer":
-        pooled = _eval_transformer(df, cfg, params, splits, fee, signal_shift)
+        pooled = _eval_transformer(df, cfg, params, splits, fee, signal_shift,
+                                   ensemble_size, ensemble_seed_base)
     else:
         raise ValueError(f"unknown model {model_name}")
 
@@ -395,7 +418,16 @@ def _eval_econometric(model_name, df, cfg, params, splits, fee, signal_shift):
     return pooled
 
 
-def _eval_lstm(df, cfg, params, splits, fee, signal_shift):
+def _eval_lstm(df, cfg, params, splits, fee, signal_shift,
+               ensemble_size: int = 1, ensemble_seed_base: int = 0):
+    """Pooled-OOS fold loop for the LSTM.
+
+    `ensemble_size` > 1 reproduces the production estimator from
+    walk_forward.run_walk_forward: train N members per fold with the global
+    seeds `ensemble_seed_base + 0..N-1`, average their OOS probabilities, and
+    threshold the mean. Each member keeps its own warm-start state across
+    folds. The default of 1 keeps the HPO objective a single-model evaluation.
+    """
     from src.models.lstm import train_lstm_fold
     from src.data.labels.resolver import compute_supervised_labels_asof, resolve_label_col
 
@@ -403,8 +435,9 @@ def _eval_lstm(df, cfg, params, splits, fee, signal_shift):
     labels_col = resolve_label_col(cfg)
     lc = cfg.models.lstm
     dl_warm, epochs_warm, max_epochs = O._dl_warm_cfg(cfg)
+    n_ens = max(1, int(ensemble_size))
 
-    pooled, state, portfolio_state = [], None, None
+    pooled, states, portfolio_state = [], [None] * n_ens, None
     for train_idx, test_idx in splits:
         df_train, df_test = df.loc[train_idx].copy(), df.loc[test_idx]
         try:
@@ -414,18 +447,27 @@ def _eval_lstm(df, cfg, params, splits, fee, signal_shift):
                 df_train["Supervised_Label"] = compute_supervised_labels_asof(
                     df, train_idx, cfg,
                 )
-            probs, pred_idx, state = train_lstm_fold(
-                df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
-                window_size=params["window_size"], units_l1=params["units_l1"],
-                units_l2=params["units_l2"], return_sequences=lc.return_sequences,
-                dropout=params["dropout"], dense=lc.dense, activation=lc.activation,
-                optimizer=lc.optimizer, learning_rate=params["learning_rate"],
-                metrics=lc.metrics,
-                epochs=max_epochs, batch_size=params["batch_size"],
-                validation_split=lc.validation_split, verbose=0,
-                init_weights=state if dl_warm else None,
-                epochs_warm=epochs_warm if (dl_warm and state is not None) else None,
-            )
+            member_probs, new_states, pred_idx = [], [], None
+            for m in range(n_ens):
+                if n_ens > 1:
+                    _set_global_seeds(ensemble_seed_base + m)
+                st = states[m]
+                probs_raw, pred_idx, st_new = train_lstm_fold(
+                    df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
+                    window_size=params["window_size"], units_l1=params["units_l1"],
+                    units_l2=params["units_l2"], return_sequences=lc.return_sequences,
+                    dropout=params["dropout"], dense=lc.dense, activation=lc.activation,
+                    optimizer=lc.optimizer, learning_rate=params["learning_rate"],
+                    metrics=lc.metrics,
+                    epochs=max_epochs, batch_size=params["batch_size"],
+                    validation_split=lc.validation_split, verbose=0,
+                    init_weights=st if dl_warm else None,
+                    epochs_warm=epochs_warm if (dl_warm and st is not None) else None,
+                )
+                member_probs.append(np.asarray(probs_raw, dtype=float))
+                new_states.append(st_new)
+            states = new_states
+            probs = np.mean(member_probs, axis=0)
             sig = pd.Series((probs >= params["threshold"]).astype(int), index=pred_idx)
             fold_rets, portfolio_state = O._fold_portfolio_returns(
                 df_test.loc[pred_idx], sig, signal_shift, fee, portfolio_state,
@@ -433,12 +475,17 @@ def _eval_lstm(df, cfg, params, splits, fee, signal_shift):
             pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"LSTM eval fold failed: {e}")
-            state = None
+            states = [None] * n_ens
             portfolio_state = None
     return pooled
 
 
-def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
+def _eval_transformer(df, cfg, params, splits, fee, signal_shift,
+                      ensemble_size: int = 1, ensemble_seed_base: int = 0):
+    """Pooled-OOS fold loop for the Transformer.
+
+    See `_eval_lstm` for the meaning of `ensemble_size` / `ensemble_seed_base`.
+    """
     from src.models.transformer import train_transformer_fold
     from src.data.labels.resolver import compute_supervised_labels_asof, resolve_label_col
 
@@ -447,8 +494,9 @@ def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
     tc = cfg.models.transformer
     dl_warm, epochs_warm, max_epochs = O._dl_warm_cfg(cfg)
     d_model, n_heads = (int(x) for x in params["dmodel_nheads"].split("-"))
+    n_ens = max(1, int(ensemble_size))
 
-    pooled, state, portfolio_state = [], None, None
+    pooled, states, portfolio_state = [], [None] * n_ens, None
     for train_idx, test_idx in splits:
         df_train, df_test = df.loc[train_idx].copy(), df.loc[test_idx]
         try:
@@ -458,16 +506,25 @@ def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
                 df_train["Supervised_Label"] = compute_supervised_labels_asof(
                     df, train_idx, cfg,
                 )
-            probs, pred_idx, state = train_transformer_fold(
-                df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
-                window_size=params["window_size"], d_model=d_model, n_heads=n_heads,
-                n_layers=params["n_layers"], dim_feedforward=params["dim_feedforward"],
-                dropout=params["dropout"], learning_rate=params["learning_rate"],
-                epochs=max_epochs, batch_size=params["batch_size"],
-                validation_split=tc.validation_split, verbose=0,
-                init_state_dict=state if dl_warm else None,
-                epochs_warm=epochs_warm if (dl_warm and state is not None) else None,
-            )
+            member_probs, new_states, pred_idx = [], [], None
+            for m in range(n_ens):
+                if n_ens > 1:
+                    _set_global_seeds(ensemble_seed_base + m)
+                st = states[m]
+                probs_raw, pred_idx, st_new = train_transformer_fold(
+                    df_train=df_train, df_test=df_test, features=features, labels_col=labels_col,
+                    window_size=params["window_size"], d_model=d_model, n_heads=n_heads,
+                    n_layers=params["n_layers"], dim_feedforward=params["dim_feedforward"],
+                    dropout=params["dropout"], learning_rate=params["learning_rate"],
+                    epochs=max_epochs, batch_size=params["batch_size"],
+                    validation_split=tc.validation_split, verbose=0,
+                    init_state_dict=st if dl_warm else None,
+                    epochs_warm=epochs_warm if (dl_warm and st is not None) else None,
+                )
+                member_probs.append(np.asarray(probs_raw, dtype=float))
+                new_states.append(st_new)
+            states = new_states
+            probs = np.mean(member_probs, axis=0)
             sig = pd.Series((probs >= params["threshold"]).astype(int), index=pred_idx)
             fold_rets, portfolio_state = O._fold_portfolio_returns(
                 df_test.loc[pred_idx], sig, signal_shift, fee, portfolio_state,
@@ -475,7 +532,7 @@ def _eval_transformer(df, cfg, params, splits, fee, signal_shift):
             pooled.append(fold_rets)
         except Exception as e:
             warnings.warn(f"Transformer eval fold failed: {e}")
-            state = None
+            states = [None] * n_ens
             portfolio_state = None
     return pooled
 

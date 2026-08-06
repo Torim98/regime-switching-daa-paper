@@ -30,8 +30,14 @@ _SERVICES = {
     "backtest": os.environ.get("BACKTEST_SERVICE_URL", "http://backtest-service:8003"),
 }
 
-# Longer timeouts: WF + train-all can take > 1 h
-_TIMEOUT = httpx.Timeout(connect=10.0, read=28800.0, write=30.0, pool=10.0)
+# Longer timeouts: a full HPO sweep over all five models (grid for the
+# econometric ones, TPE + GPU training for the DL ones) has overrun the previous
+# 8 h read timeout. The step itself keeps running server-side when the proxy
+# call times out, so the UI loses the result of work that actually completed --
+# hence a deliberately generous ceiling. Override with HUB_PROXY_READ_TIMEOUT
+# (seconds) if a run needs even longer.
+_READ_TIMEOUT = float(os.environ.get("HUB_PROXY_READ_TIMEOUT", 259200.0))  # 72 h
+_TIMEOUT = httpx.Timeout(connect=10.0, read=_READ_TIMEOUT, write=30.0, pool=10.0)
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +128,7 @@ _CATALOG = [
             {
                 "id": "model.seed_sensitivity", "method": "POST", "path": "/models/seed-sensitivity",
                 "label": "Seed sensitivity (retraining stability)",
-                "description": "Re-runs every model on the production config and the full walk-forward fold set, varying only its random source (EM init for HMM/HMM_Uni, global RNG for LSTM/Transformer; MSM is the zero-variance control). Reports mean/std/CV of the OOS metrics to quantify the jumping DL performance between retrainings. Re-trains DL on the GPU per seed (slow). Writes assets/seed_sensitivity.md, shown on the Models page. models='dl' restricts to LSTM+Transformer for a faster check.",
+                "description": "Re-runs every model on the production config and the full walk-forward fold set, varying only its random source (EM init for HMM/HMM_Uni; the seed base of the seed-averaged production ensemble for LSTM/Transformer, so each run retrains a COMPLETE ensemble from a disjoint seed block; MSM is the zero-variance control). Reports mean/std/CV of the OOS metrics to quantify the jumping DL performance between retrainings. Cost scales with seeds x dl_ensemble_size x folds on the GPU (slow). Writes assets/seed_sensitivity.md, shown on the Models page. models='dl' restricts to LSTM+Transformer for a faster check.",
                 "params": [
                     {"name": "seeds", "in": "query", "type": "int", "default": 5},
                     {"name": "models", "in": "query", "type": "select",
