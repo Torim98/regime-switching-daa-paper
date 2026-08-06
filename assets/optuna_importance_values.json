@@ -1,30 +1,34 @@
 {
-  "_comment": "Cache of the fANOVA importance values from save_optuna_plots (src/backtest/plots.py). Since FanovaImportanceEvaluator is stochastic without a fixed seed, the values are stored here at PNG creation time so that the dashboard shows exactly the same numbers as the static PNG. On new pipeline runs, save_optuna_plots rewrites this file automatically.",
-  "source": "auto-written by save_optuna_plots",
   "studies": {
-    "MSM": {},
+    "MSM": {
+      "threshold": 1.0
+    },
     "HMM": {
-      "covariance_type": 1.0
+      "covariance_type": 0.9820848287808667,
+      "threshold": 0.017915171219133406
+    },
+    "HMM_Uni": {
+      "threshold": 1.0
     },
     "LSTM": {
-      "units_l1": 0.27072375111814795,
-      "threshold": 0.20996112957828977,
-      "dropout": 0.15439188586267324,
-      "window_size": 0.12181242783084768,
-      "units_l2": 0.10333081440966693,
-      "learning_rate": 0.08576871374630451,
-      "batch_size": 0.05401127745406997
+      "learning_rate": 0.2998133594702582,
+      "threshold": 0.27610502515701285,
+      "dropout": 0.17021550278789835,
+      "window_size": 0.11320625093547432,
+      "units_l1": 0.07633718101623815,
+      "units_l2": 0.038495579691866455,
+      "batch_size": 0.025827100941251575
     },
     "Transformer": {
-      "learning_rate": 0.5001095043251786,
-      "dmodel_nheads": 0.17581505556030774,
-      "threshold": 0.11780587892507283,
-      "window_size": 0.06424543602203876,
-      "dropout": 0.057796152635588224,
-      "n_layers": 0.03028702863954767,
-      "dim_feedforward": 0.02697380686774286,
-      "batch_size": 0.02696713702452321
-    },
-    "HMM_Uni": {}
-  }
+      "window_size": 0.4792710094318594,
+      "learning_rate": 0.17892356009393875,
+      "threshold": 0.11615764463809257,
+      "dmodel_nheads": 0.09601901770054717,
+      "n_layers": 0.05881501635908546,
+      "dropout": 0.02514852604999308,
+      "dim_feedforward": 0.023742007805756343,
+      "batch_size": 0.02192321792072726
+    }
+  },
+  "source": "auto-written by save_optuna_plots"
 }

@@ -1,7 +1,7 @@
 
 # Detailed Statistical Evaluation & Research Results
 
-This page documents the numerical and graphical results of the research pipeline. All evaluations are based on the dataset up to yesterday (2026-07-09) and are updated automatically.
+This page documents the numerical and graphical results of the research pipeline. All evaluations are based on the **frozen dataset** from **1990-01-02** to **2026-07-31** (thesis freeze).
 
 ---
 
@@ -10,12 +10,12 @@ A direct comparison of the core metrics over the entire **out-of-sample test per
 
 | Strategy    | Final Wealth   | Total Return   | Max Drawdown   |
 |:------------|:---------------|:---------------|:---------------|
-| Buy_Hold    | 2,097,913 €    | +319.58%       | -35.08%        |
-| MSM         | 1,632,308 €    | +226.46%       | -10.91%        |
-| HMM         | 1,211,580 €    | +142.32%       | -23.55%        |
-| HMM_Uni     | 1,619,457 €    | +223.89%       | -11.01%        |
-| LSTM        | 2,338,545 €    | +367.71%       | -27.71%        |
-| Transformer | 2,472,399 €    | +394.48%       | -27.71%        |
+| Buy_Hold    | 2,070,561 €    | +314.11%       | -35.08%        |
+| MSM         | 1,590,052 €    | +218.01%       | -10.91%        |
+| HMM         | 1,057,241 €    | +111.45%       | -17.02%        |
+| HMM_Uni     | 1,577,535 €    | +215.51%       | -11.01%        |
+| LSTM        | 1,840,170 €    | +268.03%       | -21.52%        |
+| Transformer | 2,101,990 €    | +320.40%       | -29.45%        |
 
 > **Key point:** Compare the **max drawdown** of the active strategies with the buy-and-hold benchmark. The objective of this work is a significant reduction of this value to mitigate SORR.
 
@@ -28,22 +28,22 @@ The analysis is based on a global multi-asset approach.
 **Descriptive statistics of the base time series:**
 | Time Series   |   Mean (daily) |   Std. Dev. (daily) |     Min |     Max |   Skewness |   Kurtosis |
 |:--------------|---------------:|--------------------:|--------:|--------:|-----------:|-----------:|
-| Returns_GSPC  |       0.00033  |            0.011354 | -0.1277 |  0.1096 |    -0.3642 |    10.8578 |
-| Returns_VUSTX |       0.000213 |            0.007253 | -0.0605 |  0.0654 |    -0.031  |     4.5144 |
-| Returns       |       0.000283 |            0.006883 | -0.0662 |  0.0584 |    -0.2803 |     7.6584 |
-| VIX           |      19.4547   |            7.74392  |  9.14   | 82.69   |     2.2073 |     8.7245 |
-| TNX_10Y       |       4.24471  |            1.9274   |  0.499  |  9.09   |     0.326  |    -0.6296 |
-| IRX_3M        |       2.71399  |            2.19752  | -0.105  |  7.99   |     0.192  |    -1.251  |
+| Returns_GSPC  |       0.00033  |            0.011348 | -0.1277 |  0.1096 |    -0.364  |    10.8616 |
+| Returns_VUSTX |       0.000209 |            0.007249 | -0.0605 |  0.0654 |    -0.0304 |     4.5173 |
+| Returns       |       0.000281 |            0.006881 | -0.0662 |  0.0584 |    -0.2805 |     7.6516 |
+| VIX           |      19.4499   |            7.73648  |  9.14   | 82.69   |     2.2107 |     8.7497 |
+| TNX_10Y       |       4.24552  |            1.92538  |  0.499  |  9.09   |     0.3251 |    -0.6254 |
+| IRX_3M        |       2.71619  |            2.19564  | -0.105  |  7.99   |     0.1893 |    -1.2495 |
 
 **Stationarity check (augmented Dickey-Fuller test):**
 | Time Series   |   ADF Statistic |    p-Value |   Crit. Value (5%) | Stationary?   |
 |:--------------|----------------:|-----------:|-------------------:|:--------------|
-| Returns_GSPC  |        -17.556  | 4.1193e-30 |            -2.8619 | Yes           |
-| Returns_VUSTX |        -18.7273 | 2.0315e-30 |            -2.8619 | Yes           |
-| Returns       |        -21.0026 | 0          |            -2.8619 | Yes           |
-| VIX           |         -7.3102 | 1.2703e-10 |            -2.8619 | Yes           |
-| TNX_10Y       |         -2.3445 | 0.15801    |            -2.8619 | No            |
-| IRX_3M        |         -2.3484 | 0.15684    |            -2.8619 | No            |
+| Returns_GSPC  |        -17.5642 | 4.0821e-30 |            -2.8619 | Yes           |
+| Returns_VUSTX |        -18.7155 | 2.0338e-30 |            -2.8619 | Yes           |
+| Returns       |        -21.0141 | 0          |            -2.8619 | Yes           |
+| VIX           |         -7.3175 | 1.2184e-10 |            -2.8619 | Yes           |
+| TNX_10Y       |         -2.3356 | 0.16076    |            -2.8619 | No            |
+| IRX_3M        |         -2.3494 | 0.15654    |            -2.8619 | No            |
 
 **Volatility clusters and autocorrelation (heteroskedasticity):**
 ![Volatility Clusters](../assets/eda_volatility_clusters.png)
@@ -101,19 +101,20 @@ Search over the hyperparameter space of all models using walk-forward validation
 
 # Optuna: Best Hyperparameters
 
-_Generated at 2026-07-05 10:38:33_  
+_Generated at 2026-08-03 14:31:37_  
 Optimization metric: **martin (pooled OOS)**
 
 ## Overview
 
 | Model | Best Score | ✓ Complete | ✗ Pruned | Total |
 |:---|---:|---:|---:|---:|
-| **MSM** | 1.6508 | 36 | 0 | 36 |
-| **HMM** | 1.2037 | 108 | 0 | 108 |
-| **HMM_Uni** | 1.6384 | 36 | 0 | 36 |
-| **LSTM** | 2.6426 | 194 | 0 | 203 |
+| **MSM** | 1.5402 | 36 | 0 | 36 |
+| **HMM** | 0.8231 | 108 | 0 | 108 |
+| **HMM_Uni** | 1.5296 | 36 | 0 | 36 |
+| **LSTM** | 2.3342 | 300 | 0 | 302 |
+| **Transformer** | 1.0331 | 400 | 0 | 401 |
 
-### MSM: Best Score `1.6508`
+### MSM: Best Score `1.5402`
 
 | Parameter | Value |
 |:---|---:|
@@ -123,74 +124,99 @@ Secondary metrics of the best trial (pooled OOS):
 
 | Metric | Value |
 |:---|---:|
-| sharpe | 0.8513 |
-| sortino | 1.0119 |
-| calmar | 0.6465 |
-| martin | 1.6508 |
-| ulcer | 3.1627 |
+| sharpe | 0.8473 |
+| sortino | 1.0053 |
+| calmar | 0.6179 |
+| martin | 1.5402 |
+| ulcer | 3.3506 |
+| max_drawdown | -0.0835 |
+| cagr | 0.0516 |
+
+### HMM: Best Score `0.8231`
+
+| Parameter | Value |
+|:---|---:|
+| `covariance_type` | `diag` |
+| `threshold` | `0.975` |
+
+Secondary metrics of the best trial (pooled OOS):
+
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.5510 |
+| sortino | 0.5753 |
+| calmar | 0.3050 |
+| martin | 0.8231 |
+| ulcer | 3.3470 |
+| max_drawdown | -0.0903 |
+| cagr | 0.0275 |
+
+### HMM_Uni: Best Score `1.5296`
+
+| Parameter | Value |
+|:---|---:|
+| `threshold` | `0.175` |
+
+Secondary metrics of the best trial (pooled OOS):
+
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.8391 |
+| sortino | 0.9954 |
+| calmar | 0.6334 |
+| martin | 1.5296 |
+| ulcer | 3.3440 |
 | max_drawdown | -0.0808 |
-| cagr | 0.0522 |
+| cagr | 0.0511 |
 
-### HMM: Best Score `1.2037`
-
-| Parameter | Value |
-|:---|---:|
-| `covariance_type` | `tied` |
-| `threshold` | `0.875` |
-
-Secondary metrics of the best trial (pooled OOS):
-
-| Metric | Value |
-|:---|---:|
-| sharpe | 0.7243 |
-| sortino | 0.8796 |
-| calmar | 0.4153 |
-| martin | 1.2037 |
-| ulcer | 3.9259 |
-| max_drawdown | -0.1138 |
-| cagr | 0.0473 |
-
-### HMM_Uni: Best Score `1.6384`
+### LSTM: Best Score `2.3342`
 
 | Parameter | Value |
 |:---|---:|
-| `threshold` | `0.175` |
-
-Secondary metrics of the best trial (pooled OOS):
-
-| Metric | Value |
-|:---|---:|
-| sharpe | 0.8420 |
-| sortino | 0.9987 |
-| calmar | 0.6752 |
-| martin | 1.6384 |
-| ulcer | 3.1419 |
-| max_drawdown | -0.0762 |
-| cagr | 0.0515 |
-
-### LSTM: Best Score `2.6426`
-
-| Parameter | Value |
-|:---|---:|
-| `window_size` | `250` |
+| `window_size` | `140` |
 | `units_l1` | `16` |
 | `units_l2` | `32` |
-| `batch_size` | `32` |
-| `learning_rate` | `1.329e-05` |
-| `dropout` | `0.45` |
-| `threshold` | `0.15` |
+| `batch_size` | `128` |
+| `learning_rate` | `2.008e-05` |
+| `dropout` | `0.5` |
+| `threshold` | `0.35` |
 
 Secondary metrics of the best trial (pooled OOS):
 
 | Metric | Value |
 |:---|---:|
-| sharpe | 0.9785 |
-| sortino | 0.9191 |
-| calmar | 0.6183 |
-| martin | 2.6426 |
-| ulcer | 2.0269 |
-| max_drawdown | -0.0866 |
-| cagr | 0.0536 |
+| sharpe | 0.9020 |
+| sortino | 0.7655 |
+| calmar | 0.5638 |
+| martin | 2.3342 |
+| ulcer | 1.7773 |
+| max_drawdown | -0.0736 |
+| cagr | 0.0415 |
+
+### Transformer: Best Score `1.0331`
+
+| Parameter | Value |
+|:---|---:|
+| `window_size` | `230` |
+| `dmodel_nheads` | `16-2` |
+| `n_layers` | `2` |
+| `dim_feedforward` | `256` |
+| `batch_size` | `64` |
+| `learning_rate` | `0.003203` |
+| `dropout` | `0.25` |
+| `threshold` | `0.5` |
+
+Secondary metrics of the best trial (pooled OOS):
+
+| Metric | Value |
+|:---|---:|
+| sharpe | 0.6100 |
+| sortino | 0.7195 |
+| calmar | 0.2133 |
+| martin | 1.0331 |
+| ulcer | 5.2343 |
+| max_drawdown | -0.2535 |
+| cagr | 0.0541 |
 
 
 **Diagnostic plots per model** (optimization history, parameter importance, slice, contour):
@@ -210,15 +236,15 @@ Best value and trial, fANOVA importance, and a flag for optima sitting within on
 
 # HPO Convergence & Edge-of-Range Review
 
-_Generated at 2026-07-09 10:00:33_
+_Generated at 2026-08-03 14:44:41_
 
-| model       | metric   |   best_value |   best_trial |   conv_frac |   n_complete |   n_pruned | top_importance                                         | edge_flags                                                                                                                                            |
-|:------------|:---------|-------------:|-------------:|------------:|-------------:|-----------:|:-------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|
-| MSM         | martin   |       1.6508 |           19 |        0.54 |           36 |          0 |                                                        | -                                                                                                                                                     |
-| HMM         | martin   |       1.2037 |            4 |        0.04 |          108 |          0 | covariance_type=1.00                                   | -                                                                                                                                                     |
-| HMM_Uni     | martin   |       1.6384 |           19 |        0.54 |           36 |          0 |                                                        | -                                                                                                                                                     |
-| LSTM        | martin   |       2.6426 |          129 |        0.64 |          194 |          0 | units_l1=0.27, threshold=0.21, dropout=0.15            | window_size=250 near UPPER bound 250; learning_rate=1.3292520737887431e-05 near LOWER bound 1e-05; threshold=0.15000000000000002 near LOWER bound 0.1 |
-| Transformer | martin   |       1.3728 |           42 |        0.22 |          190 |          0 | learning_rate=0.50, dmodel_nheads=0.18, threshold=0.12 | n_layers=3 near UPPER bound 4; threshold=0.15000000000000002 near LOWER bound 0.1                                                                     |
+| model       | metric   |   best_value |   best_trial |   conv_frac |   n_complete |   n_pruned | top_importance                                       | edge_flags                                                 |
+|:------------|:---------|-------------:|-------------:|------------:|-------------:|-----------:|:-----------------------------------------------------|:-----------------------------------------------------------|
+| MSM         | martin   |       1.5402 |           23 |        0.66 |           36 |          0 | threshold=1.00                                       | -                                                          |
+| HMM         | martin   |       0.8231 |          103 |        0.96 |          108 |          0 | covariance_type=0.98, threshold=0.02                 | threshold=0.975 near UPPER bound 0.975                     |
+| HMM_Uni     | martin   |       1.5296 |           23 |        0.66 |           36 |          0 | threshold=1.00                                       | -                                                          |
+| LSTM        | martin   |       2.3342 |          191 |        0.63 |          300 |          0 | learning_rate=0.30, threshold=0.28, dropout=0.17     | learning_rate=2.007996207208503e-05 near LOWER bound 1e-05 |
+| Transformer | martin   |       1.0331 |          298 |        0.74 |          400 |          0 | window_size=0.48, learning_rate=0.18, threshold=0.12 | n_layers=2 near LOWER bound 1                              |
 
 
 #### G.2 Objective Sensitivity
@@ -226,19 +252,19 @@ Which config would have been selected under each candidate metric, valued across
 
 # Objective Sensitivity of the Selected Hyperparameters
 
-_Generated at 2026-07-09 10:00:34_  
+_Generated at 2026-08-03 14:44:41_  
 Best config under each candidate metric, valued across all metrics (from the search trials' logged OOS metrics; no retraining). `same_as_objective` marks configs identical to the actual objective's pick.
 
 ## MSM (objective: martin, 36 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
-| sharpe          |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
-| sortino         |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
-| calmar          |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
-| ulcer           |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
-| max_drawdown    |      19 | True                |   1.6508 |   0.8513 |    1.0119 |   0.6465 |  3.1627 |        -0.0808 | 0.0522 |
+| martin          |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
+| sharpe          |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
+| sortino         |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
+| calmar          |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
+| ulcer           |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
+| max_drawdown    |      23 | True                |   1.5402 |   0.8473 |    1.0053 |   0.6179 |  3.3506 |        -0.0835 | 0.0516 |
 
 Selected configs:
 - best under **martin**: threshold=0.175
@@ -247,67 +273,63 @@ Selected configs:
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |       4 | True                |   1.2037 |   0.7243 |    0.8796 |   0.4153 |  3.9259 |        -0.1138 | 0.0473 |
-| sharpe          |       4 | True                |   1.2037 |   0.7243 |    0.8796 |   0.4153 |  3.9259 |        -0.1138 | 0.0473 |
-| sortino         |       4 | True                |   1.2037 |   0.7243 |    0.8796 |   0.4153 |  3.9259 |        -0.1138 | 0.0473 |
-| calmar          |       4 | True                |   1.2037 |   0.7243 |    0.8796 |   0.4153 |  3.9259 |        -0.1138 | 0.0473 |
-| ulcer           |      66 | False               |   0.921  |   0.5636 |    0.6061 |   0.3386 |  3.4975 |        -0.0951 | 0.0322 |
-| max_drawdown    |      22 | False               |   0.9395 |   0.5714 |    0.6151 |   0.3455 |  3.4985 |        -0.0951 | 0.0329 |
+| martin          |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
+| sharpe          |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
+| sortino         |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
+| calmar          |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
+| ulcer           |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
+| max_drawdown    |     103 | True                |   0.8231 |    0.551 |    0.5753 |    0.305 |   3.347 |        -0.0903 | 0.0275 |
 
 Selected configs:
-- best under **martin**: covariance_type=tied, threshold=0.875
-- best under **ulcer**: covariance_type=tied, threshold=0.125
-- best under **max_drawdown**: covariance_type=tied, threshold=0.15
+- best under **martin**: covariance_type=diag, threshold=0.975
 
 ## HMM_Uni (objective: martin, 36 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      19 | True                |   1.6384 |   0.842  |    0.9987 |   0.6752 |  3.1419 |        -0.0762 | 0.0515 |
-| sharpe          |      19 | True                |   1.6384 |   0.842  |    0.9987 |   0.6752 |  3.1419 |        -0.0762 | 0.0515 |
-| sortino         |      19 | True                |   1.6384 |   0.842  |    0.9987 |   0.6752 |  3.1419 |        -0.0762 | 0.0515 |
-| calmar          |      19 | True                |   1.6384 |   0.842  |    0.9987 |   0.6752 |  3.1419 |        -0.0762 | 0.0515 |
-| ulcer           |      17 | False               |   1.5245 |   0.7938 |    0.9291 |   0.578  |  3.1279 |        -0.0825 | 0.0477 |
-| max_drawdown    |      19 | True                |   1.6384 |   0.842  |    0.9987 |   0.6752 |  3.1419 |        -0.0762 | 0.0515 |
+| martin          |      23 | True                |   1.5296 |   0.8391 |    0.9954 |   0.6334 |  3.344  |        -0.0808 | 0.0511 |
+| sharpe          |      23 | True                |   1.5296 |   0.8391 |    0.9954 |   0.6334 |  3.344  |        -0.0808 | 0.0511 |
+| sortino         |      23 | True                |   1.5296 |   0.8391 |    0.9954 |   0.6334 |  3.344  |        -0.0808 | 0.0511 |
+| calmar          |      23 | True                |   1.5296 |   0.8391 |    0.9954 |   0.6334 |  3.344  |        -0.0808 | 0.0511 |
+| ulcer           |      12 | False               |   1.3523 |   0.7702 |    0.8698 |   0.4296 |  3.2777 |        -0.1032 | 0.0443 |
+| max_drawdown    |      23 | True                |   1.5296 |   0.8391 |    0.9954 |   0.6334 |  3.344  |        -0.0808 | 0.0511 |
 
 Selected configs:
 - best under **martin**: threshold=0.175
-- best under **ulcer**: threshold=0.15
+- best under **ulcer**: threshold=0.1
 
-## LSTM (objective: martin, 194 trials)
-
-| optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
-|:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |     129 | True                |   2.6426 |   0.9785 |    0.9191 |   0.6183 |  2.0269 |        -0.0866 | 0.0536 |
-| sharpe          |     129 | True                |   2.6426 |   0.9785 |    0.9191 |   0.6183 |  2.0269 |        -0.0866 | 0.0536 |
-| sortino         |      99 | False               |   1.8536 |   0.8679 |    1.1122 |   0.3773 |  3.8388 |        -0.1886 | 0.0712 |
-| calmar          |     148 | False               |   2.4283 |   0.8726 |    1.0941 |   0.6963 |  2.5232 |        -0.088  | 0.0613 |
-| ulcer           |     160 | False               |   2.3163 |   0.8811 |    0.7852 |   0.5187 |  1.948  |        -0.087  | 0.0451 |
-| max_drawdown    |     181 | False               |   1.7748 |   0.8285 |    0.6782 |   0.5021 |  2.0816 |        -0.0736 | 0.0369 |
-
-Selected configs:
-- best under **martin**: window_size=250, units_l1=16, units_l2=32, batch_size=32, learning_rate=1.3292520737887431e-05, dropout=0.45, threshold=0.15000000000000002
-- best under **sortino**: window_size=250, units_l1=32, units_l2=256, batch_size=128, learning_rate=4.471806844913538e-05, dropout=0.45, threshold=0.30000000000000004
-- best under **calmar**: window_size=250, units_l1=16, units_l2=256, batch_size=128, learning_rate=4.076527319051499e-05, dropout=0.4, threshold=0.15000000000000002
-- best under **ulcer**: window_size=210, units_l1=16, units_l2=64, batch_size=128, learning_rate=2.0149507145662965e-05, dropout=0.55, threshold=0.1
-- best under **max_drawdown**: window_size=230, units_l1=16, units_l2=32, batch_size=64, learning_rate=1.0355058430277764e-05, dropout=0.4, threshold=0.2
-
-## Transformer (objective: martin, 190 trials)
+## LSTM (objective: martin, 300 trials)
 
 | optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
 |:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
-| martin          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
-| sharpe          |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| sortino         |      84 | False               |   0.8467 |   0.6852 |    0.9236 |   0.2245 |  6.8603 |        -0.2587 | 0.0581 |
-| calmar          |      42 | True                |   1.3728 |   0.7082 |    0.8823 |   0.319  |  4.6002 |        -0.1979 | 0.0632 |
-| ulcer           |      14 | False               |   1.3506 |   0.7152 |    0.9173 |   0.2847 |  4.0869 |        -0.1939 | 0.0552 |
-| max_drawdown    |      51 | False               |   0.2719 |   0.4477 |    0.4366 |   0.1581 |  8.8183 |        -0.1517 | 0.024  |
+| martin          |     191 | True                |   2.3342 |   0.902  |    0.7655 |   0.5638 |  1.7773 |        -0.0736 | 0.0415 |
+| sharpe          |     191 | True                |   2.3342 |   0.902  |    0.7655 |   0.5638 |  1.7773 |        -0.0736 | 0.0415 |
+| sortino         |     248 | False               |   1.3234 |   0.8061 |    1.0478 |   0.295  |  5.0452 |        -0.2263 | 0.0668 |
+| calmar          |     191 | True                |   2.3342 |   0.902  |    0.7655 |   0.5638 |  1.7773 |        -0.0736 | 0.0415 |
+| ulcer           |     191 | True                |   2.3342 |   0.902  |    0.7655 |   0.5638 |  1.7773 |        -0.0736 | 0.0415 |
+| max_drawdown    |     191 | True                |   2.3342 |   0.902  |    0.7655 |   0.5638 |  1.7773 |        -0.0736 | 0.0415 |
 
 Selected configs:
-- best under **martin**: window_size=80, dmodel_nheads=128-4, n_layers=3, dim_feedforward=128, batch_size=128, learning_rate=0.002661901888489057, dropout=0.15000000000000002, threshold=0.15000000000000002
-- best under **sharpe**: window_size=250, dmodel_nheads=16-2, n_layers=3, dim_feedforward=32, batch_size=64, learning_rate=0.0003589128083678785, dropout=0.45, threshold=0.7000000000000001
-- best under **sortino**: window_size=220, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=128, learning_rate=0.0028818323079306337, dropout=0.30000000000000004, threshold=0.6
-- best under **max_drawdown**: window_size=40, dmodel_nheads=32-2, n_layers=4, dim_feedforward=32, batch_size=32, learning_rate=2.015647705936502e-05, dropout=0.35000000000000003, threshold=0.1
+- best under **martin**: window_size=140, units_l1=16, units_l2=32, batch_size=128, learning_rate=2.007996207208503e-05, dropout=0.5, threshold=0.35
+- best under **sortino**: window_size=140, units_l1=32, units_l2=256, batch_size=64, learning_rate=0.00010450700015167667, dropout=0.5, threshold=0.45000000000000007
+
+## Transformer (objective: martin, 400 trials)
+
+| optimized_for   |   trial | same_as_objective   |   martin |   sharpe |   sortino |   calmar |   ulcer |   max_drawdown |   cagr |
+|:----------------|--------:|:--------------------|---------:|---------:|----------:|---------:|--------:|---------------:|-------:|
+| martin          |     298 | True                |   1.0331 |   0.61   |    0.7195 |   0.2133 |  5.2343 |        -0.2535 | 0.0541 |
+| sharpe          |     300 | False               |   0.5833 |   0.6814 |    0.9056 |   0.1758 |  9.6727 |        -0.321  | 0.0564 |
+| sortino         |     300 | False               |   0.5833 |   0.6814 |    0.9056 |   0.1758 |  9.6727 |        -0.321  | 0.0564 |
+| calmar          |      86 | False               |   1.0191 |   0.5766 |    0.6604 |   0.2418 |  4.6971 |        -0.1979 | 0.0479 |
+| ulcer           |     327 | False               |   0.9252 |   0.5938 |    0.7122 |   0.2245 |  4.5029 |        -0.1855 | 0.0417 |
+| max_drawdown    |     156 | False               |   0.3567 |   0.4903 |    0.4401 |   0.1893 |  6.1963 |        -0.1167 | 0.0221 |
+
+Selected configs:
+- best under **martin**: window_size=230, dmodel_nheads=16-2, n_layers=2, dim_feedforward=256, batch_size=64, learning_rate=0.003203170398725006, dropout=0.25, threshold=0.5
+- best under **sharpe**: window_size=170, dmodel_nheads=16-2, n_layers=2, dim_feedforward=256, batch_size=64, learning_rate=0.005797912630385614, dropout=0.15000000000000002, threshold=0.4
+- best under **calmar**: window_size=100, dmodel_nheads=32-4, n_layers=3, dim_feedforward=32, batch_size=32, learning_rate=6.3198947237583e-05, dropout=0.4, threshold=0.15000000000000002
+- best under **ulcer**: window_size=230, dmodel_nheads=128-8, n_layers=2, dim_feedforward=256, batch_size=64, learning_rate=0.003682334936836272, dropout=0.35000000000000003, threshold=0.45000000000000007
+- best under **max_drawdown**: window_size=50, dmodel_nheads=32-4, n_layers=2, dim_feedforward=64, batch_size=32, learning_rate=1.9311434907966562e-05, dropout=0.45, threshold=0.1
 
 
 #### G.3 Deflated Sharpe Ratio & Backtest Overfitting
@@ -315,30 +337,30 @@ DSR deflates the selected config's Sharpe for the number of tested configs; PBO 
 
 # Deflated Sharpe Ratio (multiple-testing adjusted)
 
-_Generated at 2026-07-09 10:09:36_
+_Generated at 2026-08-03 14:48:33_
 
 | model       |   n_trials |   sr_ann_best |   sr_star_ann |    dsr | significant_5pct   |
 |:------------|-----------:|--------------:|--------------:|-------:|:-------------------|
-| MSM         |         36 |        0.8513 |        0.3085 | 0.9843 | True               |
-| HMM         |        108 |        0.7243 |        0.4648 | 0.8478 | False              |
-| HMM_Uni     |         36 |        0.842  |        0.3216 | 0.9804 | True               |
-| LSTM        |        194 |        0.8604 |        0.378  | 0.9717 | True               |
-| Transformer |        190 |        0.3075 |        0.3105 | 0.4952 | False              |
+| MSM         |         36 |        0.8473 |        0.3111 | 0.9832 | True               |
+| HMM         |        108 |        0.551  |        0.284  | 0.8551 | False              |
+| HMM_Uni     |         36 |        0.8391 |        0.3274 | 0.9787 | True               |
+| LSTM        |        300 |        0.7153 |        0.3409 | 0.932  | False              |
+| Transformer |        400 |        0.3248 |        0.2524 | 0.6136 | False              |
 
 DSR = P(true Sharpe > 0) after deflating the best trial's Sharpe for the number of tested configs. `significant_5pct` = DSR > 0.95.
 
 
 # Probability of Backtest Overfitting (CSCV)
 
-_Generated at 2026-07-09 11:23:27_
+_Generated at 2026-08-03 16:02:19_
 
 | model       |   folds |   configs |   pbo |
 |:------------|--------:|----------:|------:|
-| MSM         |      16 |        15 | 0.444 |
-| HMM         |      16 |        15 | 0.456 |
-| HMM_Uni     |      16 |        15 | 0.452 |
-| LSTM        |      16 |        15 | 0.933 |
-| Transformer |      16 |        15 | 0.821 |
+| MSM         |      16 |        15 | 0.464 |
+| HMM         |      16 |        15 | 0.972 |
+| HMM_Uni     |      16 |        15 | 0.357 |
+| LSTM        |      16 |        15 | 0     |
+| Transformer |      16 |        15 | 0.464 |
 
 PBO over the top-15 configs per model (per-fold Sharpe matrix, CSCV). Lower is better; PBO > 0.5 flags overfitting.
 
@@ -348,27 +370,27 @@ Top DL configs re-evaluated over several global seeds; mean/std of every metric 
 
 # Multi-Seed Re-Evaluation (top-5, 5 seeds)
 
-_Generated at 2026-07-09 13:09:06_
+_Generated at 2026-08-03 17:42:22_
 
 ### LSTM
 
 |   rank |   trial |   martin_hpo |   martin_mean |   martin_std |   sharpe_mean |   sharpe_std |   sortino_mean |   sortino_std |   calmar_mean |   calmar_std |   ulcer_mean |   ulcer_std |   max_drawdown_mean |   max_drawdown_std |   cagr_mean |   cagr_std |
 |-------:|--------:|-------------:|--------------:|-------------:|--------------:|-------------:|---------------:|--------------:|--------------:|-------------:|-------------:|------------:|--------------------:|-------------------:|------------:|-----------:|
-|      1 |     129 |       2.6426 |        1.7805 |       0.6827 |        0.8067 |       0.1466 |         0.7741 |        0.1398 |        0.4014 |       0.1623 |       3.0809 |      1.2704 |             -0.1323 |             0.0445 |      0.0471 |     0.0096 |
-|      2 |     148 |       2.4283 |        0.9103 |       0.3632 |        0.6192 |       0.0843 |         0.7727 |        0.1456 |        0.2343 |       0.0555 |       6.1313 |      1.1146 |             -0.2243 |             0.0219 |      0.0518 |     0.0091 |
-|      3 |     136 |       2.3832 |        1.0713 |       0.4096 |        0.6349 |       0.0819 |         0.7827 |        0.1286 |        0.2453 |       0.0669 |       5.5296 |      1.4117 |             -0.2314 |             0.0536 |      0.0538 |     0.0068 |
-|      4 |     160 |       2.3163 |        1.5211 |       0.8075 |        0.7027 |       0.13   |         0.7237 |        0.0774 |        0.3201 |       0.1432 |       3.5809 |      1.5409 |             -0.157  |             0.0578 |      0.0421 |     0.0048 |
-|      5 |      93 |       2.3038 |        0.9095 |       0.2615 |        0.6057 |       0.0651 |         0.7946 |        0.0931 |        0.2233 |       0.0469 |       6.0744 |      1.1286 |             -0.2415 |             0.0426 |      0.0525 |     0.0066 |
+|      1 |     191 |       2.3342 |        0.9288 |       0.2334 |        0.6395 |       0.0994 |         0.6627 |        0.0952 |        0.2397 |       0.0611 |       4.7267 |      1.6514 |             -0.1842 |             0.0661 |      0.0402 |     0.0068 |
+|      2 |     189 |       2.0067 |        0.8818 |       0.2121 |        0.5575 |       0.0448 |         0.6585 |        0.0386 |        0.2059 |       0.0331 |       5.5479 |      0.9059 |             -0.232  |             0.0218 |      0.0471 |     0.0031 |
+|      3 |       3 |       1.7795 |        1.0667 |       0.2898 |        0.6447 |       0.0692 |         0.7894 |        0.0972 |        0.2416 |       0.0487 |       5.552  |      1.0494 |             -0.2378 |             0.0265 |      0.0562 |     0.0063 |
+|      4 |     258 |       1.7229 |        1.3319 |       0.191  |        0.6894 |       0.0492 |         0.8236 |        0.0532 |        0.2828 |       0.0361 |       4.317  |      0.3176 |             -0.2024 |             0.009  |      0.0569 |     0.0054 |
+|      5 |     293 |       1.716  |        1.3771 |       0.4857 |        0.6784 |       0.1091 |         0.7928 |        0.0714 |        0.3143 |       0.1225 |       4.4434 |      1.4179 |             -0.1948 |             0.0548 |      0.0546 |     0.0043 |
 
 ### Transformer
 
 |   rank |   trial |   martin_hpo |   martin_mean |   martin_std |   sharpe_mean |   sharpe_std |   sortino_mean |   sortino_std |   calmar_mean |   calmar_std |   ulcer_mean |   ulcer_std |   max_drawdown_mean |   max_drawdown_std |   cagr_mean |   cagr_std |
 |-------:|--------:|-------------:|--------------:|-------------:|--------------:|-------------:|---------------:|--------------:|--------------:|-------------:|-------------:|------------:|--------------------:|-------------------:|------------:|-----------:|
-|      1 |      42 |       1.3728 |        0.3547 |       0.2716 |        0.3406 |       0.15   |         0.4084 |        0.1883 |        0.1049 |       0.0645 |       9.6546 |      3.5233 |             -0.2623 |             0.0455 |      0.0251 |     0.0126 |
-|      2 |      14 |       1.3506 |        0.5671 |       0.129  |        0.521  |       0.0455 |         0.6504 |        0.0559 |        0.1605 |       0.0241 |       7.6211 |      1.0643 |             -0.263  |             0.0148 |      0.0419 |     0.0047 |
-|      3 |      29 |       1.0487 |        0.4931 |       0.1196 |        0.4508 |       0.0509 |         0.5396 |        0.0698 |        0.1408 |       0.0225 |       8.207  |      1.38   |             -0.2776 |             0.0105 |      0.0389 |     0.0052 |
-|      4 |      60 |       1.04   |        0.3547 |       0.2716 |        0.3406 |       0.15   |         0.4084 |        0.1883 |        0.1049 |       0.0645 |       9.6546 |      3.5233 |             -0.2623 |             0.0455 |      0.0251 |     0.0126 |
-|      5 |     160 |       0.8924 |        0.7106 |       0.1239 |        0.5319 |       0.0575 |         0.6722 |        0.0873 |        0.191  |       0.0236 |       7.0401 |      0.6032 |             -0.2585 |             0.0039 |      0.0493 |     0.0056 |
+|      1 |     298 |       1.0331 |        0.5881 |       0.109  |        0.5111 |       0.049  |         0.6396 |        0.077  |        0.1628 |       0.0206 |       7.428  |      0.6316 |             -0.2648 |             0.0084 |      0.0432 |     0.006  |
+|      2 |      86 |       1.0191 |        0.3043 |       0.1337 |        0.4173 |       0.0906 |         0.4869 |        0.1157 |        0.1048 |       0.0367 |      11.6941 |      3.1721 |             -0.3128 |             0.0443 |      0.0316 |     0.0091 |
+|      3 |     327 |       0.9252 |        0.3144 |       0.1568 |        0.3565 |       0.1106 |         0.433  |        0.1493 |        0.1007 |       0.0408 |       9.2788 |      2.0327 |             -0.2806 |             0.0575 |      0.0265 |     0.009  |
+|      4 |     208 |       0.8651 |        0.4735 |       0.0335 |        0.4356 |       0.029  |         0.538  |        0.0474 |        0.129  |       0.0096 |       8.3417 |      0.5254 |             -0.3065 |             0.0219 |      0.0394 |     0.0028 |
+|      5 |     381 |       0.8115 |        0.6172 |       0.155  |        0.4823 |       0.0705 |         0.5849 |        0.0946 |        0.1656 |       0.036  |       7.4126 |      0.7705 |             -0.2731 |             0.0179 |      0.0446 |     0.0073 |
 
 
 ### H. Label Concordance (Selection of the Training Labels)
@@ -418,7 +440,7 @@ Per-fold Pagan-Sossounov bear-market exposure of the walk-forward windows: the s
 |     23 | 2022-10-17   | 2023-10-13 |           0   |                  0 | No                     |            8   |                   1 | Yes                     |
 |     24 | 2023-10-16   | 2024-10-15 |           0   |                  0 | No                     |            8   |                   1 | Yes                     |
 |     25 | 2024-10-16   | 2025-10-15 |           0   |                  0 | No                     |            8   |                   1 | Yes                     |
-|     26 | 2025-10-16   | 2026-07-02 |          11.8 |                  1 | Yes                    |            8   |                   1 | Yes                     |
+|     26 | 2025-10-16   | 2026-07-31 |          20.7 |                  1 | Yes                    |            8   |                   1 | Yes                     |
 
 Across the 26 walk-forward folds, 2 OOS test windows contain at least one complete Pagan-Sossounov bear phase (peak and trough inside the 12-month window), while 6 folds overlap at least one bear phase and 20 folds carry no bear day at all.
 
@@ -435,23 +457,23 @@ Normalized metrics (CAGR, Sharpe, Sortino, Calmar) for comparison across evaluat
 
 | Strategy    | CAGR   | Ann. Volatility   |   Sharpe Ratio |   Sortino Ratio | Max Drawdown   |   Calmar Ratio |   OOS Days |   OOS Years |
 |:------------|:-------|:------------------|---------------:|----------------:|:---------------|---------------:|-----------:|------------:|
-| Buy_Hold    | +5.75% | 11.17%            |          0.557 |           0.727 | -35.08%        |          0.164 |       6464 |        25.7 |
-| MSM         | +4.72% | 6.02%             |          0.796 |           0.895 | -10.91%        |          0.433 |       6464 |        25.7 |
-| HMM         | +3.51% | 7.45%             |          0.501 |           0.46  | -23.55%        |          0.149 |       6464 |        25.7 |
-| HMM_Uni     | +4.69% | 6.03%             |          0.79  |           0.889 | -11.01%        |          0.426 |       6464 |        25.7 |
-| LSTM        | +6.20% | 10.46%            |          0.627 |           0.763 | -27.71%        |          0.224 |       6464 |        25.7 |
-| Transformer | +6.43% | 9.89%             |          0.68  |           0.855 | -27.71%        |          0.232 |       6464 |        25.7 |
+| Buy_Hold    | +5.68% | 11.16%            |          0.551 |           0.719 | -35.08%        |          0.162 |       6484 |        25.7 |
+| MSM         | +4.60% | 6.03%             |          0.776 |           0.872 | -10.91%        |          0.422 |       6484 |        25.7 |
+| HMM         | +2.95% | 5.50%             |          0.557 |           0.573 | -17.02%        |          0.174 |       6484 |        25.7 |
+| HMM_Uni     | +4.57% | 6.04%             |          0.77  |           0.866 | -11.01%        |          0.415 |       6484 |        25.7 |
+| LSTM        | +5.20% | 7.46%             |          0.716 |           0.675 | -21.52%        |          0.241 |       6484 |        25.7 |
+| Transformer | +5.74% | 9.51%             |          0.635 |           0.793 | -29.45%        |          0.195 |       6484 |        25.7 |
 
 ### Classification Metrics (vs. NBER Recessions as Ground Truth)
 Comparison of the models as binary recession classifiers (precision, recall, F1).
 
 | Model       |   Precision |   Recall |    F1 |   TN |   FP |   FN |   TP |
 |:------------|------------:|---------:|------:|-----:|-----:|-----:|-----:|
-| MSM         |       0.228 |    0.922 | 0.366 | 4054 | 1825 |   46 |  540 |
-| HMM         |       0.128 |    0.614 | 0.211 | 3419 | 2460 |  226 |  360 |
-| HMM_Uni     |       0.229 |    0.922 | 0.366 | 4058 | 1821 |   46 |  540 |
-| LSTM        |       0.187 |    0.333 | 0.239 | 5029 |  850 |  391 |  195 |
-| Transformer |       0.238 |    0.336 | 0.279 | 5248 |  631 |  389 |  197 |
+| MSM         |       0.228 |    0.922 | 0.366 | 4071 | 1828 |   46 |  540 |
+| HMM         |       0.2   |    0.985 | 0.332 | 3590 | 2309 |    9 |  577 |
+| HMM_Uni     |       0.228 |    0.922 | 0.366 | 4075 | 1824 |   46 |  540 |
+| LSTM        |       0.195 |    0.927 | 0.322 | 3660 | 2239 |   43 |  543 |
+| Transformer |       0.311 |    0.497 | 0.382 | 5253 |  646 |  295 |  291 |
 
 ![Confusion Matrices](../assets/confusion_matrices.png)
 
@@ -465,11 +487,11 @@ Quantification of the switching frequency and the share of very short regime pha
 
 | Model       |   Signal Switches |   Whipsaws (<5d) | Whipsaw Share   |   Mean Phase (Days) |   Median Phase (Days) | Cumul. Costs   |
 |:------------|------------------:|-----------------:|:----------------|--------------------:|----------------------:|:---------------|
-| MSM         |               323 |              159 | 49.1%           |                20   |                     5 | 32.30%         |
-| HMM         |                31 |                2 | 6.2%            |               202   |                    94 | 3.10%          |
-| HMM_Uni     |               317 |              153 | 48.1%           |                20.3 |                     5 | 31.70%         |
-| LSTM        |                12 |                0 | 0.0%            |               497.3 |                    97 | 1.20%          |
-| Transformer |                14 |                4 | 26.7%           |               431   |                    36 | 1.40%          |
+| MSM         |               324 |              159 | 48.9%           |                20   |                     5 | 32.40%         |
+| HMM         |               129 |               52 | 40.0%           |                49.9 |                     6 | 12.90%         |
+| HMM_Uni     |               318 |              153 | 48.0%           |                20.3 |                     5 | 31.80%         |
+| LSTM        |                23 |                1 | 4.2%            |               270.2 |                    52 | 2.30%          |
+| Transformer |                37 |               10 | 26.3%           |               170.7 |                    14 | 3.70%          |
 
 ### Regime Probability Heatmap
 Bear probabilities of all models over time.
@@ -483,50 +505,50 @@ Variation of the decision threshold per model. Shows how robust final wealth, ma
 
 |   Threshold | Final Wealth   | Max Drawdown   |   Switches |
 |------------:|:---------------|:---------------|-----------:|
-|        0.25 | 1,529,649 €    | -12.13%        |        301 |
-|        0.3  | 1,353,819 €    | -16.68%        |        313 |
-|        0.35 | 1,364,321 €    | -20.19%        |        319 |
-|        0.4  | 1,380,008 €    | -21.55%        |        313 |
-|        0.5  | 1,465,175 €    | -25.39%        |        325 |
+|        0.25 | 1,490,046 €    | -12.13%        |        302 |
+|        0.3  | 1,320,764 €    | -16.68%        |        314 |
+|        0.35 | 1,331,009 €    | -20.19%        |        320 |
+|        0.4  | 1,346,313 €    | -21.55%        |        314 |
+|        0.5  | 1,429,408 €    | -25.39%        |        326 |
 
 **HMM**
 
 |   Threshold | Final Wealth   | Max Drawdown   |   Switches |
 |------------:|:---------------|:---------------|-----------:|
-|        0.4  | 1,151,748 €    | -23.55%        |         37 |
-|        0.45 | 1,147,318 €    | -23.55%        |         37 |
-|        0.5  | 1,149,909 €    | -23.55%        |         37 |
-|        0.55 | 1,137,764 €    | -23.55%        |         37 |
-|        0.6  | 1,160,435 €    | -23.55%        |         35 |
+|        0.4  | 944,272 €      | -12.03%        |        125 |
+|        0.45 | 963,679 €      | -11.35%        |        119 |
+|        0.5  | 979,029 €      | -12.07%        |        115 |
+|        0.55 | 997,182 €      | -12.51%        |        105 |
+|        0.6  | 979,313 €      | -12.72%        |        105 |
 
 **HMM_Uni**
 
 |   Threshold | Final Wealth   | Max Drawdown   |   Switches |
 |------------:|:---------------|:---------------|-----------:|
-|        0.4  | 1,353,759 €    | -24.79%        |        315 |
-|        0.45 | 1,369,795 €    | -24.41%        |        325 |
-|        0.5  | 1,492,706 €    | -25.57%        |        331 |
-|        0.55 | 1,472,022 €    | -23.24%        |        331 |
-|        0.6  | 1,676,047 €    | -26.67%        |        337 |
+|        0.4  | 1,320,705 €    | -24.79%        |        316 |
+|        0.45 | 1,336,353 €    | -24.41%        |        326 |
+|        0.5  | 1,456,267 €    | -25.57%        |        332 |
+|        0.55 | 1,436,089 €    | -23.24%        |        332 |
+|        0.6  | 1,635,135 €    | -26.67%        |        338 |
 
 **LSTM**
 
 |   Threshold | Final Wealth   | Max Drawdown   |   Switches |
 |------------:|:---------------|:---------------|-----------:|
-|         0.2 | 2,261,693 €    | -27.71%        |          8 |
-|         0.3 | 2,170,140 €    | -27.71%        |          6 |
-|         0.4 | 2,104,408 €    | -27.71%        |         12 |
-|         0.5 | 2,163,209 €    | -27.71%        |         12 |
+|         0.2 | 1,654,664 €    | -18.54%        |         27 |
+|         0.3 | 1,815,461 €    | -24.95%        |         17 |
+|         0.4 | 1,972,713 €    | -26.16%        |         41 |
+|         0.5 | 2,036,734 €    | -27.99%        |         12 |
 
 **Transformer**
 
 |   Threshold | Final Wealth   | Max Drawdown   |   Switches |
 |------------:|:---------------|:---------------|-----------:|
-|        0.3  | 2,014,848 €    | -27.71%        |         46 |
-|        0.4  | 2,130,331 €    | -27.71%        |         30 |
-|        0.45 | 2,191,293 €    | -27.71%        |         22 |
-|        0.5  | 2,113,893 €    | -27.71%        |         22 |
-|        0.6  | 2,403,758 €    | -27.71%        |         16 |
+|        0.3  | 1,834,933 €    | -27.71%        |         85 |
+|        0.4  | 2,145,664 €    | -28.54%        |         45 |
+|        0.45 | 2,138,206 €    | -30.09%        |         45 |
+|        0.5  | 2,101,990 €    | -29.45%        |         37 |
+|        0.6  | 1,783,528 €    | -27.71%        |         34 |
 
 ### Time-to-Recovery
 All drawdown phases beyond the minimum depth (per `extended.ttr_min_dd`) with peak, trough, and recovery date as well as duration in trading days. An open (not yet recovered) phase is marked as "open" in the recovery field.
@@ -567,21 +589,19 @@ All drawdown phases beyond the minimum depth (per `extended.ttr_min_dd`) with pe
 | 2020-09-03 | 2021-02-26 | 2021-07-02 | -6.85%   |                     176 |                     126 |         302 |
 | 2021-11-10 | 2022-07-14 | 2023-12-13 | -10.56%  |                     246 |                     517 |         763 |
 | 2024-09-03 | 2025-06-20 | 2025-10-02 | -7.99%   |                     290 |                     104 |         394 |
-| 2025-10-29 | 2026-07-02 | open       | -5.57%   |                     246 |                     nan |         nan |
+| 2025-10-29 | 2026-07-30 | open       | -8.03%   |                     274 |                     nan |         nan |
 
 **HMM**
 
 | Peak       | Trough     | Recovery   | Max DD   |   Drawdown Duration (d) |   Recovery Duration (d) |   Total (d) |
 |:-----------|:-----------|:-----------|:---------|------------------------:|------------------------:|------------:|
-| 2001-11-14 | 2002-07-23 | 2003-06-16 | -18.68%  |                     251 |                     328 |         579 |
-| 2003-06-17 | 2003-08-05 | 2003-12-04 | -7.21%   |                      49 |                     121 |         170 |
-| 2004-03-08 | 2004-05-10 | 2004-11-04 | -6.37%   |                      63 |                     178 |         241 |
-| 2008-05-20 | 2008-10-10 | 2014-02-28 | -23.28%  |                     143 |                    1967 |        2110 |
-| 2014-09-02 | 2016-11-14 | 2017-06-02 | -7.83%   |                     804 |                     200 |        1004 |
-| 2018-01-29 | 2018-02-08 | 2018-08-24 | -6.93%   |                      10 |                     197 |         207 |
-| 2018-08-30 | 2018-12-24 | 2019-06-07 | -10.21%  |                     116 |                     165 |         281 |
-| 2020-02-21 | 2020-03-12 | 2020-08-05 | -14.02%  |                      20 |                     146 |         166 |
-| 2021-12-28 | 2022-06-16 | open       | -23.28%  |                     170 |                     nan |         nan |
+| 2002-01-11 | 2002-06-13 | 2004-02-11 | -8.25%   |                     153 |                     608 |         761 |
+| 2004-03-08 | 2004-08-12 | 2004-12-13 | -7.74%   |                     157 |                     123 |         280 |
+| 2015-03-23 | 2016-02-03 | 2017-05-24 | -8.71%   |                     317 |                     476 |         793 |
+| 2018-01-29 | 2018-12-20 | 2019-06-07 | -9.06%   |                     325 |                     169 |         494 |
+| 2020-02-21 | 2021-03-19 | 2021-05-06 | -5.11%   |                     392 |                      48 |         440 |
+| 2021-09-03 | 2021-10-11 | 2021-11-05 | -5.28%   |                      38 |                      25 |          63 |
+| 2021-11-10 | 2023-10-04 | open       | -16.61%  |                     693 |                     nan |         nan |
 
 **HMM_Uni**
 
@@ -599,27 +619,21 @@ All drawdown phases beyond the minimum depth (per `extended.ttr_min_dd`) with pe
 | 2020-09-03 | 2021-02-26 | 2021-07-02 | -6.85%   |                     176 |                     126 |         302 |
 | 2021-11-10 | 2022-07-14 | 2023-12-26 | -10.56%  |                     246 |                     530 |         776 |
 | 2024-09-03 | 2025-06-20 | 2025-10-02 | -7.99%   |                     290 |                     104 |         394 |
-| 2025-10-29 | 2026-07-02 | open       | -5.57%   |                     246 |                     nan |         nan |
+| 2025-10-29 | 2026-07-30 | open       | -8.03%   |                     274 |                     nan |         nan |
 
 **LSTM**
 
 | Peak       | Trough     | Recovery   | Max DD   |   Drawdown Duration (d) |   Recovery Duration (d) |   Total (d) |
 |:-----------|:-----------|:-----------|:---------|------------------------:|------------------------:|------------:|
-| 2000-11-01 | 2000-12-20 | 2001-02-01 | -5.10%   |                      49 |                      43 |          92 |
-| 2001-02-02 | 2002-07-23 | 2004-03-05 | -24.04%  |                     536 |                     591 |        1127 |
-| 2004-03-08 | 2004-05-10 | 2004-11-04 | -6.37%   |                      63 |                     178 |         241 |
-| 2008-10-14 | 2008-10-27 | 2008-11-04 | -8.61%   |                      13 |                       8 |          21 |
-| 2008-11-05 | 2008-11-20 | 2008-12-16 | -10.78%  |                      15 |                      26 |          41 |
-| 2009-01-05 | 2009-03-09 | 2009-08-03 | -18.97%  |                      63 |                     147 |         210 |
-| 2010-05-04 | 2010-07-02 | 2010-09-13 | -5.36%   |                      59 |                      73 |         132 |
-| 2011-07-25 | 2011-08-08 | 2011-10-14 | -6.59%   |                      14 |                      67 |          81 |
+| 2010-05-04 | 2010-08-30 | 2010-11-02 | -5.36%   |                     118 |                      64 |         182 |
+| 2011-07-25 | 2011-08-08 | 2012-07-02 | -6.59%   |                      14 |                     329 |         343 |
 | 2013-05-22 | 2013-06-24 | 2013-10-22 | -5.37%   |                      33 |                     120 |         153 |
-| 2015-03-23 | 2015-08-25 | 2016-07-08 | -8.39%   |                     155 |                     318 |         473 |
-| 2016-08-01 | 2016-11-14 | 2017-04-17 | -5.64%   |                     105 |                     154 |         259 |
-| 2018-01-29 | 2018-12-24 | 2019-06-07 | -13.63%  |                     329 |                     165 |         494 |
+| 2015-03-23 | 2016-05-19 | 2017-08-31 | -10.99%  |                     423 |                     469 |         892 |
+| 2018-01-29 | 2018-02-08 | 2018-08-24 | -6.93%   |                      10 |                     197 |         207 |
+| 2018-08-30 | 2018-12-24 | 2019-07-02 | -11.45%  |                     116 |                     190 |         306 |
 | 2020-02-21 | 2020-03-18 | 2020-06-08 | -18.31%  |                      26 |                      82 |         108 |
 | 2020-09-03 | 2020-10-30 | 2020-12-08 | -5.20%   |                      57 |                      39 |          96 |
-| 2021-12-28 | 2022-10-14 | 2024-11-29 | -27.55%  |                     290 |                     777 |        1067 |
+| 2021-12-28 | 2023-10-27 | 2024-07-16 | -21.35%  |                     668 |                     263 |         931 |
 | 2024-12-09 | 2025-04-08 | 2025-07-03 | -12.22%  |                     120 |                      86 |         206 |
 | 2026-02-26 | 2026-03-27 | 2026-04-17 | -6.69%   |                      29 |                      21 |          50 |
 
@@ -628,20 +642,17 @@ All drawdown phases beyond the minimum depth (per `extended.ttr_min_dd`) with pe
 | Peak       | Trough     | Recovery   | Max DD   |   Drawdown Duration (d) |   Recovery Duration (d) |   Total (d) |
 |:-----------|:-----------|:-----------|:---------|------------------------:|------------------------:|------------:|
 | 2000-11-01 | 2000-12-20 | 2001-02-01 | -5.10%   |                      49 |                      43 |          92 |
-| 2001-02-02 | 2002-07-23 | 2004-01-21 | -22.89%  |                     536 |                     547 |        1083 |
-| 2004-03-08 | 2004-05-10 | 2004-11-04 | -6.37%   |                      63 |                     178 |         241 |
-| 2007-11-01 | 2008-09-24 | 2009-08-03 | -13.79%  |                     328 |                     313 |         641 |
+| 2001-02-02 | 2002-07-23 | 2004-12-09 | -25.89%  |                     536 |                     870 |        1406 |
+| 2007-11-01 | 2008-03-10 | 2009-08-03 | -8.44%   |                     130 |                     511 |         641 |
 | 2010-05-04 | 2010-07-02 | 2010-09-13 | -5.36%   |                      59 |                      73 |         132 |
 | 2011-07-25 | 2011-08-08 | 2011-10-14 | -6.59%   |                      14 |                      67 |          81 |
 | 2013-05-22 | 2013-06-24 | 2013-10-22 | -5.37%   |                      33 |                     120 |         153 |
-| 2015-03-23 | 2015-08-25 | 2016-04-13 | -8.39%   |                     155 |                     232 |         387 |
-| 2016-08-01 | 2016-11-14 | 2017-04-17 | -5.64%   |                     105 |                     154 |         259 |
+| 2015-03-23 | 2015-08-25 | 2017-05-19 | -8.39%   |                     155 |                     633 |         788 |
 | 2018-01-29 | 2018-02-08 | 2018-08-24 | -6.93%   |                      10 |                     197 |         207 |
 | 2018-08-30 | 2018-12-24 | 2019-03-21 | -11.45%  |                     116 |                      87 |         203 |
 | 2020-02-21 | 2020-03-18 | 2020-06-08 | -18.31%  |                      26 |                      82 |         108 |
 | 2020-09-03 | 2020-10-30 | 2020-12-08 | -5.20%   |                      57 |                      39 |          96 |
-| 2021-12-28 | 2022-10-14 | 2024-11-29 | -27.55%  |                     290 |                     777 |        1067 |
-| 2024-12-09 | 2025-04-08 | 2025-07-03 | -12.22%  |                     120 |                      86 |         206 |
+| 2021-12-28 | 2023-10-27 | 2025-09-11 | -29.30%  |                     668 |                     685 |        1353 |
 | 2026-02-26 | 2026-03-27 | 2026-04-17 | -6.69%   |                      29 |                      21 |          50 |
 
 ### Crisis Performance
@@ -649,11 +660,11 @@ Return and max drawdown during historical crisis periods: the central evidence f
 
 | Crisis                              | ('Return', 'Buy_Hold')   | ('Return', 'HMM')   | ('Return', 'HMM_Uni')   | ('Return', 'LSTM')   | ('Return', 'MSM')   | ('Return', 'Transformer')   | ('Max Drawdown', 'Buy_Hold')   | ('Max Drawdown', 'HMM')   | ('Max Drawdown', 'HMM_Uni')   | ('Max Drawdown', 'LSTM')   | ('Max Drawdown', 'MSM')   | ('Max Drawdown', 'Transformer')   |
 |:------------------------------------|:-------------------------|:--------------------|:------------------------|:---------------------|:--------------------|:----------------------------|:-------------------------------|:--------------------------|:------------------------------|:---------------------------|:--------------------------|:----------------------------------|
-| COVID Crash (2020-02 to 2020-03)    | -8.55%                   | -8.16%              | +0.73%                  | -8.55%               | +0.73%              | -8.55%                      | -18.53%                        | -14.25%                   | -1.81%                        | -18.53%                    | -1.81%                    | -18.53%                           |
-| Dot-Com (2000-03 to 2002-10)        | -15.77%                  | -3.58%              | -2.45%                  | -15.77%              | -2.45%              | -14.49%                     | -24.81%                        | -19.02%                   | -6.22%                        | -24.81%                    | -6.22%                    | -23.67%                           |
-| EU Debt Crisis (2011-07 to 2011-11) | +4.10%                   | +0.01%              | +2.32%                  | +4.10%               | +2.32%              | +4.10%                      | -7.24%                         | 0.00%                     | -4.74%                        | -7.24%                     | -4.74%                    | -7.24%                            |
-| GFC (2007-10 to 2009-03)            | -26.99%                  | -19.62%             | -2.99%                  | -1.25%               | -2.99%              | -5.87%                      | -35.08%                        | -23.55%                   | -4.04%                        | -19.46%                    | -4.04%                    | -13.93%                           |
-| Rate Hikes (2022-01 to 2022-10)     | -24.20%                  | -19.10%             | -6.33%                  | -24.20%              | -6.33%              | -24.20%                     | -26.98%                        | -22.67%                   | -8.34%                        | -26.98%                    | -8.34%                    | -26.98%                           |
+| COVID Crash (2020-02 to 2020-03)    | -8.55%                   | +0.73%              | +0.73%                  | -8.55%               | +0.73%              | -8.55%                      | -18.53%                        | -1.81%                    | -1.81%                        | -18.53%                    | -1.81%                    | -18.53%                           |
+| Dot-Com (2000-03 to 2002-10)        | -15.77%                  | -1.60%              | -2.45%                  | +6.04%               | -2.45%              | -17.82%                     | -24.81%                        | -8.40%                    | -6.22%                        | -0.08%                     | -6.22%                    | -26.65%                           |
+| EU Debt Crisis (2011-07 to 2011-11) | +4.10%                   | +0.01%              | +2.32%                  | -5.30%               | +2.32%              | +4.10%                      | -7.24%                         | 0.00%                     | -4.74%                        | -7.24%                     | -4.74%                    | -7.24%                            |
+| GFC (2007-10 to 2009-03)            | -26.99%                  | -1.39%              | -2.99%                  | +0.49%               | -2.99%              | -4.91%                      | -35.08%                        | -2.80%                    | -4.04%                        | -3.58%                     | -4.04%                    | -8.59%                            |
+| Rate Hikes (2022-01 to 2022-10)     | -24.20%                  | -7.66%              | -6.33%                  | -14.71%              | -6.33%              | -24.20%                     | -26.98%                        | -8.74%                    | -8.34%                        | -18.29%                    | -8.34%                    | -26.98%                           |
 
 ### Switch Timing Relative to the Drawdown Peak
 Time lag between the model's first bear signal and the drawdown trough of the buy-and-hold portfolio per crisis. Positive = model reacted early, negative = too late.
@@ -666,22 +677,22 @@ Time lag between the model's first bear signal and the drawdown trough of the bu
 | COVID Crash (2020-02 to 2020-03)    | MSM         | 2020-03-18  | 2020-02-24          |            23 |
 | Rate Hikes (2022-01 to 2022-10)     | MSM         | 2022-10-14  | 2022-01-05          |           282 |
 | Dot-Com (2000-03 to 2002-10)        | HMM         | 2002-07-23  | 2000-10-16          |           645 |
-| GFC (2007-10 to 2009-03)            | HMM         | 2009-03-09  | 2007-10-16          |           510 |
+| GFC (2007-10 to 2009-03)            | HMM         | 2009-03-09  | 2007-10-19          |           507 |
 | EU Debt Crisis (2011-07 to 2011-11) | HMM         | 2011-08-08  | 2011-07-01          |            38 |
-| COVID Crash (2020-02 to 2020-03)    | HMM         | 2020-03-18  | 2020-03-13          |             5 |
-| Rate Hikes (2022-01 to 2022-10)     | HMM         | 2022-10-14  | 2022-07-12          |            94 |
+| COVID Crash (2020-02 to 2020-03)    | HMM         | 2020-03-18  | 2020-02-24          |            23 |
+| Rate Hikes (2022-01 to 2022-10)     | HMM         | 2022-10-14  | 2022-01-18          |           269 |
 | Dot-Com (2000-03 to 2002-10)        | HMM_Uni     | 2002-07-23  | 2000-10-16          |           645 |
 | GFC (2007-10 to 2009-03)            | HMM_Uni     | 2009-03-09  | 2007-10-01          |           525 |
 | EU Debt Crisis (2011-07 to 2011-11) | HMM_Uni     | 2011-08-08  | 2011-08-04          |             4 |
 | COVID Crash (2020-02 to 2020-03)    | HMM_Uni     | 2020-03-18  | 2020-02-24          |            23 |
 | Rate Hikes (2022-01 to 2022-10)     | HMM_Uni     | 2022-10-14  | 2022-01-05          |           282 |
-| Dot-Com (2000-03 to 2002-10)        | LSTM        | 2002-07-23  |                     |           nan |
+| Dot-Com (2000-03 to 2002-10)        | LSTM        | 2002-07-23  | 2000-10-16          |           645 |
 | GFC (2007-10 to 2009-03)            | LSTM        | 2009-03-09  | 2007-10-01          |           525 |
-| EU Debt Crisis (2011-07 to 2011-11) | LSTM        | 2011-08-08  |                     |           nan |
+| EU Debt Crisis (2011-07 to 2011-11) | LSTM        | 2011-08-08  | 2011-08-23          |           -15 |
 | COVID Crash (2020-02 to 2020-03)    | LSTM        | 2020-03-18  |                     |           nan |
-| Rate Hikes (2022-01 to 2022-10)     | LSTM        | 2022-10-14  |                     |           nan |
+| Rate Hikes (2022-01 to 2022-10)     | LSTM        | 2022-10-14  | 2022-06-07          |           129 |
 | Dot-Com (2000-03 to 2002-10)        | Transformer | 2002-07-23  | 2001-10-16          |           280 |
-| GFC (2007-10 to 2009-03)            | Transformer | 2009-03-09  | 2007-10-01          |           525 |
+| GFC (2007-10 to 2009-03)            | Transformer | 2009-03-09  | 2008-06-09          |           273 |
 | EU Debt Crisis (2011-07 to 2011-11) | Transformer | 2011-08-08  |                     |           nan |
 | COVID Crash (2020-02 to 2020-03)    | Transformer | 2020-03-18  |                     |           nan |
 | Rate Hikes (2022-01 to 2022-10)     | Transformer | 2022-10-14  |                     |           nan |
@@ -699,12 +710,12 @@ Detailed statistical analysis including risk-adjusted metrics (Sharpe, Sortino, 
 
 | Strategy    | Total Return   | CAGR (p.a.)   | Volatility   | Max Drawdown   |   Sharpe Ratio |   Sortino Ratio |   Calmar Ratio |   Regime Switches | Total Costs (Fees)   |   Ulcer Index |
 |:------------|:---------------|:--------------|:-------------|:---------------|---------------:|----------------:|---------------:|------------------:|:---------------------|--------------:|
-| Buy Hold    | 319.66%        | 5.74%         | 11.17%       | -35.08%        |           0.56 |            0.73 |           0.16 |                 0 | 0.00%                |          9.07 |
-| MSM         | 226.52%        | 4.71%         | 6.02%        | -10.91%        |           0.8  |            0.9  |           0.43 |               323 | 32.40%               |          3.75 |
-| HMM         | 142.36%        | 3.50%         | 7.45%        | -23.55%        |           0.5  |            0.46 |           0.15 |                31 | 3.20%                |          9.06 |
-| HMM Uni     | 223.95%        | 4.68%         | 6.03%        | -11.01%        |           0.79 |            0.89 |           0.42 |               317 | 31.80%               |          3.77 |
-| LSTM        | 367.80%        | 6.19%         | 10.46%       | -27.71%        |           0.63 |            0.76 |           0.22 |                12 | 1.20%                |          7.4  |
-| Transformer | 394.57%        | 6.42%         | 9.89%        | -27.71%        |           0.68 |            0.86 |           0.23 |                14 | 1.40%                |          7.42 |
+| Buy Hold    | 314.19%        | 5.67%         | 11.16%       | -35.08%        |           0.55 |            0.72 |           0.16 |                 0 | 0.00%                |          9.05 |
+| MSM         | 218.07%        | 4.59%         | 6.03%        | -10.91%        |           0.78 |            0.87 |           0.42 |               324 | 32.50%               |          3.77 |
+| HMM         | 111.49%        | 2.95%         | 5.50%        | -17.02%        |           0.56 |            0.57 |           0.17 |               129 | 13.00%               |          5.76 |
+| HMM Uni     | 215.57%        | 4.56%         | 6.04%        | -11.01%        |           0.77 |            0.87 |           0.41 |               318 | 31.90%               |          3.78 |
+| LSTM        | 268.10%        | 5.18%         | 7.46%        | -21.52%        |           0.72 |            0.67 |           0.24 |                23 | 2.40%                |          5.07 |
+| Transformer | 320.48%        | 5.73%         | 9.51%        | -29.45%        |           0.63 |            0.79 |           0.19 |                37 | 3.70%                |          8.36 |
 
 ### Transaction Costs
 
@@ -721,24 +732,24 @@ This table compares different stress scenarios (standard, aggressive, low capita
 
 |                                | Terminal Capital   | Status            |
 |:-------------------------------|:-------------------|:------------------|
-| ('Standard', 'Buy Hold')       | 0.00 €             | Depleted (2026)   |
-| ('Standard', 'MSM')            | 137,169.42 €       | Capital preserved |
-| ('Standard', 'HMM')            | 0.00 €             | Depleted (2024)   |
-| ('Standard', 'HMM Uni')        | 120,369.11 €       | Capital preserved |
-| ('Standard', 'LSTM')           | 180,990.27 €       | Capital preserved |
-| ('Standard', 'Transformer')    | 182,753.99 €       | Capital preserved |
-| ('Aggressive', 'Buy Hold')     | 0.00 €             | Depleted (2011)   |
-| ('Aggressive', 'MSM')          | 0.00 €             | Depleted (2013)   |
-| ('Aggressive', 'HMM')          | 0.00 €             | Depleted (2013)   |
-| ('Aggressive', 'HMM Uni')      | 0.00 €             | Depleted (2013)   |
-| ('Aggressive', 'LSTM')         | 0.00 €             | Depleted (2012)   |
-| ('Aggressive', 'Transformer')  | 0.00 €             | Depleted (2012)   |
-| ('Low_Capital', 'Buy Hold')    | 0.00 €             | Depleted (2015)   |
-| ('Low_Capital', 'MSM')         | 0.00 €             | Depleted (2018)   |
-| ('Low_Capital', 'HMM')         | 0.00 €             | Depleted (2016)   |
-| ('Low_Capital', 'HMM Uni')     | 0.00 €             | Depleted (2017)   |
-| ('Low_Capital', 'LSTM')        | 0.00 €             | Depleted (2017)   |
-| ('Low_Capital', 'Transformer') | 0.00 €             | Depleted (2016)   |
+| ('Standard', 'Buy Hold')       | 681,767.31 €       | Capital preserved |
+| ('Standard', 'MSM')            | 619,194.78 €       | Capital preserved |
+| ('Standard', 'HMM')            | 284,202.45 €       | Capital preserved |
+| ('Standard', 'HMM Uni')        | 604,112.20 €       | Capital preserved |
+| ('Standard', 'LSTM')           | 633,884.33 €       | Capital preserved |
+| ('Standard', 'Transformer')    | 741,139.49 €       | Capital preserved |
+| ('Aggressive', 'Buy Hold')     | 0.00 €             | Depleted (2026)   |
+| ('Aggressive', 'MSM')          | 133,615.86 €       | Capital preserved |
+| ('Aggressive', 'HMM')          | 0.00 €             | Depleted (2023)   |
+| ('Aggressive', 'HMM Uni')      | 117,251.72 €       | Capital preserved |
+| ('Aggressive', 'LSTM')         | 30,567.83 €        | Capital preserved |
+| ('Aggressive', 'Transformer')  | 60,515.80 €        | Capital preserved |
+| ('Low_Capital', 'Buy Hold')    | 200,682.66 €       | Capital preserved |
+| ('Low_Capital', 'MSM')         | 225,843.19 €       | Capital preserved |
+| ('Low_Capital', 'HMM')         | 54,535.72 €        | Capital preserved |
+| ('Low_Capital', 'HMM Uni')     | 216,409.17 €       | Capital preserved |
+| ('Low_Capital', 'LSTM')        | 199,335.65 €       | Capital preserved |
+| ('Low_Capital', 'Transformer') | 240,496.59 €       | Capital preserved |
 
 Capital development of the different scenarios:
 ![SORR Standard](../assets/sorr_sim_standard.png)
@@ -751,24 +762,24 @@ To assess statistical significance, 10,000 artificial market paths were simulate
 ![MCS Paths](../assets/mcs_paths.png)
 |                                | Ruin Probability   | Median Terminal Capital   |
 |:-------------------------------|:-------------------|:--------------------------|
-| ('Standard', 'MSM')            | 0.00%              | 409,322.01 €              |
-| ('Standard', 'Buy Hold')       | 0.01%              | 470,625.12 €              |
-| ('Standard', 'HMM')            | 0.00%              | 350,335.42 €              |
-| ('Standard', 'LSTM')           | 0.00%              | 497,391.40 €              |
-| ('Low_Capital', 'Buy Hold')    | 0.63%              | 201,384.39 €              |
-| ('Low_Capital', 'MSM')         | 0.00%              | 168,961.18 €              |
-| ('Aggressive', 'Transformer')  | 2.44%              | 262,221.37 €              |
-| ('Standard', 'Transformer')    | 0.00%              | 515,039.54 €              |
-| ('Aggressive', 'LSTM')         | 2.67%              | 246,885.86 €              |
-| ('Aggressive', 'Buy Hold')     | 5.27%              | 228,313.50 €              |
-| ('Aggressive', 'MSM')          | 0.57%              | 179,895.13 €              |
-| ('Aggressive', 'HMM')          | 6.32%              | 134,900.91 €              |
-| ('Standard', 'HMM Uni')        | 0.00%              | 408,366.15 €              |
-| ('Aggressive', 'HMM Uni')      | 0.57%              | 178,844.60 €              |
-| ('Low_Capital', 'HMM')         | 0.50%              | 138,610.48 €              |
-| ('Low_Capital', 'HMM Uni')     | 0.00%              | 168,334.93 €              |
-| ('Low_Capital', 'LSTM')        | 0.18%              | 214,959.56 €              |
-| ('Low_Capital', 'Transformer') | 0.08%              | 225,005.29 €              |
+| ('Low_Capital', 'MSM')         | 11.82%             | 193,526.66 €              |
+| ('Aggressive', 'Buy Hold')     | 33.04%             | 270,635.72 €              |
+| ('Low_Capital', 'Buy Hold')    | 14.06%             | 390,859.94 €              |
+| ('Aggressive', 'LSTM')         | 34.75%             | 149,329.38 €              |
+| ('Standard', 'MSM')            | 0.57%              | 643,117.31 €              |
+| ('Aggressive', 'HMM Uni')      | 49.73%             | 1,657.38 €                |
+| ('Standard', 'HMM Uni')        | 0.60%              | 634,034.61 €              |
+| ('Standard', 'LSTM')           | 0.70%              | 856,293.29 €              |
+| ('Standard', 'Buy Hold')       | 3.30%              | 1,040,834.53 €            |
+| ('Aggressive', 'MSM')          | 48.97%             | 9,308.23 €                |
+| ('Low_Capital', 'HMM')         | 51.99%             | 0.00 €                    |
+| ('Standard', 'Transformer')    | 1.55%              | 1,067,051.62 €            |
+| ('Standard', 'HMM')            | 8.88%              | 230,547.04 €              |
+| ('Aggressive', 'Transformer')  | 29.75%             | 290,526.23 €              |
+| ('Aggressive', 'HMM')          | 89.54%             | 0.00 €                    |
+| ('Low_Capital', 'HMM Uni')     | 12.46%             | 188,832.71 €              |
+| ('Low_Capital', 'LSTM')        | 8.36%              | 299,773.98 €              |
+| ('Low_Capital', 'Transformer') | 9.48%              | 403,422.33 €              |
 
 Distribution of the terminal capital values:
 
@@ -786,55 +797,55 @@ Wilson CI for the ruin probability (P[terminal capital ≤ 0]) per scenario × s
 
 |                                | Depletion Rate   | 95% CI Lower   | 95% CI Upper   | n_ruin / n_paths   |
 |:-------------------------------|:-----------------|:---------------|:---------------|:-------------------|
-| ('Standard', 'Buy_Hold')       | 0.01%            | 0.00%          | 0.06%          | 1/10000            |
-| ('Standard', 'MSM')            | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Standard', 'HMM')            | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Standard', 'HMM_Uni')        | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Standard', 'LSTM')           | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Standard', 'Transformer')    | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Aggressive', 'Buy_Hold')     | 5.27%            | 4.85%          | 5.73%          | 527/10000          |
-| ('Aggressive', 'MSM')          | 0.57%            | 0.44%          | 0.74%          | 57/10000           |
-| ('Aggressive', 'HMM')          | 6.32%            | 5.86%          | 6.81%          | 632/10000          |
-| ('Aggressive', 'HMM_Uni')      | 0.57%            | 0.44%          | 0.74%          | 57/10000           |
-| ('Aggressive', 'LSTM')         | 2.67%            | 2.37%          | 3.00%          | 267/10000          |
-| ('Aggressive', 'Transformer')  | 2.44%            | 2.16%          | 2.76%          | 244/10000          |
-| ('Low_Capital', 'Buy_Hold')    | 0.63%            | 0.49%          | 0.81%          | 63/10000           |
-| ('Low_Capital', 'MSM')         | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Low_Capital', 'HMM')         | 0.50%            | 0.38%          | 0.66%          | 50/10000           |
-| ('Low_Capital', 'HMM_Uni')     | 0.00%            | 0.00%          | 0.04%          | 0/10000            |
-| ('Low_Capital', 'LSTM')        | 0.18%            | 0.11%          | 0.28%          | 18/10000           |
-| ('Low_Capital', 'Transformer') | 0.08%            | 0.04%          | 0.16%          | 8/10000            |
+| ('Low_Capital', 'MSM')         | 11.82%           | 11.20%         | 12.47%         | 1182/10000         |
+| ('Aggressive', 'Buy_Hold')     | 33.04%           | 32.12%         | 33.97%         | 3304/10000         |
+| ('Low_Capital', 'Buy_Hold')    | 14.06%           | 13.39%         | 14.76%         | 1406/10000         |
+| ('Aggressive', 'LSTM')         | 34.75%           | 33.82%         | 35.69%         | 3475/10000         |
+| ('Standard', 'MSM')            | 0.57%            | 0.44%          | 0.74%          | 57/10000           |
+| ('Aggressive', 'HMM_Uni')      | 49.73%           | 48.75%         | 50.71%         | 4973/10000         |
+| ('Standard', 'HMM_Uni')        | 0.60%            | 0.47%          | 0.77%          | 60/10000           |
+| ('Standard', 'LSTM')           | 0.70%            | 0.55%          | 0.88%          | 70/10000           |
+| ('Standard', 'Buy_Hold')       | 3.30%            | 2.97%          | 3.67%          | 330/10000          |
+| ('Aggressive', 'MSM')          | 48.97%           | 47.99%         | 49.95%         | 4897/10000         |
+| ('Low_Capital', 'HMM')         | 51.99%           | 51.01%         | 52.97%         | 5199/10000         |
+| ('Standard', 'Transformer')    | 1.55%            | 1.33%          | 1.81%          | 155/10000          |
+| ('Standard', 'HMM')            | 8.88%            | 8.34%          | 9.45%          | 888/10000          |
+| ('Aggressive', 'Transformer')  | 29.75%           | 28.86%         | 30.65%         | 2975/10000         |
+| ('Aggressive', 'HMM')          | 89.54%           | 88.92%         | 90.12%         | 8954/10000         |
+| ('Low_Capital', 'HMM_Uni')     | 12.46%           | 11.83%         | 13.12%         | 1246/10000         |
+| ('Low_Capital', 'LSTM')        | 8.36%            | 7.83%          | 8.92%          | 836/10000          |
+| ('Low_Capital', 'Transformer') | 9.48%            | 8.92%          | 10.07%         | 948/10000          |
 
 ### Hypothesis Tests (Paired Wilcoxon, α = 0.05)
 **H1: Regime switching reduces MaxDD vs. buy and hold:**
 
 | Model       | Median MaxDD (Model)   | Median MaxDD (B&H)   | Δ Median   |   Wilcoxon p | H1 (α=0.05)   |
 |:------------|:-----------------------|:---------------------|:-----------|-------------:|:--------------|
-| MSM         | -65.24%                | -59.45%              | -5.79 pp   |    1         | rejected      |
-| HMM         | -74.04%                | -59.45%              | -14.59 pp  |    1         | rejected      |
-| HMM_Uni     | -65.49%                | -59.45%              | -6.04 pp   |    1         | rejected      |
-| LSTM        | -55.59%                | -59.45%              | +3.86 pp   |    2.76e-171 | confirmed     |
-| Transformer | -53.09%                | -59.45%              | +6.36 pp   |    0         | confirmed     |
+| MSM         | -98.27%                | -62.00%              | -36.27 pp  |     1        | rejected      |
+| HMM         | -100.00%               | -62.00%              | -38.00 pp  |     1        | rejected      |
+| HMM_Uni     | -99.70%                | -62.00%              | -37.70 pp  |     1        | rejected      |
+| LSTM        | -74.09%                | -62.00%              | -12.08 pp  |     1        | rejected      |
+| Transformer | -57.55%                | -62.00%              | +4.45 pp   |     1.32e-83 | confirmed     |
 
 **H2: The Transformer dominates econometrics and LSTM in terminal wealth:**
 
 | Comparison              | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median HMM_Uni   | Median LSTM   |
 |:------------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:-----------------|:--------------|
-| Transformer vs. MSM     | 262,221 €            | 179,895 €    | +82,326 €  |     0        | confirmed     | nan          | nan              | nan           |
-| Transformer vs. HMM     | 262,221 €            | nan          | +127,320 € |     0        | confirmed     | 134,901 €    | nan              | nan           |
-| Transformer vs. HMM_Uni | 262,221 €            | nan          | +83,377 €  |     0        | confirmed     | nan          | 178,845 €        | nan           |
-| Transformer vs. LSTM    | 262,221 €            | nan          | +15,336 €  |     6.56e-55 | confirmed     | nan          | nan              | 246,886 €     |
+| Transformer vs. MSM     | 290,526 €            | 9,308 €      | +281,218 € |            0 | confirmed     | nan          | nan              | nan           |
+| Transformer vs. HMM     | 290,526 €            | nan          | +290,526 € |            0 | confirmed     | 0 €          | nan              | nan           |
+| Transformer vs. HMM_Uni | 290,526 €            | nan          | +288,869 € |            0 | confirmed     | nan          | 1,657 €          | nan           |
+| Transformer vs. LSTM    | 290,526 €            | nan          | +141,197 € |            0 | confirmed     | nan          | nan              | 149,329 €     |
 
 ### Break-Even Transaction Costs
 At what cost rate (in basis points per reallocation) does active switching lose its return advantage over buy and hold?
 
 | Model       |   Final @10bps |   B&H Final |   Break-Even (bps) |
 |:------------|---------------:|------------:|-------------------:|
-| MSM         |          3.265 |       4.196 |                  5 |
-| HMM         |          2.423 |       4.196 |                  0 |
-| HMM_Uni     |          3.239 |       4.196 |                  5 |
-| LSTM        |          4.677 |       4.196 |                150 |
-| Transformer |          4.945 |       4.196 |                150 |
+| MSM         |          3.18  |       4.141 |                  5 |
+| HMM         |          2.114 |       4.141 |                  0 |
+| HMM_Uni     |          3.155 |       4.141 |                  5 |
+| LSTM        |          3.68  |       4.141 |                  0 |
+| Transformer |          4.204 |       4.141 |                 20 |
 
 ![Break-Even Analysis](../assets/break_even_costs.png)
 
@@ -843,12 +854,12 @@ Robustness of the SORR results under varying annual withdrawals.
 
 | Strategy    | ('Terminal Capital', '3.5%')   | ('Terminal Capital', '4.0%')   | ('Terminal Capital', '5.0%')   | ('Status', '3.5%')   | ('Status', '4.0%')   | ('Status', '5.0%')   |
 |:------------|:-------------------------------|:-------------------------------|:-------------------------------|:---------------------|:---------------------|:---------------------|
-| Buy_Hold    | 866,713 €                      | 690,770 €                      | 338,886 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| HMM         | 471,779 €                      | 366,060 €                      | 154,623 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| HMM_Uni     | 745,116 €                      | 620,167 €                      | 370,268 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| LSTM        | 1,080,155 €                    | 900,322 €                      | 540,656 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| MSM         | 760,272 €                      | 635,652 €                      | 386,411 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| Transformer | 1,136,967 €                    | 946,125 €                      | 564,439 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| Buy_Hold    | 855,415 €                      | 681,767 €                      | 334,471 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| HMM         | 380,857 €                      | 284,202 €                      | 90,893 €                       | Capital preserved    | Capital preserved    | Capital preserved    |
+| HMM_Uni     | 725,827 €                      | 604,112 €                      | 360,682 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| LSTM        | 784,713 €                      | 633,884 €                      | 332,226 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| MSM         | 740,590 €                      | 619,195 €                      | 376,405 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| Transformer | 911,295 €                      | 741,139 €                      | 400,828 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
 
 ---
 
@@ -879,8 +890,8 @@ Model persistence status for this pipeline run:
 
 ---
 
-**Last updated:** 2026-07-09 14:02<br>
-**End date:** `2026-07-09`<br>
+**Last updated:** 2026-08-06 07:31<br>
+**End date:** `2026-07-31`<br>
 **Fast mode status at runtime:** FALSE (Full Run)<br>
 **Walk-forward validation:** ENABLED (mode: rolling, train: 10y, test: 12m, step: 12m)<br>
 **Model persistence:** ENABLED<br>

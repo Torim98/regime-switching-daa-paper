@@ -50,11 +50,11 @@ models:
       - "VIX"
       - "Yield_Spread"
     n_components: 2
-    covariance_type: "tied"     # thesis initial value "full"
+    covariance_type: "diag"     # thesis initial value "full"
     n_iter: 1000
     random_state: 42
     n_init: 10                  # multi-start EM: fit n_init times, keep highest train log-likelihood (tames EM init sensitivity; 1 = single fit)
-    threshold: 0.875            # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.975            # bear signal when prob >= threshold; thesis initial value 0.5
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
   hmm_uni:
     features:
@@ -66,40 +66,40 @@ models:
     n_init: 10                  # multi-start EM (see hmm.n_init); univariate is already near-stable, kept consistent
     threshold: 0.175            # bear signal when prob >= threshold; thesis initial value 0.5
   lstm:
-    window_size: 250            # thesis initial value 60
+    window_size: 140            # thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
     units_l1: 16                # thesis initial value 32
     units_l2: 32                # thesis initial value 64
     return_sequences: true
-    epochs: 40                  # thesis initial value 30
-    batch_size: 32
-    learning_rate: 0.000013292520737887431    # thesis initial value 0.001
-    dropout: 0.45               # thesis initial value 0.2
+    epochs: 30                  # thesis initial value 30
+    batch_size: 128
+    learning_rate: 0.00002008   # thesis initial value 0.001
+    dropout: 0.5                # thesis initial value 0.2
     dense: 1
     activation: "sigmoid"
     optimizer: "adam"
     metrics: "accuracy"
     validation_split: 0.1
     verbose: 1
-    threshold: 0.15000000000000002            # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.35              # bear signal when prob >= threshold; thesis initial value 0.5
   transformer:
     # --- Data ---
-    window_size: 250             # same sequence length as LSTM; thesis initial value 60
+    window_size: 230             # same sequence length as LSTM; thesis initial value 60
     train_test_split: *msm_train_test_split  # 0.8, only used when walk_forward.enabled: false
     # --- Architecture ---
     d_model: 16                  # embedding dimension (Transformer internal dimension); thesis initial value 64
     n_heads: 2                   # number of attention heads (d_model must be divisible by n_heads!); thesis initial value 4
-    n_layers: 3                  # number of Transformer encoder layers; thesis initial value 2
-    dim_feedforward: 32          # dimension of the feed-forward network in the encoder; thesis initial value 128
-    dropout: 0.45                # dropout rate (regularization); thesis initial value 0.1
+    n_layers: 2                  # number of Transformer encoder layers; thesis initial value 2
+    dim_feedforward: 256         # dimension of the feed-forward network in the encoder; thesis initial value 128
+    dropout: 0.25                # dropout rate (regularization); thesis initial value 0.1
     # --- Training ---
-    epochs: 40                   # thesis initial value 50
+    epochs: 50                   # thesis initial value 50
     batch_size: 64
-    learning_rate: 0.0003589128083678785    # thesis initial value 0.0001
+    learning_rate: 0.003203      # thesis initial value 0.0001
     validation_split: 0.1
     verbose: 1
     # --- Signal ---
-    threshold: 0.7000000000000001           # bear signal when prob >= threshold; thesis initial value 0.5
+    threshold: 0.5               # bear signal when prob >= threshold; thesis initial value 0.5
      # --- Class Balancing ---
     pos_weight_auto: true        # automatic weighting for bear class
 
