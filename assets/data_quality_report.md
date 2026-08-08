@@ -6,7 +6,7 @@
 - **Resolved end date:** `2026-07-31`
 - **yfinance version:** `1.5.1`
 - **Tickers:** ^GSPC, VUSTX, ^VIX, ^IRX, ^TNX
-- **Generated at:** 2026-08-01 07:53
+- **Generated at:** 2026-08-06 08:30
 
 ## 1. Coverage (Observed vs. Expected Trading Days)
 | Ticker   | From       | To         |   Obs. Days |   Exp. Bd (Mon-Fri) |   Coverage % |

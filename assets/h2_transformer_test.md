@@ -1,6 +1,14 @@
-| Comparison              | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median HMM_Uni   | Median LSTM   |
-|:------------------------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:-----------------|:--------------|
-| Transformer vs. MSM     | 290,526 €            | 9,308 €      | +281,218 € |            0 | confirmed     | nan          | nan              | nan           |
-| Transformer vs. HMM     | 290,526 €            | nan          | +290,526 € |            0 | confirmed     | 0 €          | nan              | nan           |
-| Transformer vs. HMM_Uni | 290,526 €            | nan          | +288,869 € |            0 | confirmed     | nan          | 1,657 €          | nan           |
-| Transformer vs. LSTM    | 290,526 €            | nan          | +141,197 € |            0 | confirmed     | nan          | nan              | 149,329 €     |
+|                                            | Headline   | Median Transformer   | Median MSM   | Δ Median   |   Wilcoxon p | H2 (α=0.05)   | Median HMM   | Median HMM_Uni   | Median LSTM   |
+|:-------------------------------------------|:-----------|:---------------------|:-------------|:-----------|-------------:|:--------------|:-------------|:-----------------|:--------------|
+| ('Standard', 'Transformer vs. MSM')        |            | 566,457 €            | 643,115 €    | -76,658 €  |        1     | rejected      | nan          | nan              | nan           |
+| ('Standard', 'Transformer vs. HMM')        |            | 566,457 €            | nan          | +335,912 € |        0     | confirmed     | 230,545 €    | nan              | nan           |
+| ('Standard', 'Transformer vs. HMM_Uni')    |            | 566,457 €            | nan          | -67,575 €  |        1     | rejected      | nan          | 634,032 €        | nan           |
+| ('Standard', 'Transformer vs. LSTM')       |            | 566,457 €            | nan          | -967,239 € |        1     | rejected      | nan          | nan              | 1,533,695 €   |
+| ('Aggressive', 'Transformer vs. MSM')      | yes        | 0 €                  | 9,310 €      | -9,310 €   |        0.951 | rejected      | nan          | nan              | nan           |
+| ('Aggressive', 'Transformer vs. HMM')      | yes        | 0 €                  | nan          | +0 €       |        0     | confirmed     | 0 €          | nan              | nan           |
+| ('Aggressive', 'Transformer vs. HMM_Uni')  | yes        | 0 €                  | nan          | -1,657 €   |        0.444 | rejected      | nan          | 1,657 €          | nan           |
+| ('Aggressive', 'Transformer vs. LSTM')     | yes        | 0 €                  | nan          | -615,996 € |        1     | rejected      | nan          | nan              | 615,996 €     |
+| ('Low_Capital', 'Transformer vs. MSM')     |            | 157,519 €            | 193,529 €    | -36,011 €  |        1     | rejected      | nan          | nan              | nan           |
+| ('Low_Capital', 'Transformer vs. HMM')     |            | 157,519 €            | nan          | +157,519 € |        0     | confirmed     | 0 €          | nan              | nan           |
+| ('Low_Capital', 'Transformer vs. HMM_Uni') |            | 157,519 €            | nan          | -31,317 €  |        1     | rejected      | nan          | 188,836 €        | nan           |
+| ('Low_Capital', 'Transformer vs. LSTM')    |            | 157,519 €            | nan          | -485,983 € |        1     | rejected      | nan          | nan              | 643,501 €     |

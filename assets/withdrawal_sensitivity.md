@@ -1,8 +1,8 @@
 | Strategy    | ('Terminal Capital', '3.5%')   | ('Terminal Capital', '4.0%')   | ('Terminal Capital', '5.0%')   | ('Status', '3.5%')   | ('Status', '4.0%')   | ('Status', '5.0%')   |
 |:------------|:-------------------------------|:-------------------------------|:-------------------------------|:---------------------|:---------------------|:---------------------|
-| Buy_Hold    | 855,415 €                      | 681,767 €                      | 334,471 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| Buy_Hold    | 855,415 €                      | 681,766 €                      | 334,470 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
 | HMM         | 380,857 €                      | 284,202 €                      | 90,893 €                       | Capital preserved    | Capital preserved    | Capital preserved    |
-| HMM_Uni     | 725,827 €                      | 604,112 €                      | 360,682 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| LSTM        | 784,713 €                      | 633,884 €                      | 332,226 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| MSM         | 740,590 €                      | 619,195 €                      | 376,405 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
-| Transformer | 911,295 €                      | 741,139 €                      | 400,828 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| HMM_Uni     | 725,828 €                      | 604,112 €                      | 360,682 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| LSTM        | 1,333,328 €                    | 1,154,248 €                    | 796,088 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| MSM         | 740,590 €                      | 619,195 €                      | 376,406 €                      | Capital preserved    | Capital preserved    | Capital preserved    |
+| Transformer | 713,483 €                      | 601,130 €                      | 376,425 €                      | Capital preserved    | Capital preserved    | Capital preserved    |

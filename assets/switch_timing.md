@@ -17,11 +17,11 @@
 | Rate Hikes (2022-01 to 2022-10)     | HMM_Uni     | 2022-10-14  | 2022-01-05          |           282 |
 | Dot-Com (2000-03 to 2002-10)        | LSTM        | 2002-07-23  | 2000-10-16          |           645 |
 | GFC (2007-10 to 2009-03)            | LSTM        | 2009-03-09  | 2007-10-01          |           525 |
-| EU Debt Crisis (2011-07 to 2011-11) | LSTM        | 2011-08-08  | 2011-08-23          |           -15 |
+| EU Debt Crisis (2011-07 to 2011-11) | LSTM        | 2011-08-08  |                     |           nan |
 | COVID Crash (2020-02 to 2020-03)    | LSTM        | 2020-03-18  |                     |           nan |
-| Rate Hikes (2022-01 to 2022-10)     | LSTM        | 2022-10-14  | 2022-06-07          |           129 |
-| Dot-Com (2000-03 to 2002-10)        | Transformer | 2002-07-23  | 2001-10-16          |           280 |
-| GFC (2007-10 to 2009-03)            | Transformer | 2009-03-09  | 2008-06-09          |           273 |
+| Rate Hikes (2022-01 to 2022-10)     | LSTM        | 2022-10-14  |                     |           nan |
+| Dot-Com (2000-03 to 2002-10)        | Transformer | 2002-07-23  | 2000-10-16          |           645 |
+| GFC (2007-10 to 2009-03)            | Transformer | 2009-03-09  | 2007-10-01          |           525 |
 | EU Debt Crisis (2011-07 to 2011-11) | Transformer | 2011-08-08  |                     |           nan |
-| COVID Crash (2020-02 to 2020-03)    | Transformer | 2020-03-18  |                     |           nan |
+| COVID Crash (2020-02 to 2020-03)    | Transformer | 2020-03-18  | 2020-03-13          |             5 |
 | Rate Hikes (2022-01 to 2022-10)     | Transformer | 2022-10-14  |                     |           nan |

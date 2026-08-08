@@ -4,30 +4,30 @@
       "threshold": 1.0
     },
     "HMM": {
-      "covariance_type": 0.9820848287808667,
-      "threshold": 0.017915171219133406
+      "covariance_type": 0.9813830177320485,
+      "threshold": 0.018616982267951512
     },
     "HMM_Uni": {
       "threshold": 1.0
     },
     "LSTM": {
-      "learning_rate": 0.2998133594702582,
-      "threshold": 0.27610502515701285,
-      "dropout": 0.17021550278789835,
-      "window_size": 0.11320625093547432,
-      "units_l1": 0.07633718101623815,
-      "units_l2": 0.038495579691866455,
-      "batch_size": 0.025827100941251575
+      "dropout": 0.27347093688222046,
+      "units_l1": 0.17571555771764877,
+      "learning_rate": 0.1453371451897163,
+      "window_size": 0.14116095560188507,
+      "threshold": 0.11593459686023569,
+      "units_l2": 0.10488364614720064,
+      "batch_size": 0.043497161601092973
     },
     "Transformer": {
-      "window_size": 0.4792710094318594,
-      "learning_rate": 0.17892356009393875,
-      "threshold": 0.11615764463809257,
-      "dmodel_nheads": 0.09601901770054717,
-      "n_layers": 0.05881501635908546,
-      "dropout": 0.02514852604999308,
-      "dim_feedforward": 0.023742007805756343,
-      "batch_size": 0.02192321792072726
+      "threshold": 0.31429853984405803,
+      "learning_rate": 0.2669388609635791,
+      "window_size": 0.2113214086529463,
+      "dim_feedforward": 0.056826122785766896,
+      "dropout": 0.04484493866024232,
+      "dmodel_nheads": 0.04190171270796313,
+      "n_layers": 0.036061911572193066,
+      "batch_size": 0.02780650481325127
     }
   },
   "source": "auto-written by save_optuna_plots"
