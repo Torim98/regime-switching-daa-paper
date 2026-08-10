@@ -152,7 +152,7 @@ def compute_bear_coverage(df: pd.DataFrame, cfg) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("Fold")
 
 
-def _summary_lines(table: pd.DataFrame) -> list[str]:
+def _summary_lines(table: pd.DataFrame, min_phase_months: int = 4) -> list[str]:
     """Builds the 2 to 3 sentence summary shown below the table."""
     n_folds = len(table)
     n_test_complete = int((table["Test Full Bear Phase"] == "Yes").sum())
@@ -164,20 +164,20 @@ def _summary_lines(table: pd.DataFrame) -> list[str]:
         f"contain at least one complete Pagan-Sossounov bear phase (peak and trough "
         f"inside the 12-month window), while {n_test_any_bear} folds overlap at least "
         f"one bear phase and {n_test_zero_bear} folds carry no bear day at all.",
-        "Because the 3-month minimum-phase filter and the 12-month fold length rarely "
-        "coincide, most crisis exposure enters the folds as partial (window-truncated) "
-        "bear phases rather than as fully contained episodes, whereas every training "
-        "window (10 years) spans several complete bear phases.",
+        f"Because the {min_phase_months}-month minimum-phase filter and the 12-month "
+        "fold length rarely coincide, most crisis exposure enters the folds as partial "
+        "(window-truncated) bear phases rather than as fully contained episodes, whereas "
+        "every training window (10 years) spans several complete bear phases.",
         "A bear run that is still open at the global data boundary cannot be confirmed "
         "complete, so the classification is conservative for any fold whose window "
         "reaches the end of the sample.",
     ]
 
 
-def render_bear_coverage_md(table: pd.DataFrame) -> str:
+def render_bear_coverage_md(table: pd.DataFrame, min_phase_months: int = 4) -> str:
     """Renders the table plus summary as a Markdown document string."""
     md = table.to_markdown()
-    summary = "\n\n".join(_summary_lines(table))
+    summary = "\n\n".join(_summary_lines(table, min_phase_months))
     return f"{md}\n\n{summary}\n"
 
 
@@ -193,8 +193,9 @@ def generate_bear_coverage_report(cfg=None) -> str:
     df = pd.read_parquet(cfg.data_path("feature_engineered"))
     table = compute_bear_coverage(df, cfg)
     out_path = cfg.asset_path("bear_coverage")
+    min_phase_months = cfg.labels.pagan_sossounov.min_phase_months
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write(render_bear_coverage_md(table))
+        f.write(render_bear_coverage_md(table, min_phase_months))
     return out_path
 
 
